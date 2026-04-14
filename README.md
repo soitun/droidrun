@@ -1,7 +1,7 @@
 <picture align="center">
-  <source media="(prefers-color-scheme: dark)" srcset="./static/droidrun-dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="./static/droidrun.png">
-  <img src="./static/droidrun.png"  width="full">
+  <source media="(prefers-color-scheme: dark)" srcset="./static/mobilerun-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="./static/mobilerun.png">
+  <img src="./static/mobilerun.png"  width="full">
 </picture>
 
 
