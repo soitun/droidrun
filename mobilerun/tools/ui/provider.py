@@ -169,14 +169,16 @@ class AndroidStateProvider(StateProvider):
         if device is None:
             return
 
-        from mobilerun.portal import A11Y_SERVICE_NAME
+        from mobilerun.portal import LEGACY_PORTAL_PACKAGE_NAME, portal_a11y_service, portal_content_uri
+
+        a11y = portal_a11y_service(LEGACY_PORTAL_PACKAGE_NAME)
 
         # 1. Restart accessibility service
         logger.debug("Restarting Portal accessibility service...")
         await device.shell("settings put secure accessibility_enabled 0")
         await asyncio.sleep(0.5)
         await device.shell(
-            f"settings put secure enabled_accessibility_services {A11Y_SERVICE_NAME}"
+            f"settings put secure enabled_accessibility_services {a11y}"
         )
         await device.shell("settings put secure accessibility_enabled 1")
 
@@ -184,13 +186,14 @@ class AndroidStateProvider(StateProvider):
         portal = self.driver.portal
         if portal is not None and portal.tcp_available:
             logger.debug("Restarting Portal TCP socket server...")
+            toggle_uri = portal_content_uri(LEGACY_PORTAL_PACKAGE_NAME, "toggle_socket_server")
             try:
                 await device.shell(
-                    "content insert --uri content://com.droidrun.portal/toggle_socket_server --bind enabled:b:false"
+                    f"content insert --uri {toggle_uri} --bind enabled:b:false"
                 )
                 await asyncio.sleep(0.3)
                 await device.shell(
-                    "content insert --uri content://com.droidrun.portal/toggle_socket_server --bind enabled:b:true"
+                    f"content insert --uri {toggle_uri} --bind enabled:b:true"
                 )
                 # Re-fetch auth token — server restart may rotate it
                 new_token = await portal._fetch_auth_token()

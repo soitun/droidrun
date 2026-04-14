@@ -97,9 +97,11 @@ async def _create_driver(
 async def _teardown_android(driver):
     """Disable Mobilerun keyboard after direct command execution."""
     if isinstance(driver, AndroidDriver) and driver.device:
+        from mobilerun.portal import LEGACY_PORTAL_PACKAGE_NAME, portal_ime_id
         try:
+            ime = portal_ime_id(LEGACY_PORTAL_PACKAGE_NAME)
             await driver.device.shell(
-                "ime disable com.droidrun.portal/.input.DroidrunKeyboardIME"
+                f"ime disable {ime}"
             )
         except Exception:
             pass

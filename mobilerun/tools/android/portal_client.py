@@ -15,6 +15,8 @@ from typing import Any, Dict, List, Optional
 import httpx
 from async_adbutils import AdbDevice
 
+from mobilerun.portal import LEGACY_PORTAL_PACKAGE_NAME, portal_content_uri
+
 logger = logging.getLogger("mobilerun")
 
 PORTAL_REMOTE_PORT = 8080  # Port on device where Portal HTTP server runs
@@ -89,7 +91,7 @@ class PortalClient:
         """
         try:
             output = await self.device.shell(
-                "content query --uri content://com.droidrun.portal/auth_token"
+                f"content query --uri {portal_content_uri(LEGACY_PORTAL_PACKAGE_NAME, 'auth_token')}"
             )
             data = self._parse_content_provider_output(output)
             if data is None:
@@ -178,7 +180,7 @@ class PortalClient:
                 # Step 4b: Try enabling the HTTP server via content provider
                 logger.debug("TCP ping failed, trying to enable Portal HTTP server...")
                 await self.device.shell(
-                    "content insert --uri content://com.droidrun.portal/toggle_socket_server --bind enabled:b:true"
+                    f"content insert --uri {portal_content_uri(LEGACY_PORTAL_PACKAGE_NAME, 'toggle_socket_server')} --bind enabled:b:true"
                 )
                 await asyncio.sleep(1)
 
@@ -391,7 +393,7 @@ class PortalClient:
         """Get state via content provider (fallback)."""
         try:
             output = await self.device.shell(
-                "content query --uri content://com.droidrun.portal/state_full"
+                f"content query --uri {portal_content_uri(LEGACY_PORTAL_PACKAGE_NAME, 'state_full')}"
             )
             state_data = self._parse_content_provider_output(output)
 
@@ -476,7 +478,7 @@ class PortalClient:
             encoded = base64.b64encode(text.encode()).decode()
             clear_str = "true" if clear else "false"
             cmd = (
-                f'content insert --uri "content://com.droidrun.portal/keyboard/input" '
+                f'content insert --uri "{portal_content_uri(LEGACY_PORTAL_PACKAGE_NAME, "keyboard/input")}" '
                 f'--bind base64_text:s:"{encoded}" '
                 f"--bind clear:b:{clear_str}"
             )
@@ -561,7 +563,7 @@ class PortalClient:
 
             # Query content provider
             output = await self.device.shell(
-                "content query --uri content://com.droidrun.portal/packages"
+                f"content query --uri {portal_content_uri(LEGACY_PORTAL_PACKAGE_NAME, 'packages')}"
             )
             packages_data = self._parse_content_provider_output(output)
 
@@ -646,7 +648,7 @@ class PortalClient:
         # Fallback to content provider
         try:
             output = await self.device.shell(
-                "content query --uri content://com.droidrun.portal/version"
+                f"content query --uri {portal_content_uri(LEGACY_PORTAL_PACKAGE_NAME, 'version')}"
             )
             result = self._parse_content_provider_output(output)
             if result:
@@ -705,7 +707,7 @@ class PortalClient:
             # Test content provider
             try:
                 output = await self.device.shell(
-                    "content query --uri content://com.droidrun.portal/state_full"
+                    f"content query --uri {portal_content_uri(LEGACY_PORTAL_PACKAGE_NAME, 'state_full')}"
                 )
                 if "Row: 0 result=" in output:
                     result = {"status": "success", "method": "content_provider"}

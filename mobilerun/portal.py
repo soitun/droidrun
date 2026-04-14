@@ -28,10 +28,61 @@ GITHUB_API_HOSTS = ["https://api.github.com", "https://ungh.cc"]
 
 VERSION_MAP_GIST_URL = "https://raw.githubusercontent.com/droidrun/gists/refs/heads/main/version_map_android.json"
 
-PORTAL_PACKAGE_NAME = "com.droidrun.portal"
-A11Y_SERVICE_NAME = (
-    f"{PORTAL_PACKAGE_NAME}/com.droidrun.portal.service.DroidrunAccessibilityService"
-)
+PORTAL_PACKAGE_NAME = "com.mobilerun.portal"
+LEGACY_PORTAL_PACKAGE_NAME = "com.droidrun.portal"
+
+# Phase 1: install target is the legacy package (new APK not yet published)
+INSTALL_TARGET_PACKAGE = LEGACY_PORTAL_PACKAGE_NAME
+
+# ── Centralized portal identity resolution ──
+# ALL portal identifiers (package, a11y service, IME, content URIs) MUST be
+# resolved through these helpers. No file should hard-code these strings.
+
+_PORTAL_META = {
+    PORTAL_PACKAGE_NAME: {
+        "a11y": f"{PORTAL_PACKAGE_NAME}/{PORTAL_PACKAGE_NAME}.service.MobilerunAccessibilityService",
+        "ime": f"{PORTAL_PACKAGE_NAME}/.input.MobilerunKeyboardIME",
+    },
+    LEGACY_PORTAL_PACKAGE_NAME: {
+        "a11y": f"{LEGACY_PORTAL_PACKAGE_NAME}/{LEGACY_PORTAL_PACKAGE_NAME}.service.DroidrunAccessibilityService",
+        "ime": f"{LEGACY_PORTAL_PACKAGE_NAME}/.input.DroidrunKeyboardIME",
+    },
+}
+
+# Artifact channels — download helpers use explicit channel parameter
+_ARTIFACT_CHANNELS = {
+    PORTAL_PACKAGE_NAME: {
+        "repo": "mobilerun/mobilerun-portal",
+        "asset_name": "mobilerun-portal",
+    },
+    LEGACY_PORTAL_PACKAGE_NAME: {
+        "repo": "droidrun/droidrun-portal",
+        "asset_name": "droidrun-portal",
+    },
+}
+
+# Legacy compat: A11Y_SERVICE_NAME still exported for callers
+A11Y_SERVICE_NAME = _PORTAL_META[LEGACY_PORTAL_PACKAGE_NAME]["a11y"]
+
+
+def portal_content_uri(pkg: str, path: str) -> str:
+    """Build a content URI for the given portal package."""
+    return f"content://{pkg}/{path}"
+
+
+def portal_a11y_service(pkg: str) -> str:
+    """Return the accessibility service component name."""
+    return _PORTAL_META[pkg]["a11y"]
+
+
+def portal_ime_id(pkg: str) -> str:
+    """Return the IME component name."""
+    return _PORTAL_META[pkg]["ime"]
+
+
+def get_portal_artifact_source(target_package: str) -> dict:
+    """Return repo/asset_name for the given portal package."""
+    return _ARTIFACT_CHANNELS[target_package]
 
 
 def get_version_mapping(debug: bool = False) -> dict | None:
@@ -291,8 +342,9 @@ async def ping_portal_content(device: AdbDevice, debug: bool = False):
         Exception: If Portal is not reachable via content provider
     """
     try:
+        uri = portal_content_uri(LEGACY_PORTAL_PACKAGE_NAME, "state")
         state = await device.shell(
-            "content query --uri content://com.droidrun.portal/state"
+            f"content query --uri {uri}"
         )
         if "Row: 0 result=" not in state:
             raise Exception("Failed to get state from Mobilerun Portal")
@@ -323,7 +375,8 @@ async def set_overlay_offset(device: AdbDevice, offset: int):
     Set the overlay offset using the /overlay_offset portal content provider endpoint.
     """
     try:
-        cmd = f'content insert --uri "content://com.droidrun.portal/overlay_offset" --bind offset:i:{offset}'
+        uri = portal_content_uri(LEGACY_PORTAL_PACKAGE_NAME, "overlay_offset")
+        cmd = f'content insert --uri "{uri}" --bind offset:i:{offset}'
         await device.shell(cmd)
     except Exception as e:
         raise Exception("Error setting overlay offset") from e
@@ -341,7 +394,8 @@ async def toggle_overlay(device: AdbDevice, visible: bool):
     """
     try:
         visible_str = "true" if visible else "false"
-        cmd = f'content insert --uri "content://com.droidrun.portal/overlay_visible" --bind visible:b:{visible_str}'
+        uri = portal_content_uri(LEGACY_PORTAL_PACKAGE_NAME, "overlay_visible")
+        cmd = f'content insert --uri "{uri}" --bind visible:b:{visible_str}'
         await device.shell(cmd)
     except Exception as e:
         raise Exception("Failed to toggle overlay") from e
@@ -356,15 +410,16 @@ async def setup_keyboard(device: AdbDevice):
         Exception: If the keyboard setup fails
     """
     try:
-        await device.shell("ime enable com.droidrun.portal/.input.DroidrunKeyboardIME")
-        await device.shell("ime set com.droidrun.portal/.input.DroidrunKeyboardIME")
+        ime = portal_ime_id(LEGACY_PORTAL_PACKAGE_NAME)
+        await device.shell(f"ime enable {ime}")
+        await device.shell(f"ime set {ime}")
     except Exception as e:
         raise Exception("Error setting up keyboard") from e
 
 
 async def disable_keyboard(
     device: AdbDevice,
-    target_ime: str = "com.droidrun.portal/.input.DroidrunKeyboardIME",
+    target_ime: str | None = None,
 ):
     """
     Disable a specific IME (keyboard) and optionally switch to another.
@@ -376,6 +431,8 @@ async def disable_keyboard(
     Returns:
         bool: True if disabled successfully, False otherwise
     """
+    if target_ime is None:
+        target_ime = portal_ime_id(LEGACY_PORTAL_PACKAGE_NAME)
     try:
         await device.shell(f"ime disable {target_ime}")
         return True
@@ -469,8 +526,9 @@ async def _wait_for_portal_service(
     deadline = asyncio.get_event_loop().time() + timeout
     while asyncio.get_event_loop().time() < deadline:
         try:
+            uri = portal_content_uri(LEGACY_PORTAL_PACKAGE_NAME, "state")
             state = await device.shell(
-                "content query --uri content://com.droidrun.portal/state"
+                f"content query --uri {uri}"
             )
             if '"status":"success"' in state:
                 return
@@ -517,7 +575,7 @@ async def ensure_portal_ready(
     # ── parallel checks ──────────────────────────────────────────
     packages_task = device.list_packages()
     version_task = device.shell(
-        "content query --uri content://com.droidrun.portal/version"
+        f"content query --uri {portal_content_uri(LEGACY_PORTAL_PACKAGE_NAME, 'version')}"
     )
     a11y_task = device.shell("settings get secure enabled_accessibility_services")
 
