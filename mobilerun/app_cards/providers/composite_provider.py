@@ -7,11 +7,11 @@ Tries server first, falls back to local if server fails or returns empty.
 import logging
 from typing import Dict
 
-from droidrun.app_cards.app_card_provider import AppCardProvider
-from droidrun.app_cards.providers.local_provider import LocalAppCardProvider
-from droidrun.app_cards.providers.server_provider import ServerAppCardProvider
+from mobilerun.app_cards.app_card_provider import AppCardProvider
+from mobilerun.app_cards.providers.local_provider import LocalAppCardProvider
+from mobilerun.app_cards.providers.server_provider import ServerAppCardProvider
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 
 class CompositeAppCardProvider(AppCardProvider):

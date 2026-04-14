@@ -1,5 +1,5 @@
 """
-Utility modules for Droidrun agents.
+Utility modules for Mobilerun agents.
 """
 
 from .chat_utils import (

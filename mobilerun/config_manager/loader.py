@@ -38,14 +38,14 @@ class ConfigLoader:
         """
         Load config with resolution order:
         1. Explicit config_path argument
-        2. DROIDRUN_CONFIG env var
-        3. User config (~/.config/droidrun/config.yaml)
+        2. MOBILERUN_CONFIG env var
+        3. User config (~/.config/mobilerun/config.yaml)
         4. Package defaults (creates user config)
         """
         if config_path:
             return cls._load_user_config(Path(config_path))
 
-        env_config = os.environ.get("DROIDRUN_CONFIG")
+        env_config = os.environ.get("MOBILERUN_CONFIG")
         if env_config and Path(env_config).exists():
             return cls._load_user_config(Path(env_config))
 
@@ -66,7 +66,7 @@ class ConfigLoader:
             raise OutdatedConfigError(
                 f"Config at {user_config_path} is outdated (missing _version).\n"
                 "Please update your config based on the latest example:\n"
-                "https://github.com/droidrun/droidrun/blob/main/droidrun/config_example.yaml"
+                "https://github.com/mobilerun/mobilerun/blob/main/mobilerun/config_example.yaml"
             )
 
         old_version = user_dict["_version"]

@@ -1,7 +1,7 @@
 """
 Anonymous telemetry tracking using PostHog.
 
-This module handles opt-in telemetry collection to help improve Droidrun.
+This module handles opt-in telemetry collection to help improve Mobilerun.
 All data is anonymized and can be disabled by setting DROIDRUN_TELEMETRY_ENABLED=false.
 """
 
@@ -13,18 +13,18 @@ from uuid import UUID, uuid4
 
 from posthog import Posthog
 
-from droidrun.telemetry.events import TelemetryEvent
+from mobilerun.telemetry.events import TelemetryEvent
 
-logger = logging.getLogger("droidrun-telemetry")
-droidrun_logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun-telemetry")
+mobilerun_logger = logging.getLogger("mobilerun")
 
 PROJECT_API_KEY = "phc_XyD3HKIsetZeRkmnfaBughs8fXWYArSUFc30C0HmRiO"
 HOST = "https://eu.i.posthog.com"
 USER_ID_PATH = Path.home() / ".droidrun" / "user_id"
 RUN_ID = str(uuid4())
 
-TELEMETRY_ENABLED_MESSAGE = "Anonymized telemetry enabled. See https://docs.droidrun.ai/v3/guides/telemetry for more information."
-TELEMETRY_DISABLED_MESSAGE = "🛑 Anonymized telemetry disabled. Consider setting the DROIDRUN_TELEMETRY_ENABLED environment variable to 'true' to enable telemetry and help us improve Droidrun."
+TELEMETRY_ENABLED_MESSAGE = "Anonymized telemetry enabled. See https://docs.mobilerun.ai/v3/guides/telemetry for more information."
+TELEMETRY_DISABLED_MESSAGE = "🛑 Anonymized telemetry disabled. Consider setting the DROIDRUN_TELEMETRY_ENABLED environment variable to 'true' to enable telemetry and help us improve Mobilerun."
 
 posthog = Posthog(
     project_api_key=PROJECT_API_KEY,
@@ -54,10 +54,10 @@ def print_telemetry_message():
     Displays enabled or disabled message based on DROIDRUN_TELEMETRY_ENABLED setting.
     """
     if is_telemetry_enabled():
-        droidrun_logger.debug(TELEMETRY_ENABLED_MESSAGE)
+        mobilerun_logger.debug(TELEMETRY_ENABLED_MESSAGE)
 
     else:
-        droidrun_logger.debug(TELEMETRY_DISABLED_MESSAGE)
+        mobilerun_logger.debug(TELEMETRY_DISABLED_MESSAGE)
 
 
 # Print telemetry message on import

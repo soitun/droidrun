@@ -1,10 +1,10 @@
-"""Credential management for Droidrun."""
+"""Credential management for Mobilerun."""
 
-from droidrun.credential_manager.credential_manager import (
+from mobilerun.credential_manager.credential_manager import (
     CredentialManager,
     CredentialNotFoundError,
 )
-from droidrun.credential_manager.file_credential_manager import FileCredentialManager
+from mobilerun.credential_manager.file_credential_manager import FileCredentialManager
 
 __all__ = [
     "CredentialManager",

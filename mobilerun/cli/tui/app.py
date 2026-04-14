@@ -1,4 +1,4 @@
-"""Droidrun TUI - Main application."""
+"""Mobilerun TUI - Main application."""
 
 from __future__ import annotations
 
@@ -11,11 +11,11 @@ from textual.widgets import Static
 from textual.worker import Worker, WorkerState
 from textual import events
 
-from droidrun.cli.tui.commands import match_commands, resolve_command
-from droidrun.cli.event_handler import EventHandler
-from droidrun.log_handlers import TUILogHandler, configure_logging
-from droidrun.cli.tui.settings import SettingsData, SettingsScreen
-from droidrun.cli.tui.widgets import (
+from mobilerun.cli.tui.commands import match_commands, resolve_command
+from mobilerun.cli.event_handler import EventHandler
+from mobilerun.log_handlers import TUILogHandler, configure_logging
+from mobilerun.cli.tui.settings import SettingsData, SettingsScreen
+from mobilerun.cli.tui.widgets import (
     InputBar,
     CommandDropdown,
     DevicePicker,
@@ -80,7 +80,7 @@ class DroidTUI(App):
 
         # Load settings from user config
         try:
-            from droidrun.config_manager import ConfigLoader
+            from mobilerun.config_manager import ConfigLoader
 
             config = ConfigLoader.load()
             self.settings = SettingsData.from_config(config)
@@ -212,7 +212,7 @@ class DroidTUI(App):
         """Ping the current device. Handle disconnect/reconnect."""
         import logging
 
-        logger = logging.getLogger("droidrun")
+        logger = logging.getLogger("mobilerun")
         serial = self.device_serial
         if not serial:
             return
@@ -566,7 +566,7 @@ class DroidTUI(App):
     async def _verify_portal(self, serial: str) -> None:
         """Check portal connectivity. Raises on failure."""
         from async_adbutils import adb
-        from droidrun.tools.android.portal_client import PortalClient
+        from mobilerun.tools.android.portal_client import PortalClient
 
         device_obj = await adb.device(serial)
         portal = PortalClient(device_obj, prefer_tcp=self.settings.use_tcp)
@@ -604,9 +604,9 @@ class DroidTUI(App):
             self._dbg(f"_check_device failed: {e}")
             picker.set_options(
                 serial,
-                "Droidrun Portal is not set up on this device",
+                "Mobilerun Portal is not set up on this device",
                 [
-                    ("setup", "Auto-install and set up Droidrun Portal"),
+                    ("setup", "Auto-install and set up Mobilerun Portal"),
                     ("back", "Back to devices"),
                 ],
             )
@@ -630,7 +630,7 @@ class DroidTUI(App):
 
             import requests
             from async_adbutils import adb
-            from droidrun.portal import (
+            from mobilerun.portal import (
                 get_compatible_portal_version,
                 enable_portal_accessibility,
                 ASSET_NAME,
@@ -644,7 +644,7 @@ class DroidTUI(App):
 
             # Determine APK version (blocking HTTP call)
             log.append("  checking compatible version...")
-            from droidrun import __version__
+            from mobilerun import __version__
 
             portal_version, download_base, mapping_fetched = await asyncio.to_thread(
                 get_compatible_portal_version, __version__
@@ -662,7 +662,7 @@ class DroidTUI(App):
                     log.append("  version map unavailable, using latest")
                 log.append("  downloading latest portal...")
 
-                from droidrun.portal import get_latest_release_assets
+                from mobilerun.portal import get_latest_release_assets
 
                 assets = await asyncio.to_thread(get_latest_release_assets)
                 url = None
@@ -869,8 +869,8 @@ class DroidTUI(App):
         success = False
 
         try:
-            from droidrun import DroidAgent, ResultEvent
-            from droidrun.config_manager import ConfigLoader
+            from mobilerun import MobileAgent, ResultEvent
+            from mobilerun.config_manager import ConfigLoader
 
             config = ConfigLoader.load()
 
@@ -888,8 +888,8 @@ class DroidTUI(App):
                     style="#838BBC",
                 )
 
-            # DroidAgent loads LLMs from config.llm_profiles via load_agent_llms
-            droid_agent = DroidAgent(
+            # MobileAgent loads LLMs from config.llm_profiles via load_agent_llms
+            droid_agent = MobileAgent(
                 goal=command,
                 config=config,
                 timeout=1000,

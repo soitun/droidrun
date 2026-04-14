@@ -8,10 +8,10 @@ import json
 import logging
 from typing import Dict
 
-from droidrun.app_cards.app_card_provider import AppCardProvider
-from droidrun.config_manager.path_resolver import PathResolver
+from mobilerun.app_cards.app_card_provider import AppCardProvider
+from mobilerun.config_manager.path_resolver import PathResolver
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 
 class LocalAppCardProvider(AppCardProvider):

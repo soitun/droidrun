@@ -8,7 +8,7 @@ from llama_index.core.callbacks.schema import CBEventType, EventPayload
 from llama_index.core.llms import LLM, ChatResponse
 from pydantic import BaseModel
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 SUPPORTED_PROVIDERS = [
     "Gemini",
     "GoogleGenAI",

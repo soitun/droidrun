@@ -1,5 +1,5 @@
 """
-Logging handlers for Droidrun.
+Logging handlers for Mobilerun.
 
 Provides CLILogHandler (Rich colored terminal output) and TUILogHandler
 (record buffer for deferred Textual rendering). Both support extra params:
@@ -19,8 +19,8 @@ COLORS = frozenset(
 
 
 def configure_logging(debug: bool, handler: logging.Handler) -> None:
-    """Replace all handlers on the ``droidrun`` logger."""
-    logger = logging.getLogger("droidrun")
+    """Replace all handlers on the ``mobilerun`` logger."""
+    logger = logging.getLogger("mobilerun")
     logger.handlers = []
     logger.addHandler(handler)
     logger.setLevel(logging.DEBUG if debug else logging.INFO)

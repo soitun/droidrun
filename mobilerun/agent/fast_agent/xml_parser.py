@@ -12,7 +12,7 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 OPEN_TAG = "<function_calls>"
 CLOSE_TAG = "</function_calls>"

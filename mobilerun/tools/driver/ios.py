@@ -18,12 +18,12 @@ from urllib.parse import urlparse
 
 import httpx
 
-from droidrun.tools.driver.base import DeviceDriver
+from mobilerun.tools.driver.base import DeviceDriver
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 SYSTEM_APP_LABELS = {
-    "ai.droidrun.droidrun-ios-portal": "Droidrun Portal",
+    "ai.mobilerun.mobilerun-ios-portal": "Mobilerun Portal",
     "com.apple.Bridge": "Watch",
     "com.apple.DocumentsApp": "Files",
     "com.apple.Fitness": "Fitness",
@@ -109,7 +109,7 @@ async def discover_ios_portal(
     raise ConnectionError(
         f"Could not find iOS portal on {host} "
         f"(scanned ports {start_port}-{start_port + scan_range - 1}). "
-        "Make sure the Droidrun Portal app is running and iproxy is forwarding the port."
+        "Make sure the Mobilerun Portal app is running and iproxy is forwarding the port."
     )
 
 
@@ -167,7 +167,7 @@ class IOSDriver(DeviceDriver):
             self._client = None
             raise ConnectionError(
                 f"Could not connect to iOS portal at {self.url}. "
-                "Make sure the Droidrun Portal app is running on the device "
+                "Make sure the Mobilerun Portal app is running on the device "
                 "and the URL/port is correct."
             ) from exc
         self._connected = True

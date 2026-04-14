@@ -11,14 +11,14 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Set
 
-from droidrun.agent.action_result import ActionResult
+from mobilerun.agent.action_result import ActionResult
 
 if TYPE_CHECKING:
     from llama_index.core.workflow import Context as WorkflowContext
 
-    from droidrun.agent.action_context import ActionContext
+    from mobilerun.agent.action_context import ActionContext
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 
 @dataclass
@@ -178,7 +178,7 @@ class ToolRegistry:
     ) -> None:
         if workflow_ctx is None:
             return
-        from droidrun.agent.common.events import ToolExecutionEvent
+        from mobilerun.agent.common.events import ToolExecutionEvent
 
         workflow_ctx.write_event_to_stream(
             ToolExecutionEvent(

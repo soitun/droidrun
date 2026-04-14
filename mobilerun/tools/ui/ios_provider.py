@@ -14,11 +14,11 @@ import logging
 import re
 from typing import Any, Dict, List
 
-from droidrun.tools.driver.base import DeviceDisconnectedError, DeviceDriver
-from droidrun.tools.ui.provider import StateProvider
-from droidrun.tools.ui.state import UIState
+from mobilerun.tools.driver.base import DeviceDisconnectedError, DeviceDriver
+from mobilerun.tools.ui.provider import StateProvider
+from mobilerun.tools.ui.state import UIState
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 # Element types to skip — layout containers that add noise without useful info.
 # Everything else is kept (buttons, cells, text, icons, images, etc.)

@@ -6,7 +6,7 @@ from typing import Union
 from llama_index.core.base.llms.types import ChatMessage, ImageBlock, TextBlock
 from PIL import Image
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 
 # ============================================================================

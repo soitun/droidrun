@@ -6,8 +6,8 @@ from textual.app import ComposeResult
 from textual.containers import HorizontalGroup, VerticalGroup
 from textual.widgets import Input, Label
 
-from droidrun.cli.tui.settings.data import AGENT_ROLES, SettingsData
-from droidrun.cli.tui.settings.section import BoolToggle, Section
+from mobilerun.cli.tui.settings.data import AGENT_ROLES, SettingsData
+from mobilerun.cli.tui.settings.section import BoolToggle, Section
 
 
 class AgentTab(VerticalGroup):

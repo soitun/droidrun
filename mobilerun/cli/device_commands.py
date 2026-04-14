@@ -1,6 +1,6 @@
 """Direct device action CLI commands.
 
-Provides ``droidrun device <action>`` subcommands that bypass the LLM agent
+Provides ``mobilerun device <action>`` subcommands that bypass the LLM agent
 and talk directly to the device driver.
 """
 
@@ -14,18 +14,18 @@ import click
 from async_adbutils import adb
 from rich.console import Console
 
-from droidrun.config_manager import ConfigLoader
-from droidrun.portal import ensure_portal_ready
-from droidrun.tools.driver.android import AndroidDriver
-from droidrun.tools.driver.ios import (
+from mobilerun.config_manager import ConfigLoader
+from mobilerun.portal import ensure_portal_ready
+from mobilerun.tools.driver.android import AndroidDriver
+from mobilerun.tools.driver.ios import (
     IOSDriver,
     discover_ios_portal,
     validate_ios_portal_url,
 )
-from droidrun.tools.filters import ConciseFilter
-from droidrun.tools.formatters import IndexedFormatter
-from droidrun.tools.ui.ios_provider import IOSStateProvider
-from droidrun.tools.ui.provider import AndroidStateProvider
+from mobilerun.tools.filters import ConciseFilter
+from mobilerun.tools.formatters import IndexedFormatter
+from mobilerun.tools.ui.ios_provider import IOSStateProvider
+from mobilerun.tools.ui.provider import AndroidStateProvider
 
 console = Console()
 
@@ -95,7 +95,7 @@ async def _create_driver(
 
 
 async def _teardown_android(driver):
-    """Disable Droidrun keyboard after direct command execution."""
+    """Disable Mobilerun keyboard after direct command execution."""
     if isinstance(driver, AndroidDriver) and driver.device:
         try:
             await driver.device.shell(
@@ -129,7 +129,7 @@ async def screenshot(device, config_path, tcp, ios):
     driver, _ = await _create_driver(device, config_path, tcp, ios)
     try:
         png_bytes = await driver.screenshot()
-        fd, path = tempfile.mkstemp(prefix="droidrun_", suffix=".png")
+        fd, path = tempfile.mkstemp(prefix="mobilerun_", suffix=".png")
         try:
             os.write(fd, png_bytes)
         finally:

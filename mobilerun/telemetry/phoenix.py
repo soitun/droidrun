@@ -1,5 +1,5 @@
 """
-Arize Phoenix tracing integration for Droidrun.
+Arize Phoenix tracing integration for Mobilerun.
 
 This module provides Phoenix instrumentation for tracing LLM calls and agent execution.
 It includes utilities for creating custom spans with clean names and context management.

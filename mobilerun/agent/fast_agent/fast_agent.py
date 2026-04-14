@@ -17,43 +17,43 @@ from llama_index.core.workflow import Context, StartEvent, StopEvent, Workflow, 
 from opentelemetry import trace
 from pydantic import BaseModel
 
-from droidrun.agent.action_result import ActionResult
-from droidrun.agent.fast_agent.events import (
+from mobilerun.agent.action_result import ActionResult
+from mobilerun.agent.fast_agent.events import (
     FastAgentEndEvent,
     FastAgentInputEvent,
     FastAgentOutputEvent,
     FastAgentResponseEvent,
     FastAgentToolCallEvent,
 )
-from droidrun.agent.fast_agent.xml_parser import (
+from mobilerun.agent.fast_agent.xml_parser import (
     CLOSE_TAG,
     OPEN_TAG,
     ToolResult,
     format_tool_results,
     parse_tool_calls,
 )
-from droidrun.agent.common.constants import LLM_HISTORY_LIMIT
-from droidrun.agent.common.events import RecordUIStateEvent, ScreenshotEvent
-from droidrun.agent.droid.events import (
+from mobilerun.agent.common.constants import LLM_HISTORY_LIMIT
+from mobilerun.agent.common.events import RecordUIStateEvent, ScreenshotEvent
+from mobilerun.agent.droid.events import (
     ExternalUserMessageAppliedEvent,
     ExternalUserMessageDroppedEvent,
 )
-from droidrun.agent.usage import get_usage_from_response
-from droidrun.agent.utils.chat_utils import limit_history
-from droidrun.agent.utils.inference import acall_with_retries
-from droidrun.agent.utils.prompt_resolver import PromptResolver
-from droidrun.agent.utils.tracing_setup import record_langfuse_screenshot
-from droidrun.config_manager.config_manager import AgentConfig, TracingConfig
-from droidrun.config_manager.prompt_loader import PromptLoader
-from droidrun.tools.driver.base import DeviceDisconnectedError
+from mobilerun.agent.usage import get_usage_from_response
+from mobilerun.agent.utils.chat_utils import limit_history
+from mobilerun.agent.utils.inference import acall_with_retries
+from mobilerun.agent.utils.prompt_resolver import PromptResolver
+from mobilerun.agent.utils.tracing_setup import record_langfuse_screenshot
+from mobilerun.config_manager.config_manager import AgentConfig, TracingConfig
+from mobilerun.config_manager.prompt_loader import PromptLoader
+from mobilerun.tools.driver.base import DeviceDisconnectedError
 
 if TYPE_CHECKING:
-    from droidrun.agent.action_context import ActionContext
-    from droidrun.agent.droid import DroidAgentState
-    from droidrun.agent.tool_registry import ToolRegistry
-    from droidrun.tools.ui.provider import StateProvider
+    from mobilerun.agent.action_context import ActionContext
+    from mobilerun.agent.droid import MobileAgentState
+    from mobilerun.agent.tool_registry import ToolRegistry
+    from mobilerun.tools.ui.provider import StateProvider
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 
 class FastAgent(Workflow):
@@ -72,7 +72,7 @@ class FastAgent(Workflow):
         state_provider: "StateProvider",
         save_trajectory: str = "none",
         debug: bool = False,
-        shared_state: Optional["DroidAgentState"] = None,
+        shared_state: Optional["MobileAgentState"] = None,
         output_model: Type[BaseModel] | None = None,
         prompt_resolver: Optional[PromptResolver] = None,
         tracing_config: TracingConfig | None = None,
@@ -93,7 +93,7 @@ class FastAgent(Workflow):
         self.state_provider = state_provider
         self.save_trajectory = save_trajectory
         self._stream_screenshots = os.environ.get(
-            "DROIDRUN_STREAM_SCREENSHOTS", ""
+            "MOBILERUN_STREAM_SCREENSHOTS", ""
         ).lower() in ("1", "true")
         self.shared_state = shared_state
         self.output_model = output_model

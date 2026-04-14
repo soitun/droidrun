@@ -1,10 +1,10 @@
 """
-Droidrun Agent Module.
+Mobilerun Agent Module.
 
 This module provides a ReAct agent for automating Android devices using reasoning and acting.
 """
 
-from droidrun.agent.droid.droid_agent import DroidAgent
-from droidrun.agent.droid.state import DroidAgentState
+from mobilerun.agent.droid.droid_agent import MobileAgent
+from mobilerun.agent.droid.state import MobileAgentState
 
-__all__ = ["DroidAgent", "DroidAgentState"]
+__all__ = ["MobileAgent", "MobileAgentState"]

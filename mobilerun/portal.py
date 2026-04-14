@@ -1,7 +1,7 @@
 """
 Portal APK management and device communication utilities.
 
-This module handles downloading, installing, and managing the Droidrun Portal app
+This module handles downloading, installing, and managing the Mobilerun Portal app
 on Android devices. It also provides utilities for checking accessibility service
 status and managing device communication modes (TCP and content provider).
 """
@@ -17,10 +17,10 @@ import requests
 from async_adbutils import AdbDevice, adb
 from rich.console import Console
 
-from droidrun import __version__
-from droidrun.tools.driver.android import AndroidDriver
+from mobilerun import __version__
+from mobilerun.tools.driver.android import AndroidDriver
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 REPO = "droidrun/droidrun-portal"
 ASSET_NAME = "droidrun-portal"
@@ -59,7 +59,7 @@ def _version_in_range(version: str, range_str: str) -> bool:
 
 
 def get_compatible_portal_version(
-    droidrun_version: str, debug: bool = False
+    mobilerun_version: str, debug: bool = False
 ) -> tuple[str | None, str, bool]:
     mapping = get_version_mapping(debug)
     if mapping is None:
@@ -71,12 +71,12 @@ def get_compatible_portal_version(
     )
 
     # Try exact match first
-    if droidrun_version in mappings:
-        return (mappings[droidrun_version], download_base, True)
+    if mobilerun_version in mappings:
+        return (mappings[mobilerun_version], download_base, True)
 
     # Try range match (e.g., "0.4.0-0.4.14": "1.0.0")
     for key, portal_version in mappings.items():
-        if "-" in key and _version_in_range(droidrun_version, key):
+        if "-" in key and _version_in_range(mobilerun_version, key):
             return (portal_version, download_base, True)
 
     return (None, download_base, True)
@@ -260,7 +260,7 @@ async def check_portal_accessibility(
 
 async def ping_portal(device: AdbDevice, debug: bool = False):
     """
-    Ping the Droidrun Portal to check if it is installed and accessible.
+    Ping the Mobilerun Portal to check if it is installed and accessible.
     """
     try:
         packages = await device.list_packages()
@@ -275,7 +275,7 @@ async def ping_portal(device: AdbDevice, debug: bool = False):
     if not await check_portal_accessibility(device, debug=debug):
         await device.shell("am start -a android.settings.ACCESSIBILITY_SETTINGS")
         raise Exception(
-            "Droidrun Portal is not enabled as an accessibility service on the device"
+            "Mobilerun Portal is not enabled as an accessibility service on the device"
         )
 
 
@@ -295,9 +295,9 @@ async def ping_portal_content(device: AdbDevice, debug: bool = False):
             "content query --uri content://com.droidrun.portal/state"
         )
         if "Row: 0 result=" not in state:
-            raise Exception("Failed to get state from Droidrun Portal")
+            raise Exception("Failed to get state from Mobilerun Portal")
     except Exception as e:
-        raise Exception("Droidrun Portal is not reachable") from e
+        raise Exception("Mobilerun Portal is not reachable") from e
 
 
 async def ping_portal_tcp(device: AdbDevice, debug: bool = False):
@@ -349,8 +349,8 @@ async def toggle_overlay(device: AdbDevice, visible: bool):
 
 async def setup_keyboard(device: AdbDevice):
     """
-    Set up the Droidrun keyboard as the default input method.
-    Simple setup that just switches to Droidrun keyboard without saving/restoring.
+    Set up the Mobilerun keyboard as the default input method.
+    Simple setup that just switches to Mobilerun keyboard without saving/restoring.
 
     throws:
         Exception: If the keyboard setup fails
@@ -368,10 +368,10 @@ async def disable_keyboard(
 ):
     """
     Disable a specific IME (keyboard) and optionally switch to another.
-    By default, disables the Droidrun keyboard.
+    By default, disables the Mobilerun keyboard.
 
     Args:
-        target_ime: The IME package/activity to disable (default: Droidrun keyboard)
+        target_ime: The IME package/activity to disable (default: Mobilerun keyboard)
 
     Returns:
         bool: True if disabled successfully, False otherwise
@@ -390,7 +390,7 @@ async def setup_portal(
     """Download, install, and enable the Portal APK on a device.
 
     Uses version mapping to find the compatible Portal version for the
-    current droidrun SDK version.  Falls back to the latest release if
+    current mobilerun SDK version.  Falls back to the latest release if
     the mapping is unavailable.
 
     Args:
@@ -566,7 +566,7 @@ async def ensure_portal_ready(
         if not success:
             raise RuntimeError(
                 f"Portal auto-setup failed ({reason}). "
-                "Run 'droidrun doctor' for diagnostics."
+                "Run 'mobilerun doctor' for diagnostics."
             )
         # After install, accessibility is already enabled by setup_portal
         return
@@ -580,7 +580,7 @@ async def ensure_portal_ready(
                 raise RuntimeError(
                     "Could not enable Portal accessibility service. "
                     "Please enable it manually in device settings, "
-                    "or run 'droidrun setup'."
+                    "or run 'mobilerun setup'."
                 )
             # Wait for the service process to start and become responsive
             await _wait_for_portal_service(device)
@@ -590,7 +590,7 @@ async def ensure_portal_ready(
         except Exception as e:
             raise RuntimeError(
                 f"Failed to enable accessibility service: {e}. "
-                "Run 'droidrun doctor' for diagnostics."
+                "Run 'mobilerun doctor' for diagnostics."
             ) from e
 
 

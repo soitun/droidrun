@@ -8,9 +8,9 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from droidrun.mcp.config import MCPConfig, MCPServerConfig
+    from mobilerun.mcp.config import MCPConfig, MCPServerConfig
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 
 @dataclass
@@ -56,7 +56,7 @@ class MCPClientManager:
         self, server_name: str, config: "MCPServerConfig"
     ) -> None:
         """Connect temporarily to fetch tool schemas."""
-        # Lazy import to avoid circular dependency with droidrun.mcp package
+        # Lazy import to avoid circular dependency with mobilerun.mcp package
         from mcp.client.session import ClientSession
         from mcp.client.stdio import StdioServerParameters, stdio_client
 
@@ -117,7 +117,7 @@ class MCPClientManager:
 
     async def _connect_server(self, server_name: str) -> None:
         """Establish persistent connection to a server."""
-        # Lazy import to avoid circular dependency with droidrun.mcp package
+        # Lazy import to avoid circular dependency with mobilerun.mcp package
         from mcp.client.session import ClientSession
         from mcp.client.stdio import StdioServerParameters, stdio_client
 

@@ -8,7 +8,7 @@ This module provides a custom OpenTelemetry span processor that:
 - Operates silently (warnings and errors only)
 
 Usage:
-    from droidrun.telemetry.langfuse_processor import LangfuseSpanProcessor
+    from mobilerun.telemetry.langfuse_processor import LangfuseSpanProcessor
 
     processor = LangfuseSpanProcessor(
         public_key="pk-lf-...",
@@ -37,12 +37,12 @@ from langfuse._client.span_processor import (
     LangfuseSpanProcessor as BaseLangfuseSpanProcessor,
 )
 
-from droidrun import __version__
+from mobilerun import __version__
 
 if TYPE_CHECKING:
-    from droidrun import DroidAgent
+    from mobilerun import MobileAgent
 
-_current_agent: ContextVar[Optional["DroidAgent"]] = ContextVar(
+_current_agent: ContextVar[Optional["MobileAgent"]] = ContextVar(
     "_current_agent", default=None
 )
 _root_span_context: ContextVar[Optional[Context]] = ContextVar(
@@ -54,7 +54,7 @@ _last_step_span_context: ContextVar[Optional[Context]] = ContextVar(
 )
 
 
-def set_current_agent(agent: "DroidAgent") -> None:
+def set_current_agent(agent: "MobileAgent") -> None:
     _current_agent.set(agent)
 
 
@@ -87,8 +87,8 @@ MAX_IMAGE_SIZE_KB = 10000
 MAX_UPLOAD_WORKERS = 50  # Maximum concurrent upload threads
 SHUTDOWN_TIMEOUT = 30  # Seconds to wait for pending uploads on shutdown
 
-# Use Droidrun's logger
-logger = logging.getLogger("droidrun")
+# Use Mobilerun's logger
+logger = logging.getLogger("mobilerun")
 
 
 class LangfuseSpanProcessor(BaseLangfuseSpanProcessor):
@@ -112,12 +112,12 @@ class LangfuseSpanProcessor(BaseLangfuseSpanProcessor):
         flush_interval: Optional[float] = None,
         blocked_instrumentation_scopes: Optional[List[str]] = None,
         additional_headers: Optional[dict] = None,
-        agent: Optional["DroidAgent"] = None,
+        agent: Optional["MobileAgent"] = None,
     ):
         """Initialize the span processor with media upload support.
 
         Args:
-            agent: Optional DroidAgent instance for accessing agent context during span processing.
+            agent: Optional MobileAgent instance for accessing agent context during span processing.
         """
         super().__init__(
             public_key=public_key,
@@ -160,7 +160,7 @@ class LangfuseSpanProcessor(BaseLangfuseSpanProcessor):
         self._pending_lock = threading.Lock()
 
     @property
-    def agent(self) -> Optional["DroidAgent"]:
+    def agent(self) -> Optional["MobileAgent"]:
         return _current_agent.get()
 
     def _extract_agent_input(self) -> Optional[dict]:
@@ -425,7 +425,7 @@ class LangfuseSpanProcessor(BaseLangfuseSpanProcessor):
             if "input.value" in span._attributes:
                 del span._attributes["input.value"]
 
-            if span.name == "DroidAgent.run":
+            if span.name == "MobileAgent.run":
                 set_root_span_context(span)
                 span._attributes["langfuse.release"] = "v" + __version__
                 input_data = self._extract_agent_input()
@@ -497,7 +497,7 @@ class LangfuseSpanProcessor(BaseLangfuseSpanProcessor):
                 ]
                 del span._attributes["output.value"]
             if span.name in (
-                "DroidAgent.run",
+                "MobileAgent.run",
                 "ManagerAgent.run",
                 "StatelessManagerAgent.run",
                 "ExecutorAgent.run",

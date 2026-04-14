@@ -1,5 +1,5 @@
 """
-Droidrun - A framework for controlling Android devices through LLM agents.
+Mobilerun - A framework for controlling Android devices through LLM agents.
 """
 
 import logging
@@ -10,20 +10,20 @@ __version__ = version("mobilerun")
 # Attach a default CLILogHandler so that every consumer (CLI, TUI, SDK,
 # tools-only) gets visible output without explicit setup.  CLI and TUI
 # replace this with their own handler via ``configure_logging()``.
-from droidrun.log_handlers import CLILogHandler
+from mobilerun.log_handlers import CLILogHandler
 
-_logger = logging.getLogger("droidrun")
+_logger = logging.getLogger("mobilerun")
 _logger.addHandler(CLILogHandler())
 _logger.setLevel(logging.INFO)
 _logger.propagate = False
 
 # Import main classes for easier access
-from droidrun.agent import ResultEvent
-from droidrun.agent.droid import DroidAgent
-from droidrun.agent.utils.llm_picker import load_llm
+from mobilerun.agent import ResultEvent
+from mobilerun.agent.droid import MobileAgent
+from mobilerun.agent.utils.llm_picker import load_llm
 
 # Import configuration classes
-from droidrun.config_manager import (
+from mobilerun.config_manager import (
     # Agent configs
     AgentConfig,
     AppCardConfig,
@@ -42,13 +42,13 @@ from droidrun.config_manager import (
 )
 
 # Import macro functionality
-from droidrun.macro import MacroPlayer, replay_macro_file, replay_macro_folder
-from droidrun.tools import AndroidDriver, DeviceDriver, RecordingDriver
+from mobilerun.macro import MacroPlayer, replay_macro_file, replay_macro_folder
+from mobilerun.tools import AndroidDriver, DeviceDriver, RecordingDriver
 
 # Make main components available at package level
 __all__ = [
     # Agent
-    "DroidAgent",
+    "MobileAgent",
     "load_llm",
     "ResultEvent",
     # Tools / Drivers

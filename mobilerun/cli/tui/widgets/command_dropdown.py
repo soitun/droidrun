@@ -8,7 +8,7 @@ from textual.app import RenderResult
 from textual.reactive import reactive
 from rich.text import Text
 
-from droidrun.cli.tui.commands import Command
+from mobilerun.cli.tui.commands import Command
 
 
 class CommandDropdown(Widget):

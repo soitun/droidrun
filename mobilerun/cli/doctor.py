@@ -1,4 +1,4 @@
-"""Droidrun Doctor - System health checks and diagnostics."""
+"""Mobilerun Doctor - System health checks and diagnostics."""
 
 import asyncio
 import json
@@ -12,10 +12,10 @@ import requests
 from async_adbutils import AdbDevice, adb
 from rich.console import Console
 import httpx
-from droidrun.tools.android.portal_client import PortalClient
+from mobilerun.tools.android.portal_client import PortalClient
 
-from droidrun import __version__
-from droidrun.portal import (
+from mobilerun import __version__
+from mobilerun.portal import (
     PORTAL_PACKAGE_NAME,
     GITHUB_API_HOSTS,
     check_portal_accessibility,
@@ -74,13 +74,13 @@ def _parse_version_tuple(version_str: str) -> tuple:
 
 
 async def check_sdk_version(debug: bool) -> CheckResult:
-    """Check Droidrun SDK version against latest GitHub release."""
+    """Check Mobilerun SDK version against latest GitHub release."""
     current = __version__
     latest = None
 
     for host in GITHUB_API_HOSTS:
         try:
-            url = f"{host}/repos/droidrun/droidrun/releases/latest"
+            url = f"{host}/repos/mobilerun/mobilerun/releases/latest"
             resp = requests.get(url, timeout=10)
             if resp.status_code == 200:
                 data = resp.json()
@@ -112,7 +112,7 @@ async def check_sdk_version(debug: bool) -> CheckResult:
             "SDK Version",
             Status.WARN,
             f"{current} (latest: {latest})",
-            detail="pip install --upgrade droidrun",
+            detail="pip install --upgrade mobilerun",
         )
     else:
         return CheckResult("SDK Version", Status.PASS, f"{current} (up to date)")
@@ -120,8 +120,8 @@ async def check_sdk_version(debug: bool) -> CheckResult:
 
 async def check_config(debug: bool) -> tuple[CheckResult, Any]:
     """Check config file exists and loads."""
-    from droidrun.config_manager import ConfigLoader
-    from droidrun.config_manager.loader import OutdatedConfigError
+    from mobilerun.config_manager import ConfigLoader
+    from mobilerun.config_manager.loader import OutdatedConfigError
 
     config_path = ConfigLoader.get_user_config_path()
 
@@ -157,7 +157,7 @@ async def check_config(debug: bool) -> tuple[CheckResult, Any]:
                 "Config",
                 Status.FAIL,
                 f"{config_path} (outdated, missing _version)",
-                detail="See: droidrun config_example.yaml",
+                detail="See: mobilerun config_example.yaml",
             ),
             None,
         )
@@ -345,7 +345,7 @@ async def check_portal_version(
                     "Portal Version",
                     Status.WARN,
                     msg,
-                    detail=f"pip install --upgrade droidrun, then droidrun setup",
+                    detail=f"pip install --upgrade mobilerun, then mobilerun setup",
                 ),
                 installed,
                 expected,
@@ -509,7 +509,7 @@ async def check_portal_state(
     device: AdbDevice, use_tcp: bool, debug: bool
 ) -> tuple[CheckResult, Any]:
     """Fetch full state and verify a11y_tree, phone_state, device_context are present."""
-    from droidrun.tools.android.portal_client import PortalClient
+    from mobilerun.tools.android.portal_client import PortalClient
 
     try:
         portal = PortalClient(device, prefer_tcp=use_tcp)
@@ -581,7 +581,7 @@ async def check_screenshot(portal: Any, debug: bool) -> CheckResult:
 
 
 async def check_keyboard(device: AdbDevice, debug: bool) -> CheckResult:
-    """Check if Droidrun keyboard IME is available."""
+    """Check if Mobilerun keyboard IME is available."""
     try:
         output = await device.shell("ime list -s")
         ime_id = "com.droidrun.portal/.input.DroidrunKeyboardIME"
@@ -642,7 +642,7 @@ async def run_doctor(
     """Run all doctor checks and auto-fix where possible."""
     debug = debug or False
 
-    console.print("\n[bold]Droidrun Doctor[/]\n")
+    console.print("\n[bold]Mobilerun Doctor[/]\n")
 
     results: list[CheckResult] = []
 
@@ -682,7 +682,7 @@ async def run_doctor(
     _print_result(r_portal, debug)
     if not is_installed:
         # Auto-fix: run setup
-        from droidrun.cli.main import _setup_portal
+        from mobilerun.cli.main import _setup_portal
 
         await _setup_portal(path=None, device=device.serial, debug=debug)
         # Re-check
@@ -699,7 +699,7 @@ async def run_doctor(
     if r_version.status == Status.WARN and installed_ver:
         # Auto-fix: run setup to install compatible version
         console.print("  [blue]→ Updating portal...[/]")
-        from droidrun.cli.main import _setup_portal
+        from mobilerun.cli.main import _setup_portal
 
         await _setup_portal(path=None, device=device.serial, debug=debug)
         # Wait for portal service to initialize after install

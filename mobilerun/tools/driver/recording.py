@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from droidrun.tools.driver.base import DeviceDriver
+from mobilerun.tools.driver.base import DeviceDriver
 
 
 class RecordingDriver:

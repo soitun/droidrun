@@ -2,11 +2,11 @@
 
 External agents are self-contained modules that receive raw ADB access
 via ``async_adbutils.AdbDevice``. They bring their own LLM client, prompts,
-parsing, and action loop — zero imports from ``droidrun``.
+parsing, and action loop — zero imports from ``mobilerun``.
 
 An external agent can be either:
-- A single file: ``droidrun/agent/external/my_agent.py``
-- A package:     ``droidrun/agent/external/my_agent/__init__.py``
+- A single file: ``mobilerun/agent/external/my_agent.py``
+- A package:     ``mobilerun/agent/external/my_agent/__init__.py``
 
 Required contract::
 
@@ -30,7 +30,7 @@ import logging
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, TypedDict
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 _EXTERNAL_DIR = Path(__file__).parent
 
@@ -69,7 +69,7 @@ def load_agent(name: str) -> Optional[ExternalAgentModule]:
         Dict with ``run`` function and ``config`` defaults, or *None* on failure.
     """
     try:
-        module = importlib.import_module(f"droidrun.agent.external.{name}")
+        module = importlib.import_module(f"mobilerun.agent.external.{name}")
 
         if not hasattr(module, "run"):
             logger.error(f"External agent '{name}' missing run() function")

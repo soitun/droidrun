@@ -14,7 +14,7 @@ import math
 import random
 from typing import Any, List, Tuple
 
-from droidrun.tools.driver.base import DeviceDriver
+from mobilerun.tools.driver.base import DeviceDriver
 
 # ---------------------------------------------------------------------------
 # Path generation helpers

@@ -11,10 +11,10 @@ from typing import Any, List, Type
 from llama_index.core.llms.llm import LLM
 from pydantic import BaseModel
 
-from droidrun.agent.utils.llm_picker import load_llm, load_llms_from_profiles
-from droidrun.config_manager.config_manager import DroidConfig
+from mobilerun.agent.utils.llm_picker import load_llm, load_llms_from_profiles
+from mobilerun.config_manager.config_manager import DroidConfig
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 
 def _get_required_profiles(
@@ -24,7 +24,7 @@ def _get_required_profiles(
     Determine which LLM profiles are required based on agent configuration.
 
     Args:
-        config: Droidrun configuration containing agent settings
+        config: Mobilerun configuration containing agent settings
         output_model: Optional Pydantic model for structured output extraction
 
     Returns:
@@ -52,7 +52,7 @@ def validate_llm_dict(
     Validate that required LLM profiles exist in the provided LLM dictionary.
 
     Args:
-        config: Droidrun configuration containing LLM profiles
+        config: Mobilerun configuration containing LLM profiles
         llms: Dictionary containing LLM profiles
         output_model: Optional Pydantic model for structured output extraction
 
@@ -83,7 +83,7 @@ def validate_llm_profiles(
     Validate that required LLM profiles exist in the configuration.
 
     Args:
-        config: Droidrun configuration containing LLM profiles
+        config: Mobilerun configuration containing LLM profiles
         output_model: Optional Pydantic model for structured output extraction
 
     Returns:
@@ -117,10 +117,10 @@ def load_agent_llms(
     **kwargs: Any,
 ) -> dict[str, LLM]:
     """
-    Load LLMs required for DroidAgent based on reasoning mode and configuration.
+    Load LLMs required for MobileAgent based on reasoning mode and configuration.
 
     Args:
-        config: Droidrun configuration containing LLM profiles
+        config: Mobilerun configuration containing LLM profiles
         custom_provider: Optional custom provider to use for all agents
         custom_model: Optional custom model to use for all agents
         temperature: Optional temperature override for all agents
@@ -213,7 +213,7 @@ def merge_llms_with_config(
     Merge a user-provided partial llms dict with LLMs loaded from the
     configuration for any missing required profiles.
     Args:
-        config: Droidrun configuration containing LLM profiles
+        config: Mobilerun configuration containing LLM profiles
         llms: Partial dictionary of LLM instances provided by user. Keys may be
             a subset of required agent names.
         output_model: Optional Pydantic model for structured output extraction

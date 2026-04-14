@@ -1,5 +1,5 @@
 """
-Droidrun CLI - Command line interface for controlling Android devices through LLM agents.
+Mobilerun CLI - Command line interface for controlling Android devices through LLM agents.
 """
 
 import asyncio
@@ -19,17 +19,18 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 
-from droidrun import ResultEvent, DroidAgent
-from droidrun.log_handlers import CLILogHandler, configure_logging
-from droidrun.cli.configure_wizard import (
+from mobilerun import ResultEvent, MobileAgent
+from mobilerun.log_handlers import CLILogHandler, configure_logging
+from mobilerun.cli.configure_wizard import (
     ConfigureWizardCallbacks,
     run_configure_wizard,
 )
-from droidrun.cli.event_handler import EventHandler
-from droidrun.config_manager import ConfigLoader
-from droidrun.cli.device_commands import device_cli
-from droidrun.macro.cli import macro_cli
-from droidrun.portal import (
+from mobilerun.cli.event_handler import EventHandler
+from mobilerun.config_manager import ConfigLoader
+from mobilerun.cli.device_commands import device_cli
+from mobilerun.macro.cli import macro_cli
+from mobilerun.portal import (
+    DOWNLOAD_BASE,
     PORTAL_PACKAGE_NAME,
     download_portal_apk,
     download_versioned_portal_apk,
@@ -39,26 +40,26 @@ from droidrun.portal import (
     ping_portal_tcp,
     setup_portal,
 )
-from droidrun.agent.external import list_agents
-from droidrun.agent.utils.llm_picker import load_llm
-from droidrun.agent.utils.oauth.openai_oauth_llm import (
+from mobilerun.agent.external import list_agents
+from mobilerun.agent.utils.llm_picker import load_llm
+from mobilerun.agent.utils.oauth.openai_oauth_llm import (
     DEFAULT_OPENAI_OAUTH_CALLBACK_HOST,
     DEFAULT_OPENAI_OAUTH_CALLBACK_PATH,
     DEFAULT_OPENAI_OAUTH_CALLBACK_PORT,
     DEFAULT_OPENAI_OAUTH_CREDENTIAL_PATH,
 )
-from droidrun.cli.oauth_actions import (
+from mobilerun.cli.oauth_actions import (
     run_openai_oauth_login,
     run_gemini_oauth_login,
     run_anthropic_setup_token_oauth,
     save_anthropic_setup_token,
 )
-from droidrun.config_manager.credential_paths import (
+from mobilerun.config_manager.credential_paths import (
     ANTHROPIC_OAUTH_CREDENTIAL_PATH,
     GEMINI_OAUTH_CREDENTIAL_PATH,
 )
-from droidrun.telemetry import print_telemetry_message
-from droidrun.tools.driver.ios import discover_ios_portal, validate_ios_portal_url
+from mobilerun.telemetry import print_telemetry_message
+from mobilerun.tools.driver.ios import discover_ios_portal, validate_ios_portal_url
 
 # Suppress all warnings
 warnings.filterwarnings("ignore")
@@ -69,7 +70,7 @@ console = Console()
 
 
 def _setup_cli_logging(debug: bool) -> None:
-    """Configure the droidrun logger with a CLILogHandler."""
+    """Configure the mobilerun logger with a CLILogHandler."""
     handler = CLILogHandler()
     handler.setFormatter(
         logging.Formatter("%(levelname)s %(name)s %(message)s", "%H:%M:%S")
@@ -123,9 +124,9 @@ async def run_command(
     # Print cloud link in a box
     if config.logging.rich_text:
         cloud_text = Text()
-        cloud_text.append("✨ Try Droidrun Cloud: ", style="bold cyan")
+        cloud_text.append("✨ Try Mobilerun Cloud: ", style="bold cyan")
         cloud_text.append(
-            "https://cloud.droidrun.ai/sign-in", style="bold blue underline"
+            "https://cloud.mobilerun.ai/sign-in", style="bold blue underline"
         )
         cloud_panel = Panel(
             cloud_text,
@@ -134,12 +135,12 @@ async def run_command(
         )
         console.print(cloud_panel)
     else:
-        console.print("\n✨ Try Droidrun Cloud: https://cloud.droidrun.ai/sign-in\n")
+        console.print("\n✨ Try Mobilerun Cloud: https://cloud.mobilerun.ai/sign-in\n")
 
     # Initialize logging
     debug_mode = debug if debug is not None else config.logging.debug
     _setup_cli_logging(debug_mode)
-    logger = logging.getLogger("droidrun")
+    logger = logging.getLogger("mobilerun")
 
     try:
         logger.info(f"🚀 Starting: {command}")
@@ -201,7 +202,7 @@ async def run_command(
                 config.device.serial = await discover_ios_portal()
 
         # ================================================================
-        # STEP 2: Initialize DroidAgent with config
+        # STEP 2: Initialize MobileAgent with config
         # ================================================================
 
         mode = (
@@ -216,7 +217,7 @@ async def run_command(
         if config.tracing.enabled:
             logger.info("🔍 Tracing enabled")
 
-        # Build DroidAgent kwargs for LLM loading
+        # Build MobileAgent kwargs for LLM loading
         droid_agent_kwargs = {"runtype": "cli"}
         llm = None
 
@@ -240,7 +241,7 @@ async def run_command(
             if api_base is not None:
                 droid_agent_kwargs["api_base"] = api_base
 
-        droid_agent = DroidAgent(
+        droid_agent = MobileAgent(
             goal=command,
             llms=llm,
             config=config,
@@ -301,7 +302,7 @@ def _print_version(ctx, param, value):
 
     if not version:
         try:
-            from droidrun import __version__ as pkg_version
+            from mobilerun import __version__ as pkg_version
 
             version = pkg_version
             # print("debug: step 2")
@@ -333,10 +334,10 @@ def _print_version(ctx, param, value):
     callback=_print_version,
     expose_value=False,
     is_eager=True,
-    help="Show droidrun version and exit",
+    help="Show mobilerun version and exit",
 )
 def cli():
-    """Droidrun - Control your Android device through LLM agents."""
+    """Mobilerun - Control your Android device through LLM agents."""
     pass
 
 
@@ -490,7 +491,7 @@ async def run(
             ios=ios,
         )
     finally:
-        # Disable Droidrun keyboard after execution
+        # Disable Mobilerun keyboard after execution
         # Note: Port forwards are managed automatically and persist until device disconnect
         try:
             if not ios:
@@ -500,7 +501,7 @@ async def run(
                         "ime disable com.droidrun.portal/.input.DroidrunKeyboardIME"
                     )
         except Exception:
-            click.echo("Failed to disable Droidrun keyboard")
+            click.echo("Failed to disable Mobilerun keyboard")
 
     # Exit with appropriate code
     sys.exit(0 if success else 1)
@@ -560,7 +561,7 @@ async def _setup_portal(
     latest: bool = False,
     specific_version: str | None = None,
 ):
-    """Internal async function to install and enable the Droidrun Portal on a device."""
+    """Internal async function to install and enable the Mobilerun Portal on a device."""
     try:
         if not device:
             devices = await adb.list()
@@ -597,11 +598,11 @@ async def _setup_portal(
             success = await setup_portal(device_obj, debug)
             if success:
                 console.print(
-                    "\n[bold green]Setup complete![/] The Droidrun Portal is now installed and ready to use."
+                    "\n[bold green]Setup complete![/] The Mobilerun Portal is now installed and ready to use."
                 )
             else:
                 console.print(
-                    "[bold red]Setup failed.[/] Run 'droidrun doctor' for diagnostics."
+                    "[bold red]Setup failed.[/] Run 'mobilerun doctor' for diagnostics."
                 )
             return
 
@@ -629,7 +630,7 @@ async def _setup_portal(
 
                 console.print("[green]Accessibility service enabled successfully![/]")
                 console.print(
-                    "\n[bold green]Setup complete![/] The Droidrun Portal is now installed and ready to use."
+                    "\n[bold green]Setup complete![/] The Mobilerun Portal is now installed and ready to use."
                 )
 
             except Exception as e:
@@ -673,7 +674,7 @@ async def _setup_portal(
 @click.option("--device", "-d", help="Device serial number or IP address", default=None)
 @click.option(
     "--path",
-    help="Path to the Droidrun Portal APK to install on the device. If not provided, the latest portal apk version will be downloaded and installed.",
+    help="Path to the Mobilerun Portal APK to install on the device. If not provided, the latest portal apk version will be downloaded and installed.",
     default=None,
 )
 @click.option(
@@ -699,7 +700,7 @@ async def setup(
     latest: bool,
     debug: bool,
 ):
-    """Install and enable the Droidrun Portal on a device."""
+    """Install and enable the Mobilerun Portal on a device."""
     await _setup_portal(path, device, debug, latest, portal_version)
 
 
@@ -755,15 +756,15 @@ cli.add_command(device_cli, name="device")
 @coro
 async def doctor(device: str | None, debug: bool | None):
     """Check system health and diagnose issues."""
-    from droidrun.cli.doctor import run_doctor
+    from mobilerun.cli.doctor import run_doctor
 
     await run_doctor(device, debug if debug is not None else False)
 
 
 @cli.command()
 def tui():
-    """Launch the Droidrun Terminal User Interface."""
-    from droidrun.cli.tui import run_tui
+    """Launch the Mobilerun Terminal User Interface."""
+    from mobilerun.cli.tui import run_tui
 
     run_tui()
 
@@ -808,7 +809,7 @@ def setup_token(
     callback_path: str,
     open_browser: bool,
 ):
-    """Create a long-lived Anthropic setup token using Droidrun's native OAuth flow."""
+    """Create a long-lived Anthropic setup token using Mobilerun's native OAuth flow."""
     console.print(
         "This will guide you through long-lived (1-year) auth token setup for your Claude account."
     )
@@ -820,7 +821,7 @@ def setup_token(
         open_browser=open_browser,
     )
     console.print("\n[green]Setup token created.[/]")
-    console.print("Paste this token into `droidrun configure` or `droidrun anthropic login`.")
+    console.print("Paste this token into `mobilerun configure` or `mobilerun anthropic login`.")
     click.echo(token)
 
 
@@ -1059,7 +1060,7 @@ async def test(
     # Initialize logging
     debug_mode = debug if debug is not None else config.logging.debug
     _setup_cli_logging(debug_mode)
-    logger = logging.getLogger("droidrun")
+    logger = logging.getLogger("mobilerun")
 
     try:
         logger.info(f"🚀 Starting: {command}")
@@ -1104,7 +1105,7 @@ async def test(
             config.device.platform = "ios"
 
         # ================================================================
-        # STEP 2: Initialize DroidAgent with config
+        # STEP 2: Initialize MobileAgent with config
         # ================================================================
 
         mode = (
@@ -1119,12 +1120,12 @@ async def test(
         if config.tracing.enabled:
             logger.info("🔍 Tracing enabled")
 
-        # Build DroidAgent kwargs for LLM loading
+        # Build MobileAgent kwargs for LLM loading
         droid_agent_kwargs = {}
         if temperature is not None:
             droid_agent_kwargs["temperature"] = temperature
 
-        droid_agent = DroidAgent(
+        droid_agent = MobileAgent(
             goal=command,
             config=config,
             timeout=1000,

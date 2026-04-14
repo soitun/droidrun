@@ -67,7 +67,7 @@ async def aminimax_vision_chat(
             headers={
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
-                "MM-API-Source": "Droidrun",
+                "MM-API-Source": "Mobilerun",
             },
             json={
                 "prompt": prompt,

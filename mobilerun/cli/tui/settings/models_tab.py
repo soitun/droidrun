@@ -7,14 +7,14 @@ from textual.containers import HorizontalGroup, VerticalGroup
 from textual.widgets import Button, Input, Label, Select, Static
 from textual import on
 
-from droidrun.cli.tui.settings.data import (
+from mobilerun.cli.tui.settings.data import (
     AGENT_ROLES,
     PROVIDER_FIELDS,
     PROVIDERS,
     ProfileSettings,
     SettingsData,
 )
-from droidrun.cli.tui.settings.section import Section
+from mobilerun.cli.tui.settings.section import Section
 
 
 PROVIDER_OPTIONS = [(p, p) for p in PROVIDERS]

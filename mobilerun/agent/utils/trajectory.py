@@ -1,5 +1,5 @@
 """
-Trajectory utilities for Droidrun agents.
+Trajectory utilities for Mobilerun agents.
 
 This module provides the Trajectory data container and utilities for
 loading and analyzing saved trajectory data.
@@ -14,9 +14,9 @@ from typing import Any, Dict, List
 
 from llama_index.core.workflow import Event
 
-from droidrun.agent.trajectory.writer import make_serializable
+from mobilerun.agent.trajectory.writer import make_serializable
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 
 class Trajectory:
@@ -32,7 +32,7 @@ class Trajectory:
         self.screenshot_queue: List[bytes] = []
         self.ui_states: List[Dict[str, Any]] = []
         self.macro: List[Dict[str, Any]] = []  # populated from RecordingDriver.log
-        self.goal = goal or "Droidrun automation sequence"
+        self.goal = goal or "Mobilerun automation sequence"
 
         self.base_path = self._resolve_path(base_path)
         self.trajectory_folder = self._create_trajectory_folder()

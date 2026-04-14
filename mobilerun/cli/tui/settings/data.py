@@ -6,10 +6,10 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from droidrun.config_manager.config_manager import DroidConfig
+    from mobilerun.config_manager.config_manager import DroidConfig
 
-from droidrun.agent.providers.registry import VARIANT_ENV_KEY_SLOT
-from droidrun.config_manager.env_keys import load_env_key_sources, save_env_keys
+from mobilerun.agent.providers.registry import VARIANT_ENV_KEY_SLOT
+from mobilerun.config_manager.env_keys import load_env_key_sources, save_env_keys
 
 PROVIDERS = [
     "GoogleGenAI",
@@ -168,7 +168,7 @@ class SettingsData:
 
     def save(self) -> None:
         """Persist all settings: API keys to .env and config to config.yaml."""
-        from droidrun.config_manager.loader import ConfigLoader
+        from mobilerun.config_manager.loader import ConfigLoader
 
         # Save env-based API keys for all cloud providers that have a key set
         env_keys: dict[str, str] = {}
@@ -182,7 +182,7 @@ class SettingsData:
         try:
             config = ConfigLoader.load()
         except Exception:
-            from droidrun.config_manager.config_manager import DroidConfig
+            from mobilerun.config_manager.config_manager import DroidConfig
 
             config = DroidConfig()
 

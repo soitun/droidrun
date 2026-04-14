@@ -7,8 +7,8 @@ from textual.containers import HorizontalGroup, VerticalGroup
 from textual.widgets import Input, Label, Select
 from textual import on
 
-from droidrun.cli.tui.settings.data import SettingsData
-from droidrun.cli.tui.settings.section import BoolToggle, Section
+from mobilerun.cli.tui.settings.data import SettingsData
+from mobilerun.cli.tui.settings.section import BoolToggle, Section
 
 TRACING_PROVIDERS = [
     ("Phoenix", "phoenix"),

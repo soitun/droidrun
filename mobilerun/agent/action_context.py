@@ -9,11 +9,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from droidrun.agent.droid.state import DroidAgentState
-    from droidrun.credential_manager import CredentialManager
-    from droidrun.tools.driver.base import DeviceDriver
-    from droidrun.tools.ui.provider import StateProvider
-    from droidrun.tools.ui.state import UIState
+    from mobilerun.agent.droid.state import MobileAgentState
+    from mobilerun.credential_manager import CredentialManager
+    from mobilerun.tools.driver.base import DeviceDriver
+    from mobilerun.tools.ui.provider import StateProvider
+    from mobilerun.tools.ui.state import UIState
 
 
 class ActionContext:
@@ -23,7 +23,7 @@ class ActionContext:
         self,
         driver: "DeviceDriver",
         ui: "Optional[UIState]",
-        shared_state: "DroidAgentState",
+        shared_state: "MobileAgentState",
         state_provider: "StateProvider",
         app_opener_llm=None,
         credential_manager: "Optional[CredentialManager]" = None,

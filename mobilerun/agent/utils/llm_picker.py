@@ -3,13 +3,13 @@ from typing import TYPE_CHECKING, Any
 
 from llama_index.core.llms.llm import LLM
 
-from droidrun.agent.usage import track_usage
+from mobilerun.agent.usage import track_usage
 
 if TYPE_CHECKING:
-    from droidrun.config_manager.config_manager import LLMProfile
+    from mobilerun.config_manager.config_manager import LLMProfile
 
 # Configure logging
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 
 SUPPORTED_PROVIDERS = [
@@ -37,13 +37,13 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
 
     # --- OAuth providers ---
     if provider_name == "openai_oauth":
-        from droidrun.agent.utils.oauth.openai_oauth_llm import OpenAIOAuth
+        from mobilerun.agent.utils.oauth.openai_oauth_llm import OpenAIOAuth
         return OpenAIOAuth(**{k: v for k, v in kwargs.items() if v is not None})
     if provider_name == "anthropic_oauth":
-        from droidrun.agent.utils.oauth.anthropic_oauth_llm import AnthropicOAuthLLM
+        from mobilerun.agent.utils.oauth.anthropic_oauth_llm import AnthropicOAuthLLM
         return AnthropicOAuthLLM(**{k: v for k, v in kwargs.items() if v is not None})
     if provider_name == "gemini_oauth_code_assist":
-        from droidrun.agent.utils.oauth.gemini_oauth_code_assist_llm import GeminiOAuthCodeAssistLLM
+        from mobilerun.agent.utils.oauth.gemini_oauth_code_assist_llm import GeminiOAuthCodeAssistLLM
         return GeminiOAuthCodeAssistLLM(**{k: v for k, v in kwargs.items() if v is not None})
 
     # Legacy alias: MiniMax configs now route through OpenAILike.

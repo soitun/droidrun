@@ -13,10 +13,10 @@ from typing import Any, Dict, List, Optional
 
 from async_adbutils import adb
 
-from droidrun.tools.android.portal_client import PortalClient
-from droidrun.tools.driver.base import DeviceDriver
+from mobilerun.tools.android.portal_client import PortalClient
+from mobilerun.tools.driver.base import DeviceDriver
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 PORTAL_DEFAULT_TCP_PORT = 8080
 
@@ -76,7 +76,7 @@ class AndroidDriver(DeviceDriver):
         self.portal = PortalClient(self.device, prefer_tcp=self._use_tcp)
         await self.portal.connect()
 
-        from droidrun.portal import setup_keyboard  # circular import guard
+        from mobilerun.portal import setup_keyboard  # circular import guard
 
         await setup_keyboard(self.device)
         self._connected = True

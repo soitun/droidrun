@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
-from droidrun.tools.helpers.coordinate import to_absolute
-from droidrun.tools.helpers.geometry import find_clear_point, rects_overlap
+from mobilerun.tools.helpers.coordinate import to_absolute
+from mobilerun.tools.helpers.geometry import find_clear_point, rects_overlap
 
 
 class UIState:

@@ -1,4 +1,4 @@
-"""Indexed formatter - Standard Droidrun format."""
+"""Indexed formatter - Standard Mobilerun format."""
 
 from typing import Dict, Any, List, Optional, Tuple
 from .base import TreeFormatter
@@ -6,7 +6,7 @@ from ..helpers.coordinate import bounds_to_normalized
 
 
 class IndexedFormatter(TreeFormatter):
-    """Format tree in the standard Droidrun format."""
+    """Format tree in the standard Mobilerun format."""
 
     def __init__(self):
         self.screen_width: Optional[int] = None
@@ -165,7 +165,7 @@ class IndexedFormatter(TreeFormatter):
         return results
 
     def _format_node(self, node: Dict[str, Any], index: int) -> Dict[str, Any]:
-        """Format single node to Droidrun format."""
+        """Format single node to Mobilerun format."""
         bounds = node.get("boundsInScreen", {})
         bounds_str = f"{bounds.get('left', 0)},{bounds.get('top', 0)},{bounds.get('right', 0)},{bounds.get('bottom', 0)}"
 

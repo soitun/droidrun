@@ -1,5 +1,5 @@
 """
-Unified path resolution for Droidrun.
+Unified path resolution for Mobilerun.
 
 This module provides a single path resolver that handles all file path resolution
 with consistent priority: working directory first, then package directory.
@@ -11,7 +11,7 @@ from typing import Union
 
 class PathResolver:
     """
-    Unified path resolver for all Droidrun file operations.
+    Unified path resolver for all Mobilerun file operations.
 
     Resolution order:
     1. Absolute paths → use as-is
@@ -25,7 +25,7 @@ class PathResolver:
         Get the package root directory (where config/ bundled resources live).
 
         This is 1 parent up from this file's location:
-        droidrun/config_manager/path_resolver.py -> droidrun/ (package root)
+        mobilerun/config_manager/path_resolver.py -> mobilerun/ (package root)
         """
         return Path(__file__).resolve().parents[1]
 

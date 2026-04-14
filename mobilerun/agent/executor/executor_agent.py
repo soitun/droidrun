@@ -18,25 +18,25 @@ from llama_index.core.base.llms.types import ChatMessage, ImageBlock, TextBlock
 from llama_index.core.llms.llm import LLM
 from llama_index.core.workflow import Context, StartEvent, StopEvent, Workflow, step
 
-from droidrun.agent.executor.events import (
+from mobilerun.agent.executor.events import (
     ExecutorActionEvent,
     ExecutorActionResultEvent,
     ExecutorContextEvent,
     ExecutorResponseEvent,
 )
-from droidrun.agent.executor.prompts import parse_executor_response
-from droidrun.agent.usage import get_usage_from_response
-from droidrun.agent.utils.inference import acall_with_retries
-from droidrun.agent.utils.prompt_resolver import PromptResolver
-from droidrun.config_manager.config_manager import AgentConfig
-from droidrun.config_manager.prompt_loader import PromptLoader
+from mobilerun.agent.executor.prompts import parse_executor_response
+from mobilerun.agent.usage import get_usage_from_response
+from mobilerun.agent.utils.inference import acall_with_retries
+from mobilerun.agent.utils.prompt_resolver import PromptResolver
+from mobilerun.config_manager.config_manager import AgentConfig
+from mobilerun.config_manager.prompt_loader import PromptLoader
 
 if TYPE_CHECKING:
-    from droidrun.agent.action_context import ActionContext
-    from droidrun.agent.droid import DroidAgentState
-    from droidrun.agent.tool_registry import ToolRegistry
+    from mobilerun.agent.action_context import ActionContext
+    from mobilerun.agent.droid import MobileAgentState
+    from mobilerun.agent.tool_registry import ToolRegistry
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 
 class ExecutorAgent(Workflow):
@@ -55,7 +55,7 @@ class ExecutorAgent(Workflow):
         llm: LLM,
         registry: "ToolRegistry | None",
         action_ctx: "ActionContext | None",
-        shared_state: "DroidAgentState",
+        shared_state: "MobileAgentState",
         agent_config: AgentConfig,
         prompt_resolver: Optional[PromptResolver] = None,
         **kwargs,

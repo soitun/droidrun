@@ -1,10 +1,10 @@
-"""Droidrun Terminal User Interface."""
+"""Mobilerun Terminal User Interface."""
 
-from droidrun.cli.tui.app import DroidTUI
+from mobilerun.cli.tui.app import DroidTUI
 
 
 def run_tui():
-    """Run the Droidrun TUI application."""
+    """Run the Mobilerun TUI application."""
     app = DroidTUI()
     app.run()
 

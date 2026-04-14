@@ -1,12 +1,12 @@
 # External Agents
 
-External agents are self-contained modules that receive raw ADB access and run independently from Droidrun's internal tools.
+External agents are self-contained modules that receive raw ADB access and run independently from Mobilerun's internal tools.
 
 ## Quick Start
 
 1. Add your agent as a file or folder in this directory
 2. Configure it in `config.yaml` under `external_agents.<name>`
-3. Run with `droidrun run "task" --agent <name>`
+3. Run with `mobilerun run "task" --agent <name>`
 
 ## Agent Contract
 
@@ -124,7 +124,7 @@ DEFAULT_CONFIG = {
 
 ## Rules
 
-- **Zero imports from `droidrun`** — your agent must be fully self-contained
+- **Zero imports from `mobilerun`** — your agent must be fully self-contained
 - Bring your own LLM client (`openai`, `httpx`, `anthropic`, etc.)
 - Bring your own prompts, parsing, and action logic
 - Only use `device` for all device interaction — no Portal, no internal tools

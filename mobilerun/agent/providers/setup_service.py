@@ -5,15 +5,15 @@ from typing import Iterable
 
 import httpx
 
-from droidrun.agent.providers import (
+from mobilerun.agent.providers import (
     VARIANT_ENV_KEY_SLOT,
     ProviderFamilySpec,
     ProviderVariantSpec,
     list_provider_families,
     resolve_provider_variant,
 )
-from droidrun.config_manager.config_manager import DroidConfig, LLMProfile
-from droidrun.config_manager.env_keys import load_env_keys, save_env_keys
+from mobilerun.config_manager.config_manager import DroidConfig, LLMProfile
+from mobilerun.config_manager.env_keys import load_env_keys, save_env_keys
 
 DEFAULT_KWARGS_BY_VARIANT: dict[str, dict[str, int]] = {
     "anthropic_oauth": {"max_tokens": 1024},

@@ -12,9 +12,9 @@ from typing import Any, Awaitable, Dict, List, Optional, TypeVar
 from mobilerun import AsyncMobilerun
 from mobilerun._exceptions import APIConnectionError, APITimeoutError, ConflictError
 
-from droidrun.tools.driver.base import DeviceDisconnectedError, DeviceDriver
+from mobilerun.tools.driver.base import DeviceDisconnectedError, DeviceDriver
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 T = TypeVar("T")
 

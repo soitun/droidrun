@@ -1,3 +1,3 @@
-from droidrun.agent.droid.events import ResultEvent
+from mobilerun.agent.droid.events import ResultEvent
 
 __all__ = ["ResultEvent"]

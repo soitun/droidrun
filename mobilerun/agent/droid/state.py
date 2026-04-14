@@ -6,7 +6,7 @@ from uuid import uuid4
 from llama_index.core.base.llms.types import ChatMessage
 from pydantic import BaseModel, ConfigDict, Field
 
-from droidrun.telemetry import PackageVisitEvent, capture
+from mobilerun.telemetry import PackageVisitEvent, capture
 
 
 class QueuedUserMessage(BaseModel):
@@ -15,9 +15,9 @@ class QueuedUserMessage(BaseModel):
     queued_at_step: int = 0
 
 
-class DroidAgentState(BaseModel):
+class MobileAgentState(BaseModel):
     """
-    State model for DroidAgent workflow - shared across parent and child workflows.
+    State model for MobileAgent workflow - shared across parent and child workflows.
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)

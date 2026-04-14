@@ -8,15 +8,15 @@ import click
 from rich.console import Console
 from rich.panel import Panel
 
-from droidrun.cli.configure_prompts import (
+from mobilerun.cli.configure_prompts import (
     SelectChoice,
     select_prompt,
     text_prompt,
 )
-from droidrun.agent.providers.registry import VARIANT_ENV_KEY_SLOT, resolve_provider_variant
-from droidrun.config_manager.env_keys import load_env_key_sources, resolve_env_key
-from droidrun.config_manager import ConfigLoader
-from droidrun.agent.providers.setup_service import (
+from mobilerun.agent.providers.registry import VARIANT_ENV_KEY_SLOT, resolve_provider_variant
+from mobilerun.config_manager.env_keys import load_env_key_sources, resolve_env_key
+from mobilerun.config_manager import ConfigLoader
+from mobilerun.agent.providers.setup_service import (
     SetupSelection,
     apply_selection_to_roles,
     auth_mode_choices,
@@ -76,7 +76,7 @@ def _print_configure_intro(console: Console) -> None:
         Panel(
             "Choose your provider, auth method, and model.\n"
             "Advanced agent settings are optional and can be changed at the end.",
-            title="Droidrun Configure",
+            title="Mobilerun Configure",
             border_style="cyan",
             padding=(1, 2),
         )

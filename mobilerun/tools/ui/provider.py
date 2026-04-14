@@ -11,16 +11,16 @@ import logging
 import time
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, List, Optional
 
-from droidrun.tools.driver.base import DeviceDisconnectedError
-from droidrun.tools.ui.state import UIState
-from droidrun.tools.ui.stealth_state import StealthUIState
+from mobilerun.tools.driver.base import DeviceDisconnectedError
+from mobilerun.tools.ui.state import UIState
+from mobilerun.tools.ui.stealth_state import StealthUIState
 
 if TYPE_CHECKING:
-    from droidrun.tools.driver.base import DeviceDriver
-    from droidrun.tools.filters import TreeFilter
-    from droidrun.tools.formatters import TreeFormatter
+    from mobilerun.tools.driver.base import DeviceDriver
+    from mobilerun.tools.filters import TreeFilter
+    from mobilerun.tools.formatters import TreeFormatter
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 # Retry schedule: delay in seconds after each failed attempt.
 # Total wait across 7 attempts: 1+2+3+5+8+10 = 29s.
@@ -161,7 +161,7 @@ class AndroidStateProvider(StateProvider):
 
     async def _recover_portal(self) -> None:
         """Restart Portal's accessibility service and TCP socket server."""
-        from droidrun.tools.driver.android import AndroidDriver
+        from mobilerun.tools.driver.android import AndroidDriver
 
         if not isinstance(self.driver, AndroidDriver):
             return
@@ -169,7 +169,7 @@ class AndroidStateProvider(StateProvider):
         if device is None:
             return
 
-        from droidrun.portal import A11Y_SERVICE_NAME
+        from mobilerun.portal import A11Y_SERVICE_NAME
 
         # 1. Restart accessibility service
         logger.debug("Restarting Portal accessibility service...")

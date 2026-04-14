@@ -1,7 +1,7 @@
 """
-DroidAgent coordination events.
+MobileAgent coordination events.
 
-These events route between DroidAgent and child agents.
+These events route between MobileAgent and child agents.
 For internal agent events, see each agent's events.py file.
 """
 
@@ -34,7 +34,7 @@ class ManagerInputEvent(Event):
 
 class ManagerPlanEvent(Event):
     """
-    Coordination event from ManagerAgent to DroidAgent.
+    Coordination event from ManagerAgent to MobileAgent.
 
     Used for workflow step routing only (NOT streamed to frontend).
     For internal events with memory_update metadata, see ManagerPlanDetailsEvent.
@@ -93,9 +93,9 @@ class FinalizeEvent(Event):
 
 class ResultEvent(StopEvent):
     """
-    Final result from DroidAgent.
+    Final result from MobileAgent.
 
-    Returned by DroidAgent.run() with:
+    Returned by MobileAgent.run() with:
     - success: Whether the task completed successfully
     - reason: Explanation or answer
     - steps: Number of steps taken

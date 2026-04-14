@@ -8,34 +8,34 @@ whichever ``logging.Handler`` is attached (CLILogHandler, TUILogHandler, …).
 
 import logging
 
-from droidrun.agent.fast_agent.events import (
+from mobilerun.agent.fast_agent.events import (
     FastAgentEndEvent,
     FastAgentInputEvent,
     FastAgentOutputEvent,
     FastAgentResponseEvent,
     FastAgentToolCallEvent,
 )
-from droidrun.agent.common.events import (
+from mobilerun.agent.common.events import (
     RecordUIStateEvent,
     ScreenshotEvent,
 )
-from droidrun.agent.droid.events import (
+from mobilerun.agent.droid.events import (
     ExecutorResultEvent,
     FastAgentExecuteEvent,
     FastAgentResultEvent,
     FinalizeEvent,
 )
-from droidrun.agent.executor.events import (
+from mobilerun.agent.executor.events import (
     ExecutorActionEvent,
     ExecutorActionResultEvent,
 )
-from droidrun.agent.manager.events import (
+from mobilerun.agent.manager.events import (
     ManagerContextEvent,
     ManagerPlanDetailsEvent,
     ManagerResponseEvent,
 )
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 
 class EventHandler:

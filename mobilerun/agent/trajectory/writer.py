@@ -12,7 +12,7 @@ from PIL import Image
 
 from aiofiles import ospath
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 
 def make_serializable(obj):

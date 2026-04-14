@@ -12,30 +12,30 @@ from llama_index.core.workflow import Context, StartEvent, StopEvent, Workflow, 
 from opentelemetry import trace
 from pydantic import BaseModel
 
-from droidrun.agent.common.events import RecordUIStateEvent, ScreenshotEvent
-from droidrun.agent.manager.events import (
+from mobilerun.agent.common.events import RecordUIStateEvent, ScreenshotEvent
+from mobilerun.agent.manager.events import (
     ManagerContextEvent,
     ManagerPlanDetailsEvent,
     ManagerResponseEvent,
 )
-from droidrun.agent.manager.prompts import parse_manager_response
-from droidrun.agent.usage import get_usage_from_response
-from droidrun.agent.utils.chat_utils import to_chat_messages
-from droidrun.agent.utils.inference import acall_with_retries
-from droidrun.agent.utils.prompt_resolver import PromptResolver
-from droidrun.agent.utils.tracing_setup import record_langfuse_screenshot
-from droidrun.config_manager.prompt_loader import PromptLoader
-from droidrun.tools.driver.base import DeviceDisconnectedError
+from mobilerun.agent.manager.prompts import parse_manager_response
+from mobilerun.agent.usage import get_usage_from_response
+from mobilerun.agent.utils.chat_utils import to_chat_messages
+from mobilerun.agent.utils.inference import acall_with_retries
+from mobilerun.agent.utils.prompt_resolver import PromptResolver
+from mobilerun.agent.utils.tracing_setup import record_langfuse_screenshot
+from mobilerun.config_manager.prompt_loader import PromptLoader
+from mobilerun.tools.driver.base import DeviceDisconnectedError
 
 if TYPE_CHECKING:
-    from droidrun.agent.action_context import ActionContext
-    from droidrun.agent.droid import DroidAgentState
-    from droidrun.agent.tool_registry import ToolRegistry
-    from droidrun.config_manager.config_manager import AgentConfig, TracingConfig
-    from droidrun.tools.ui.provider import StateProvider
+    from mobilerun.agent.action_context import ActionContext
+    from mobilerun.agent.droid import MobileAgentState
+    from mobilerun.agent.tool_registry import ToolRegistry
+    from mobilerun.config_manager.config_manager import AgentConfig, TracingConfig
+    from mobilerun.tools.ui.provider import StateProvider
 
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 
 class StatelessManagerAgent(Workflow):
@@ -45,7 +45,7 @@ class StatelessManagerAgent(Workflow):
         action_ctx: "ActionContext | None",
         state_provider: "StateProvider | None",
         save_trajectory: str = "none",
-        shared_state: "DroidAgentState" = None,
+        shared_state: "MobileAgentState" = None,
         agent_config: "AgentConfig" = None,
         registry: "ToolRegistry | None" = None,
         output_model: Type[BaseModel] | None = None,

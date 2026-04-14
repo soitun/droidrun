@@ -1,5 +1,5 @@
 """
-Command-line interface for Droidrun macro replay.
+Command-line interface for Mobilerun macro replay.
 """
 
 import asyncio
@@ -11,16 +11,16 @@ from async_adbutils import adb
 from rich.console import Console
 from rich.table import Table
 
-from droidrun.agent.utils.trajectory import Trajectory
-from droidrun.config_manager.path_resolver import PathResolver
-from droidrun.macro.replay import MacroPlayer
+from mobilerun.agent.utils.trajectory import Trajectory
+from mobilerun.config_manager.path_resolver import PathResolver
+from mobilerun.macro.replay import MacroPlayer
 
 console = Console()
 
 
 def configure_logging(debug: bool = False):
     """Configure logging for the macro CLI."""
-    logger = logging.getLogger("droidrun-macro")
+    logger = logging.getLogger("mobilerun-macro")
     logger.handlers = []
 
     handler = logging.StreamHandler()
@@ -74,7 +74,7 @@ def replay(
     """Replay a macro from a file or trajectory folder."""
     logger = configure_logging(debug)
 
-    logger.info("🎬 Droidrun Macro Replay")
+    logger.info("🎬 Mobilerun Macro Replay")
 
     # Convert start_from from 1-based to 0-based
     start_from_zero = max(0, start_from - 1)
@@ -287,7 +287,7 @@ def list(directory: str, debug: bool):
         # Still use console for table display as it's structured data
         console.print(table)
         logger.info(
-            f"💡 Use 'droidrun macro replay {resolved_dir}/<folder>' to replay a trajectory"
+            f"💡 Use 'mobilerun macro replay {resolved_dir}/<folder>' to replay a trajectory"
         )
 
     except Exception as e:

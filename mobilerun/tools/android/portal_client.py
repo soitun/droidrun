@@ -1,5 +1,5 @@
 """
-Portal Client - Unified communication layer for Droidrun Portal app.
+Portal Client - Unified communication layer for Mobilerun Portal app.
 
 This module provides automatic TCP/Content Provider fallback for Portal communication.
 """
@@ -15,14 +15,14 @@ from typing import Any, Dict, List, Optional
 import httpx
 from async_adbutils import AdbDevice
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 PORTAL_REMOTE_PORT = 8080  # Port on device where Portal HTTP server runs
 
 
 class PortalClient:
     """
-    Unified client for Droidrun Portal communication.
+    Unified client for Mobilerun Portal communication.
 
     Automatically handles TCP vs Content Provider fallback with the following strategy:
     - On init, checks for existing port forward and reuses it

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 
-from droidrun.config_manager.credential_paths import AUTH_PROFILES_PATH
+from mobilerun.config_manager.credential_paths import AUTH_PROFILES_PATH
 
 API_KEY_ENV_VARS = {
     "google": "GOOGLE_API_KEY",

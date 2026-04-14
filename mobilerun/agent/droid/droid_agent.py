@@ -1,5 +1,5 @@
 """
-DroidAgent - A wrapper class that coordinates the planning and execution of tasks
+MobileAgent - A wrapper class that coordinates the planning and execution of tasks
 to achieve a user's goal on a mobile device.
 
 Architecture:
@@ -20,11 +20,11 @@ from pydantic import BaseModel
 from workflows.events import Event
 from workflows.handler import WorkflowHandler
 
-from droidrun.agent.action_context import ActionContext
-from droidrun.agent.fast_agent import FastAgent
-from droidrun.agent.fast_agent.events import FastAgentOutputEvent
-from droidrun.agent.common.events import RecordUIStateEvent, ScreenshotEvent
-from droidrun.agent.droid.events import (
+from mobilerun.agent.action_context import ActionContext
+from mobilerun.agent.fast_agent import FastAgent
+from mobilerun.agent.fast_agent.events import FastAgentOutputEvent
+from mobilerun.agent.common.events import RecordUIStateEvent, ScreenshotEvent
+from mobilerun.agent.droid.events import (
     ExecutorInputEvent,
     ExecutorResultEvent,
     ExternalUserMessageDroppedEvent,
@@ -35,25 +35,25 @@ from droidrun.agent.droid.events import (
     ManagerPlanEvent,
     ResultEvent,
 )
-from droidrun.agent.droid.state import DroidAgentState, QueuedUserMessage
-from droidrun.agent.executor import ExecutorAgent
-from droidrun.agent.external import load_agent
-from droidrun.agent.manager import ManagerAgent, StatelessManagerAgent
-from droidrun.agent.oneflows.structured_output_agent import StructuredOutputAgent
-from droidrun.agent.trajectory import TrajectoryWriter
-from droidrun.agent.utils.llm_loader import (
+from mobilerun.agent.droid.state import MobileAgentState, QueuedUserMessage
+from mobilerun.agent.executor import ExecutorAgent
+from mobilerun.agent.external import load_agent
+from mobilerun.agent.manager import ManagerAgent, StatelessManagerAgent
+from mobilerun.agent.oneflows.structured_output_agent import StructuredOutputAgent
+from mobilerun.agent.trajectory import TrajectoryWriter
+from mobilerun.agent.utils.llm_loader import (
     load_agent_llms,
     merge_llms_with_config,
 )
-from droidrun.agent.utils.prompt_resolver import PromptResolver
-from droidrun.agent.utils.signatures import build_tool_registry
-from droidrun.agent.utils.tracing_setup import (
+from mobilerun.agent.utils.prompt_resolver import PromptResolver
+from mobilerun.agent.utils.signatures import build_tool_registry
+from mobilerun.agent.utils.tracing_setup import (
     apply_session_context,
     record_langfuse_screenshot,
     setup_tracing,
 )
-from droidrun.agent.utils.trajectory import Trajectory
-from droidrun.config_manager.config_manager import (
+from mobilerun.agent.utils.trajectory import Trajectory
+from mobilerun.config_manager.config_manager import (
     AgentConfig,
     CredentialsConfig,
     DeviceConfig,
@@ -63,36 +63,36 @@ from droidrun.config_manager.config_manager import (
     ToolsConfig,
     TracingConfig,
 )
-from droidrun.credential_manager import CredentialManager, FileCredentialManager
-from droidrun.log_handlers import CLILogHandler, configure_logging
-from droidrun.mcp.adapter import mcp_to_droidrun_tools
-from droidrun.mcp.client import MCPClientManager
-from droidrun.mcp.config import MCPConfig
-from droidrun.portal import ensure_portal_ready
-from droidrun.telemetry import (
-    DroidAgentFinalizeEvent,
-    DroidAgentInitEvent,
+from mobilerun.credential_manager import CredentialManager, FileCredentialManager
+from mobilerun.log_handlers import CLILogHandler, configure_logging
+from mobilerun.mcp.adapter import mcp_to_mobilerun_tools
+from mobilerun.mcp.client import MCPClientManager
+from mobilerun.mcp.config import MCPConfig
+from mobilerun.portal import ensure_portal_ready
+from mobilerun.telemetry import (
+    MobileAgentFinalizeEvent,
+    MobileAgentInitEvent,
     capture,
     flush,
 )
-from droidrun.tools.driver.android import AndroidDriver
-from droidrun.tools.driver.base import DeviceDisconnectedError
-from droidrun.tools.driver.ios import IOSDriver, discover_ios_portal
-from droidrun.tools.driver.recording import RecordingDriver
-from droidrun.tools.driver.stealth import StealthDriver
-from droidrun.tools.filters import ConciseFilter, DetailedFilter
-from droidrun.tools.formatters import IndexedFormatter
-from droidrun.tools.ui.ios_provider import IOSStateProvider
-from droidrun.tools.ui.provider import AndroidStateProvider
+from mobilerun.tools.driver.android import AndroidDriver
+from mobilerun.tools.driver.base import DeviceDisconnectedError
+from mobilerun.tools.driver.ios import IOSDriver, discover_ios_portal
+from mobilerun.tools.driver.recording import RecordingDriver
+from mobilerun.tools.driver.stealth import StealthDriver
+from mobilerun.tools.filters import ConciseFilter, DetailedFilter
+from mobilerun.tools.formatters import IndexedFormatter
+from mobilerun.tools.ui.ios_provider import IOSStateProvider
+from mobilerun.tools.ui.provider import AndroidStateProvider
 
 if TYPE_CHECKING:
-    from droidrun.tools.driver.base import DeviceDriver
-    from droidrun.tools.ui.provider import StateProvider
+    from mobilerun.tools.driver.base import DeviceDriver
+    from mobilerun.tools.ui.provider import StateProvider
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 
-class DroidAgent(Workflow):
+class MobileAgent(Workflow):
     """
     A wrapper class that coordinates between agents to achieve a user's goal.
 
@@ -104,7 +104,7 @@ class DroidAgent(Workflow):
     @staticmethod
     def _configure_default_logging(debug: bool = False):
         """
-        Configure default logging for DroidAgent if no real handler is present.
+        Configure default logging for MobileAgent if no real handler is present.
         """
         has_real_handler = any(
             not isinstance(h, logging.NullHandler) for h in logger.handlers
@@ -136,7 +136,7 @@ class DroidAgent(Workflow):
     ):
         self.user_id = kwargs.pop("user_id", None)
         self.runtype = kwargs.pop("runtype", "developer")
-        self.shared_state = DroidAgentState(
+        self.shared_state = MobileAgentState(
             instruction=goal,
             err_to_manager_thresh=2,
             user_id=self.user_id,
@@ -196,10 +196,10 @@ class DroidAgent(Workflow):
         setup_tracing(self.config.tracing, agent=self)
 
         # Check if using external agent - skip LLM loading
-        self._using_external_agent = self.config.agent.name != "droidrun"
+        self._using_external_agent = self.config.agent.name != "mobilerun"
 
         self._stream_screenshots = os.environ.get(
-            "DROIDRUN_STREAM_SCREENSHOTS", ""
+            "MOBILERUN_STREAM_SCREENSHOTS", ""
         ).lower() in ("1", "true")
 
         self.timeout = timeout
@@ -210,7 +210,7 @@ class DroidAgent(Workflow):
         # Initialize MCP manager (connections made lazily in start_handler)
         self.mcp_manager = None
 
-        # Only load LLMs for native Droidrun agents
+        # Only load LLMs for native Mobilerun agents
         if not self._using_external_agent:
             if llms is None:
                 if config is None:
@@ -309,7 +309,7 @@ class DroidAgent(Workflow):
         self._init_prompts = prompts  # stash for telemetry
         self._init_timeout = timeout
 
-        logger.debug("✅ DroidAgent initialized successfully.")
+        logger.debug("✅ MobileAgent initialized successfully.")
 
     def run(self, *args, **kwargs) -> Awaitable[ResultEvent] | WorkflowHandler:
         apply_session_context()
@@ -325,7 +325,7 @@ class DroidAgent(Workflow):
         self, ctx: Context, ev: StartEvent
     ) -> FastAgentExecuteEvent | ManagerInputEvent:
         logger.info(
-            f"🚀 Running DroidAgent to achieve goal: {self.shared_state.instruction}"
+            f"🚀 Running MobileAgent to achieve goal: {self.shared_state.instruction}"
         )
         ctx.write_event_to_stream(ev)
 
@@ -339,7 +339,7 @@ class DroidAgent(Workflow):
             # Load the agent module
             agent_module = load_agent(agent_name)
             if not agent_module:
-                from droidrun.agent.external import list_agents
+                from mobilerun.agent.external import list_agents
 
                 available = list_agents()
                 if available:
@@ -351,7 +351,7 @@ class DroidAgent(Workflow):
                 raise ValueError(
                     f"External agent '{agent_name}' not found.\n"
                     "No external agents are currently installed.\n"
-                    "Run: droidrun run --help  to see available agents."
+                    "Run: mobilerun run --help  to see available agents."
                 )
 
             # Resolve config — missing section is fine, agent may use DEFAULT_CONFIG or env vars
@@ -461,7 +461,7 @@ class DroidAgent(Workflow):
         if self.config.mcp and self.config.mcp.enabled:
             self.mcp_manager = MCPClientManager(self.config.mcp)
             await self.mcp_manager.discover_tools()
-            mcp_tools = mcp_to_droidrun_tools(self.mcp_manager)
+            mcp_tools = mcp_to_mobilerun_tools(self.mcp_manager)
             if mcp_tools:
                 registry.register_from_dict(mcp_tools)
 
@@ -507,7 +507,7 @@ class DroidAgent(Workflow):
 
         # ── 7. Telemetry init event ───────────────────────────────────
         capture(
-            DroidAgentInitEvent(
+            MobileAgentInitEvent(
                 goal=self.shared_state.instruction,
                 llms={
                     "manager": (
@@ -649,7 +649,7 @@ class DroidAgent(Workflow):
             return FinalizeEvent(success=ev.success, reason=ev.reason)
 
         except Exception as e:
-            logger.error(f"❌ Error during DroidAgent execution: {e}")
+            logger.error(f"❌ Error during MobileAgent execution: {e}")
             if self.config.logging.debug:
                 logger.error(traceback.format_exc())
             return FinalizeEvent(
@@ -795,7 +795,7 @@ class DroidAgent(Workflow):
         self.shared_state.workflow_completed = True
         ctx.write_event_to_stream(ev)
         capture(
-            DroidAgentFinalizeEvent(
+            MobileAgentFinalizeEvent(
                 success=ev.success,
                 reason=ev.reason,
                 steps=self.shared_state.step_number,

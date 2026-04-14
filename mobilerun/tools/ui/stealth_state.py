@@ -10,7 +10,7 @@ from __future__ import annotations
 import random
 from typing import Tuple
 
-from droidrun.tools.ui.state import UIState
+from mobilerun.tools.ui.state import UIState
 
 
 class StealthUIState(UIState):

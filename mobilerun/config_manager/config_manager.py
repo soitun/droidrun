@@ -5,10 +5,10 @@ from typing import Any, Dict, List, Literal, Optional
 
 import yaml
 
-from droidrun.agent.providers.registry import VARIANT_ENV_KEY_SLOT
-from droidrun.config_manager.env_keys import API_KEY_ENV_VARS, load_env_key_sources
-from droidrun.config_manager.path_resolver import PathResolver
-from droidrun.mcp.config import MCPConfig, MCPServerConfig
+from mobilerun.agent.providers.registry import VARIANT_ENV_KEY_SLOT
+from mobilerun.config_manager.env_keys import API_KEY_ENV_VARS, load_env_key_sources
+from mobilerun.config_manager.path_resolver import PathResolver
+from mobilerun.mcp.config import MCPConfig, MCPServerConfig
 
 
 # ---------- Config Schema ----------
@@ -108,7 +108,7 @@ class AppCardConfig:
 
 @dataclass
 class AgentConfig:
-    name: str = "droidrun"
+    name: str = "mobilerun"
     max_steps: int = 15
     reasoning: bool = False
     streaming: bool = True
@@ -200,7 +200,7 @@ class CredentialsConfig:
 
 @dataclass
 class DroidConfig:
-    """Complete Droidrun configuration schema."""
+    """Complete Mobilerun configuration schema."""
 
     agent: AgentConfig = field(default_factory=AgentConfig)
     llm_profiles: Dict[str, LLMProfile] = field(default_factory=dict)
@@ -295,7 +295,7 @@ class DroidConfig:
         )
 
         agent_config = AgentConfig(
-            name=agent_data.get("name", "droidrun"),
+            name=agent_data.get("name", "mobilerun"),
             max_steps=agent_data.get("max_steps", 15),
             reasoning=agent_data.get("reasoning", False),
             streaming=agent_data.get("streaming", False),

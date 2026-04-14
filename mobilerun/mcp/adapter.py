@@ -1,15 +1,15 @@
-"""Adapter to convert MCP tools to Droidrun custom tool format."""
+"""Adapter to convert MCP tools to Mobilerun custom tool format."""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from droidrun.mcp.client import MCPClientManager
+    from mobilerun.mcp.client import MCPClientManager
 
 
 def schema_to_parameters(input_schema: dict) -> dict[str, dict[str, Any]]:
-    """Convert JSON Schema properties to Droidrun parameters format.
+    """Convert JSON Schema properties to Mobilerun parameters format.
 
     Args:
         input_schema: JSON Schema with "properties" and "required" fields.
@@ -35,8 +35,8 @@ def schema_to_parameters(input_schema: dict) -> dict[str, dict[str, Any]]:
     return parameters
 
 
-def mcp_to_droidrun_tools(mcp_manager: "MCPClientManager") -> dict[str, dict[str, Any]]:
-    """Convert discovered MCP tools to Droidrun custom tool format."""
+def mcp_to_mobilerun_tools(mcp_manager: "MCPClientManager") -> dict[str, dict[str, Any]]:
+    """Convert discovered MCP tools to Mobilerun custom tool format."""
     custom_tools: dict[str, dict[str, Any]] = {}
 
     for tool_name, tool_info in mcp_manager.tools.items():

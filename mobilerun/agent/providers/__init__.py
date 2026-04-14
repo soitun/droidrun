@@ -1,4 +1,4 @@
-from droidrun.agent.providers.registry import (
+from mobilerun.agent.providers.registry import (
     VARIANT_ENV_KEY_SLOT,
     get_provider_family,
     list_auth_modes,
@@ -6,7 +6,7 @@ from droidrun.agent.providers.registry import (
     list_provider_families,
     resolve_provider_variant,
 )
-from droidrun.agent.providers.types import (
+from mobilerun.agent.providers.types import (
     ProviderFamilySpec,
     ProviderVariantSpec,
 )

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from droidrun.agent.providers.types import (
+from mobilerun.agent.providers.types import (
     ProviderFamilySpec,
     ProviderVariantSpec,
 )
-from droidrun.config_manager.credential_paths import (
+from mobilerun.config_manager.credential_paths import (
     ANTHROPIC_OAUTH_CREDENTIAL_PATH,
     GEMINI_OAUTH_CREDENTIAL_PATH,
     OPENAI_OAUTH_CREDENTIAL_PATH,

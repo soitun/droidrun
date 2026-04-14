@@ -5,7 +5,7 @@ This module provides logic to resolve prompts from either:
 1. Custom prompt strings (Jinja2 templates passed at runtime)
 2. File paths (default behavior via AgentConfig)
 
-This keeps the DroidAgent clean and separates prompt resolution logic.
+This keeps the MobileAgent clean and separates prompt resolution logic.
 """
 
 from typing import Dict, Optional

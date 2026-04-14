@@ -10,12 +10,12 @@ import logging
 from typing import TYPE_CHECKING, List
 
 if TYPE_CHECKING:
-    from droidrun.agent.action_context import ActionContext
+    from mobilerun.agent.action_context import ActionContext
 
-from droidrun.agent.action_result import ActionResult
-from droidrun.agent.oneflows.app_starter_workflow import AppStarter
+from mobilerun.agent.action_result import ActionResult
+from mobilerun.agent.oneflows.app_starter_workflow import AppStarter
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 
 # ---------------------------------------------------------------------------

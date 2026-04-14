@@ -1,15 +1,15 @@
-from droidrun.telemetry.events import (
-    DroidAgentFinalizeEvent,
-    DroidAgentInitEvent,
+from mobilerun.telemetry.events import (
+    MobileAgentFinalizeEvent,
+    MobileAgentInitEvent,
     PackageVisitEvent,
 )
-from droidrun.telemetry.tracker import capture, flush, print_telemetry_message
+from mobilerun.telemetry.tracker import capture, flush, print_telemetry_message
 
 __all__ = [
     "capture",
     "flush",
-    "DroidAgentInitEvent",
+    "MobileAgentInitEvent",
     "PackageVisitEvent",
-    "DroidAgentFinalizeEvent",
+    "MobileAgentFinalizeEvent",
     "print_telemetry_message",
 ]

@@ -2,17 +2,17 @@
 Macro Replay Module - Replay recorded UI automation sequences.
 
 This module provides functionality to load and replay macro JSON files
-that were generated during DroidAgent trajectory recording.
+that were generated during MobileAgent trajectory recording.
 """
 
 import asyncio
 import logging
 from typing import Any, Dict, Optional
 
-from droidrun.agent.utils.trajectory import Trajectory
-from droidrun.tools.driver.android import AndroidDriver
+from mobilerun.agent.utils.trajectory import Trajectory
+from mobilerun.tools.driver.android import AndroidDriver
 
-logger = logging.getLogger("droidrun-macro")
+logger = logging.getLogger("mobilerun-macro")
 
 # Reverse map for legacy key_press macro entries
 _KEYCODE_TO_BUTTON = {4: "back", 3: "home", 66: "enter"}
@@ -20,7 +20,7 @@ _KEYCODE_TO_BUTTON = {4: "back", 3: "home", 66: "enter"}
 
 class MacroPlayer:
     """
-    A class for loading and replaying Droidrun macro sequences.
+    A class for loading and replaying Mobilerun macro sequences.
 
     This player can execute recorded UI actions (taps, swipes, text input, key presses)
     on Android devices using AndroidDriver.

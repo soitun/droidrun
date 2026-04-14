@@ -11,9 +11,9 @@ from llama_index.core.base.llms.types import (
 from llama_index.core.prompts import PromptTemplate
 from pydantic import BaseModel
 
-from droidrun.agent.utils.minimax_vision import aminimax_vision_chat
+from mobilerun.agent.utils.minimax_vision import aminimax_vision_chat
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 T = TypeVar("T", bound=BaseModel)
 

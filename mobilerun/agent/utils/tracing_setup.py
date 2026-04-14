@@ -1,5 +1,5 @@
 """
-Tracing setup utility for DroidAgent.
+Tracing setup utility for MobileAgent.
 
 This module provides a centralized way to configure tracing providers
 (Phoenix, Langfuse, etc.) based on the TracingConfig.
@@ -13,9 +13,9 @@ import base64
 
 import llama_index.core
 
-from droidrun.config_manager.config_manager import TracingConfig
+from mobilerun.config_manager.config_manager import TracingConfig
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 _default_session_id: str = str(uuid4())
 _session_id: str = _default_session_id
@@ -49,7 +49,7 @@ def setup_tracing(
             f"🔍 Tracing already initialized with {_tracing_provider}, skipping setup"
         )
         if provider == "langfuse" and agent:
-            from droidrun.telemetry.langfuse_processor import set_current_agent
+            from mobilerun.telemetry.langfuse_processor import set_current_agent
 
             set_current_agent(agent)
         return
@@ -86,13 +86,13 @@ def _check_phoenix_reachable(endpoint: str, timeout: float = 3.0) -> bool:
 def _setup_phoenix_tracing() -> bool:
     """Set up Arize Phoenix tracing. Returns True if successful."""
     try:
-        from droidrun.telemetry.phoenix import arize_phoenix_callback_handler
+        from mobilerun.telemetry.phoenix import arize_phoenix_callback_handler
     except ImportError:
         logger.warning(
             "⚠️  Arize Phoenix is not installed.\n"
             "    To enable Phoenix integration, install with:\n"
-            "    • If installed via tool: `uv tool install droidrun[phoenix]`"
-            "    • If installed via pip: `uv pip install droidrun[phoenix]`\n"
+            "    • If installed via tool: `uv tool install mobilerun[phoenix]`"
+            "    • If installed via pip: `uv pip install mobilerun[phoenix]`\n"
         )
         return False
 
@@ -118,7 +118,7 @@ def _setup_langfuse_tracing(
 
     Args:
         tracing_config: TracingConfig instance containing Langfuse credentials
-        agent: Optional DroidAgent instance to pass to span processor
+        agent: Optional MobileAgent instance to pass to span processor
     """
 
     try:
@@ -189,7 +189,7 @@ def _setup_langfuse_tracing(
         _handler._encoder = _fixed_encoder
 
         # STEP 4: Add our custom processor (after instrumentation is set up)
-        from droidrun.telemetry.langfuse_processor import (
+        from mobilerun.telemetry.langfuse_processor import (
             LangfuseSpanProcessor,
             set_current_agent,
         )
@@ -208,8 +208,8 @@ def _setup_langfuse_tracing(
         logger.warning(
             "⚠️  Langfuse dependencies are not installed.\n"
             "    To enable Langfuse integration, install with:\n"
-            "    • If installed via tool: `uv tool install droidrun[langfuse]`\n"
-            "    • If installed via pip: `uv pip install droidrun[langfuse]`\n"
+            "    • If installed via tool: `uv tool install mobilerun[langfuse]`\n"
+            "    • If installed via pip: `uv pip install mobilerun[langfuse]`\n"
             f"    Missing: {e.name if hasattr(e, 'name') else str(e)}\n"
         )
 
@@ -251,7 +251,7 @@ def record_langfuse_screenshot(
 
     try:
         from opentelemetry import trace
-        from droidrun.telemetry.langfuse_processor import (
+        from mobilerun.telemetry.langfuse_processor import (
             get_root_span_context,
             get_last_step_span_context,
         )

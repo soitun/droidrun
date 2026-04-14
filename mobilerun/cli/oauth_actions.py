@@ -4,14 +4,14 @@ import json
 import os
 from pathlib import Path
 
-from droidrun.agent.utils.oauth.anthropic_oauth_llm import (
+from mobilerun.agent.utils.oauth.anthropic_oauth_llm import (
     AnthropicOAuthLLM,
     DEFAULT_SETUP_TOKEN_SCOPE,
 )
-from droidrun.agent.utils.oauth.gemini_oauth_code_assist_llm import (
+from mobilerun.agent.utils.oauth.gemini_oauth_code_assist_llm import (
     GeminiOAuthCodeAssistLLM,
 )
-from droidrun.agent.utils.oauth.openai_oauth_llm import (
+from mobilerun.agent.utils.oauth.openai_oauth_llm import (
     DEFAULT_OPENAI_OAUTH_CALLBACK_HOST,
     DEFAULT_OPENAI_OAUTH_CALLBACK_PATH,
     DEFAULT_OPENAI_OAUTH_CALLBACK_PORT,

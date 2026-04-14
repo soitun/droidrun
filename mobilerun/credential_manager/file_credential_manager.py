@@ -3,13 +3,13 @@ from typing import Any, Dict, Optional
 
 import yaml
 
-from droidrun.config_manager.path_resolver import PathResolver
-from droidrun.credential_manager.credential_manager import (
+from mobilerun.config_manager.path_resolver import PathResolver
+from mobilerun.credential_manager.credential_manager import (
     CredentialManager,
     CredentialNotFoundError,
 )
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 
 class FileCredentialManager(CredentialManager):
@@ -34,7 +34,7 @@ class FileCredentialManager(CredentialManager):
 
     def _load(self, credentials: Any) -> Dict[str, str]:
         """Load credentials from dict or file."""
-        from droidrun.config_manager.config_manager import CredentialsConfig
+        from mobilerun.config_manager.config_manager import CredentialsConfig
 
         # Dict mode
         if isinstance(credentials, dict):

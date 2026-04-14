@@ -8,9 +8,9 @@ import logging
 from workflows import Context, Workflow, step
 from workflows.events import StartEvent, StopEvent
 
-from droidrun.agent.utils.inference import acomplete_with_retries
+from mobilerun.agent.utils.inference import acomplete_with_retries
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 
 class AppStarter(Workflow):
@@ -117,7 +117,7 @@ async def main():
     """
     from llama_index.llms.openai import OpenAI
 
-    from droidrun.tools.driver.android import AndroidDriver
+    from mobilerun.tools.driver.android import AndroidDriver
 
     # Initialize driver with device serial (None for default device)
     driver = AndroidDriver(serial=None)

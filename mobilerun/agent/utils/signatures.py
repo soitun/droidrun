@@ -1,9 +1,9 @@
-"""Tool registry builder — single place for all standard droidrun tools."""
+"""Tool registry builder — single place for all standard mobilerun tools."""
 
 import logging
 
-from droidrun.agent.tool_registry import ToolRegistry
-from droidrun.agent.utils.actions import (
+from mobilerun.agent.tool_registry import ToolRegistry
+from mobilerun.agent.utils.actions import (
     click,
     click_area,
     click_at,
@@ -20,7 +20,7 @@ from droidrun.agent.utils.actions import (
     wait,
 )
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 
 async def build_tool_registry(
@@ -28,7 +28,7 @@ async def build_tool_registry(
     credential_manager=None,
     platform: str = "android",
 ) -> tuple[ToolRegistry, set[str]]:
-    """Build a ToolRegistry with all standard droidrun tools.
+    """Build a ToolRegistry with all standard mobilerun tools.
 
     Args:
         supported_buttons: Buttons available for system_button description.
@@ -41,7 +41,7 @@ async def build_tool_registry(
         ``(registry, standard_tool_names)`` where *standard_tool_names* is the
         set of tool names registered here.  The ManagerAgent uses this to
         exclude already-described tools from its ``<custom_actions>`` prompt
-        section.  User/MCP tools added later by DroidAgent will NOT be in
+        section.  User/MCP tools added later by MobileAgent will NOT be in
         this set, so they correctly appear in ``<custom_actions>``.
     """
     registry = ToolRegistry()

@@ -1,5 +1,5 @@
 """
-Telemetry event models for Droidrun analytics.
+Telemetry event models for Mobilerun analytics.
 
 This module defines Pydantic models for telemetry events captured during
 agent execution. All events inherit from TelemetryEvent base class.
@@ -16,8 +16,8 @@ class TelemetryEvent(BaseModel):
     pass
 
 
-class DroidAgentInitEvent(TelemetryEvent):
-    """Event captured when DroidAgent is initialized."""
+class MobileAgentInitEvent(TelemetryEvent):
+    """Event captured when MobileAgent is initialized."""
 
     goal: str
     llms: Dict[str, str]
@@ -43,8 +43,8 @@ class PackageVisitEvent(TelemetryEvent):
     step_number: int
 
 
-class DroidAgentFinalizeEvent(TelemetryEvent):
-    """Event captured when DroidAgent execution completes."""
+class MobileAgentFinalizeEvent(TelemetryEvent):
+    """Event captured when MobileAgent execution completes."""
 
     success: bool
     reason: str

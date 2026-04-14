@@ -7,10 +7,10 @@ from textual.containers import HorizontalGroup, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, TabbedContent, TabPane
 
-from droidrun.cli.tui.settings.agent_tab import AgentTab
-from droidrun.cli.tui.settings.advanced_tab import AdvancedTab
-from droidrun.cli.tui.settings.data import SettingsData
-from droidrun.cli.tui.settings.models_tab import ModelsTab
+from mobilerun.cli.tui.settings.agent_tab import AgentTab
+from mobilerun.cli.tui.settings.advanced_tab import AdvancedTab
+from mobilerun.cli.tui.settings.data import SettingsData
+from mobilerun.cli.tui.settings.models_tab import ModelsTab
 
 
 class SettingsScreen(ModalScreen[SettingsData | None]):

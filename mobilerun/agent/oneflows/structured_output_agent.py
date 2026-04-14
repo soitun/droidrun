@@ -13,9 +13,9 @@ from llama_index.core.prompts import PromptTemplate
 from llama_index.core.workflow import Context, StartEvent, StopEvent, Workflow, step
 from pydantic import BaseModel
 
-from droidrun.agent.utils.inference import astructured_predict_with_retries
+from mobilerun.agent.utils.inference import astructured_predict_with_retries
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 
 class StructuredOutputAgent(Workflow):

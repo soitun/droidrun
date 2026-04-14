@@ -1,4 +1,4 @@
-from droidrun.config_manager.config_manager import (
+from mobilerun.config_manager.config_manager import (
     AgentConfig,
     AppCardConfig,
     FastAgentConfig,
@@ -13,9 +13,9 @@ from droidrun.config_manager.config_manager import (
     ToolsConfig,
     TracingConfig,
 )
-from droidrun.config_manager.loader import ConfigLoader, OutdatedConfigError
-from droidrun.config_manager.path_resolver import PathResolver
-from droidrun.config_manager.prompt_loader import PromptLoader
+from mobilerun.config_manager.loader import ConfigLoader, OutdatedConfigError
+from mobilerun.config_manager.path_resolver import PathResolver
+from mobilerun.config_manager.prompt_loader import PromptLoader
 
 __all__ = [
     "DroidConfig",

@@ -33,7 +33,7 @@ from llama_index.core.base.llms.types import ChatMessage, ChatResponse, LLMMetad
 from llama_index.llms.openai import OpenAI
 from llama_index.llms.openai.base import llm_retry_decorator
 from llama_index.llms.openai.utils import to_openai_message_dicts
-from droidrun.config_manager.credential_paths import OPENAI_OAUTH_CREDENTIAL_PATH
+from mobilerun.config_manager.credential_paths import OPENAI_OAUTH_CREDENTIAL_PATH
 
 DEFAULT_OPENAI_OAUTH_ISSUER = "https://auth.openai.com"
 DEFAULT_OPENAI_OAUTH_CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann"

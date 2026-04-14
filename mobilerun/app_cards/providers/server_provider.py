@@ -9,9 +9,9 @@ from typing import Dict
 
 import httpx
 
-from droidrun.app_cards.app_card_provider import AppCardProvider
+from mobilerun.app_cards.app_card_provider import AppCardProvider
 
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 
 class ServerAppCardProvider(AppCardProvider):
