@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from mobilerun.config_manager.config_manager import DroidConfig
+    from mobilerun.config_manager.config_manager import MobileConfig
 
 from mobilerun.agent.providers.registry import VARIANT_ENV_KEY_SLOT
 from mobilerun.config_manager.env_keys import load_env_key_sources, save_env_keys
@@ -93,8 +93,8 @@ class SettingsData:
     wait_for_stable_ui: float = 0.3
 
     @classmethod
-    def from_config(cls, config: DroidConfig) -> SettingsData:
-        """Build settings from a loaded DroidConfig."""
+    def from_config(cls, config: MobileConfig) -> SettingsData:
+        """Build settings from a loaded MobileConfig."""
         llm_profiles = config.llm_profiles or {}
         env_key_sources = load_env_key_sources()
 
@@ -182,9 +182,9 @@ class SettingsData:
         try:
             config = ConfigLoader.load()
         except Exception:
-            from mobilerun.config_manager.config_manager import DroidConfig
+            from mobilerun.config_manager.config_manager import MobileConfig
 
-            config = DroidConfig()
+            config = MobileConfig()
 
         self.apply_to_config(config)
         ConfigLoader.save(config)
@@ -229,8 +229,8 @@ class SettingsData:
             cp.api_base = None
         cp.kwargs = SettingsData._build_kwargs(ps)
 
-    def apply_to_config(self, config: DroidConfig) -> None:
-        """Apply all TUI settings onto a DroidConfig, in place."""
+    def apply_to_config(self, config: MobileConfig) -> None:
+        """Apply all TUI settings onto a MobileConfig, in place."""
         for role, ps in self.profiles.items():
             if role not in config.llm_profiles:
                 continue

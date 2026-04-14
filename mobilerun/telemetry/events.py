@@ -51,3 +51,8 @@ class MobileAgentFinalizeEvent(TelemetryEvent):
     steps: int
     unique_packages_count: int
     unique_activities_count: int
+
+
+# Legacy aliases — deprecated, will be removed in v0.8.0
+DroidAgentInitEvent = MobileAgentInitEvent
+DroidAgentFinalizeEvent = MobileAgentFinalizeEvent

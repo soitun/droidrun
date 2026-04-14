@@ -31,7 +31,7 @@ from mobilerun.config_manager import (
     CredentialsConfig,
     # Feature configs
     DeviceConfig,
-    DroidConfig,
+    MobileConfig,
     ExecutorConfig,
     LLMProfile,
     LoggingConfig,
@@ -60,7 +60,7 @@ __all__ = [
     "replay_macro_file",
     "replay_macro_folder",
     # Configuration
-    "DroidConfig",
+    "MobileConfig",
     "AgentConfig",
     "FastAgentConfig",
     "ManagerConfig",
@@ -74,3 +74,25 @@ __all__ = [
     "CredentialsConfig",
     "LLMProfile",
 ]
+
+# Legacy aliases — deprecated, will be removed in v0.8.0
+_LEGACY_ALIASES = {
+    "DroidAgent": "MobileAgent",
+    "DroidAgentState": "MobileAgentState",
+    "DroidConfig": "MobileConfig",
+}
+
+
+def __getattr__(name):
+    if name in _LEGACY_ALIASES:
+        import warnings
+
+        new_name = _LEGACY_ALIASES[name]
+        warnings.warn(
+            f"{name} has been renamed to {new_name}. "
+            f"Update your code to use {new_name}.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return globals()[new_name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

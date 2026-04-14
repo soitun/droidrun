@@ -48,7 +48,7 @@ BANNER = """[#CAD3F6]
 [#838BBC]Type a command or [bold]/[/bold] for options[/#838BBC]"""
 
 
-class DroidTUI(App):
+class MobileTUI(App):
 
     ALLOW_SELECT = False
     CSS_PATH = "css/app.tcss"

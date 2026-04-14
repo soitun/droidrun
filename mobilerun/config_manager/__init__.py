@@ -4,7 +4,8 @@ from mobilerun.config_manager.config_manager import (
     FastAgentConfig,
     CredentialsConfig,
     DeviceConfig,
-    DroidConfig,
+    MobileConfig,
+    DroidConfig,  # Legacy alias
     ExecutorConfig,
     LLMProfile,
     LoggingConfig,
@@ -18,6 +19,7 @@ from mobilerun.config_manager.path_resolver import PathResolver
 from mobilerun.config_manager.prompt_loader import PromptLoader
 
 __all__ = [
+    "MobileConfig",
     "DroidConfig",
     "LLMProfile",
     "AgentConfig",

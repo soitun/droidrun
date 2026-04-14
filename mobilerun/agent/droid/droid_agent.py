@@ -57,7 +57,7 @@ from mobilerun.config_manager.config_manager import (
     AgentConfig,
     CredentialsConfig,
     DeviceConfig,
-    DroidConfig,
+    MobileConfig,
     LoggingConfig,
     TelemetryConfig,
     ToolsConfig,
@@ -121,7 +121,7 @@ class MobileAgent(Workflow):
     def __init__(
         self,
         goal: str,
-        config: DroidConfig | None = None,
+        config: MobileConfig | None = None,
         llms: dict[str, LLM] | LLM | None = None,
         custom_tools: dict = None,
         credentials: Union[dict, "CredentialManager", None] = None,
@@ -168,7 +168,7 @@ class MobileAgent(Workflow):
 
         self.resolved_device_config = config.device if config else DeviceConfig()
 
-        self.config = DroidConfig(
+        self.config = MobileConfig(
             agent=config.agent if config else AgentConfig(),
             device=self.resolved_device_config,
             tools=config.tools if config else ToolsConfig(),
@@ -196,10 +196,13 @@ class MobileAgent(Workflow):
         setup_tracing(self.config.tracing, agent=self)
 
         # Check if using external agent - skip LLM loading
-        self._using_external_agent = self.config.agent.name != "mobilerun"
+        _BUILTIN_AGENT_NAMES = {"mobilerun", "droidrun"}
+        self._using_external_agent = self.config.agent.name not in _BUILTIN_AGENT_NAMES
 
-        self._stream_screenshots = os.environ.get(
-            "MOBILERUN_STREAM_SCREENSHOTS", ""
+        self._stream_screenshots = (
+            os.environ.get("MOBILERUN_STREAM_SCREENSHOTS")
+            or os.environ.get("DROIDRUN_STREAM_SCREENSHOTS")
+            or ""
         ).lower() in ("1", "true")
 
         self.timeout = timeout
@@ -918,3 +921,7 @@ class MobileAgent(Workflow):
                     self.trajectory.ui_states.append(ev.ui_state)
                 else:
                     self.trajectory.events.append(ev)
+
+
+# Legacy alias — deprecated, will be removed in v0.8.0
+DroidAgent = MobileAgent

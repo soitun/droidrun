@@ -199,7 +199,7 @@ class CredentialsConfig:
 
 
 @dataclass
-class DroidConfig:
+class MobileConfig:
     """Complete Mobilerun configuration schema."""
 
     agent: AgentConfig = field(default_factory=AgentConfig)
@@ -264,7 +264,7 @@ class DroidConfig:
         return result
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "DroidConfig":
+    def from_dict(cls, data: Dict[str, Any]) -> "MobileConfig":
         """Create config from dictionary."""
         # Parse LLM profiles
         llm_profiles = {}
@@ -346,7 +346,7 @@ class DroidConfig:
         )
 
     @classmethod
-    def from_yaml(cls, path: str) -> "DroidConfig":
+    def from_yaml(cls, path: str) -> "MobileConfig":
         """
         Load config from YAML file.
 
@@ -354,7 +354,7 @@ class DroidConfig:
             path: Path to config file (relative to CWD or absolute)
 
         Returns:
-            DroidConfig instance
+            MobileConfig instance
 
         Raises:
             FileNotFoundError: If file doesn't exist
@@ -363,3 +363,7 @@ class DroidConfig:
         with open(path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
         return cls.from_dict(data)
+
+
+# Legacy alias — deprecated, will be removed in v0.8.0
+DroidConfig = MobileConfig

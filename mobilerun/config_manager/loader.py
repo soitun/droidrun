@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional
 import platformdirs
 import yaml
 
-from .config_manager import DroidConfig
+from .config_manager import MobileConfig
 from .migrations import CURRENT_VERSION, migrate
 
 
@@ -34,7 +34,7 @@ class ConfigLoader:
         return cls.get_user_config_dir() / cls.CONFIG_FILE
 
     @classmethod
-    def load(cls, config_path: Optional[str] = None) -> DroidConfig:
+    def load(cls, config_path: Optional[str] = None) -> MobileConfig:
         """
         Load config with resolution order:
         1. Explicit config_path argument
@@ -45,7 +45,14 @@ class ConfigLoader:
         if config_path:
             return cls._load_user_config(Path(config_path))
 
-        env_config = os.environ.get("MOBILERUN_CONFIG")
+        env_config = os.environ.get("MOBILERUN_CONFIG") or os.environ.get("DROIDRUN_CONFIG")
+        if os.environ.get("DROIDRUN_CONFIG") and not os.environ.get("MOBILERUN_CONFIG"):
+            import warnings
+            warnings.warn(
+                "DROIDRUN_CONFIG is deprecated. Use MOBILERUN_CONFIG instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
         if env_config and Path(env_config).exists():
             return cls._load_user_config(Path(env_config))
 
@@ -57,7 +64,7 @@ class ConfigLoader:
         return cls._init_user_config()
 
     @classmethod
-    def _load_user_config(cls, user_config_path: Path) -> DroidConfig:
+    def _load_user_config(cls, user_config_path: Path) -> MobileConfig:
         """Load user config and run migrations."""
         with open(user_config_path, "r", encoding="utf-8") as f:
             user_dict = yaml.safe_load(f) or {}
@@ -75,17 +82,17 @@ class ConfigLoader:
         if user_dict.get("_version", 0) > old_version:
             cls._save_dict(user_dict, user_config_path)
 
-        return DroidConfig.from_dict(user_dict)
+        return MobileConfig.from_dict(user_dict)
 
     @classmethod
-    def _init_user_config(cls) -> DroidConfig:
+    def _init_user_config(cls) -> MobileConfig:
         """Create user config from defaults on first run."""
-        config = DroidConfig()
+        config = MobileConfig()
         cls.save(config)
         return config
 
     @classmethod
-    def save(cls, config: DroidConfig) -> Path:
+    def save(cls, config: MobileConfig) -> Path:
         """Save config to user config path."""
         config_dict = config.to_dict()
         config_dict["_version"] = CURRENT_VERSION

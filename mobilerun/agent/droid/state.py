@@ -197,3 +197,7 @@ class MobileAgentState(BaseModel):
             ),
             user_id=self.user_id,
         )
+
+
+# Legacy alias — deprecated, will be removed in v0.8.0
+DroidAgentState = MobileAgentState

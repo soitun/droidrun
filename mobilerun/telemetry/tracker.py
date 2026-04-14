@@ -41,7 +41,11 @@ def is_telemetry_enabled():
         True if DROIDRUN_TELEMETRY_ENABLED is set to true/1/yes/y (case-insensitive),
         or if the environment variable is not set (default is enabled).
     """
-    telemetry_enabled = os.environ.get("DROIDRUN_TELEMETRY_ENABLED", "true")
+    telemetry_enabled = (
+        os.environ.get("MOBILERUN_TELEMETRY_ENABLED")
+        or os.environ.get("DROIDRUN_TELEMETRY_ENABLED")
+        or "true"
+    )
     enabled = telemetry_enabled.lower() in ["true", "1", "yes", "y"]
     logger.debug(f"Telemetry enabled: {enabled}")
     return enabled
