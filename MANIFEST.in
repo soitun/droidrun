@@ -2,6 +2,6 @@ include LICENSE
 include README.md
 include pyproject.toml
 
-recursive-include droidrun *
+recursive-include mobilerun *
 recursive-exclude * __pycache__
 recursive-exclude * *.py[cod] 
