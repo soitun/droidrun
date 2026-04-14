@@ -54,7 +54,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: testpypi
-      url: https://test.pypi.org/p/droidrun
+      url: https://test.pypi.org/p/mobilerun
     permissions:
       id-token: write
     steps:
@@ -77,7 +77,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/p/droidrun
+      url: https://pypi.org/p/mobilerun
     permissions:
       id-token: write
     steps:
