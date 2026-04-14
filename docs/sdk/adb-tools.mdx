@@ -4,7 +4,7 @@ title: AndroidDriver
 
 Raw Android device I/O via ADB + Portal.
 
-<a id="droidrun.tools.driver.android.AndroidDriver"></a>
+<a id="mobilerun.tools.driver.android.AndroidDriver"></a>
 
 ## AndroidDriver
 
@@ -12,11 +12,11 @@ Raw Android device I/O via ADB + Portal.
 class AndroidDriver(DeviceDriver)
 ```
 
-Raw Android device I/O via ADB and the Droidrun Portal app.
+Raw Android device I/O via ADB and the Mobilerun Portal app.
 
-AndroidDriver provides low-level device communication for Android devices through ADB (Android Debug Bridge). It supports both TCP communication and content provider modes via the Droidrun Portal app. AndroidDriver declares its capabilities in the `supported` set, and unsupported methods raise `NotImplementedError`.
+AndroidDriver provides low-level device communication for Android devices through ADB (Android Debug Bridge). It supports both TCP communication and content provider modes via the Mobilerun Portal app. AndroidDriver declares its capabilities in the `supported` set, and unsupported methods raise `NotImplementedError`.
 
-<a id="droidrun.tools.driver.android.AndroidDriver.__init__"></a>
+<a id="mobilerun.tools.driver.android.AndroidDriver.__init__"></a>
 
 #### AndroidDriver.\_\_init\_\_
 
@@ -39,7 +39,7 @@ Initialize the AndroidDriver instance.
 **Usage:**
 
 ```python
-from droidrun.tools import AndroidDriver
+from mobilerun.tools import AndroidDriver
 
 # Auto-detect device
 driver = AndroidDriver()
@@ -64,7 +64,7 @@ AndroidDriver.supported_buttons = {"back", "home", "enter"}
 ```
 
 **Notes:**
-- Automatically sets up the Droidrun Portal keyboard on `connect()` via `setup_keyboard()`
+- Automatically sets up the Mobilerun Portal keyboard on `connect()` via `setup_keyboard()`
 - Creates a PortalClient instance that handles TCP/content provider communication
 - Device serial can be emulator name, USB serial, or TCP/IP address:port
 - Must call `connect()` or `ensure_connected()` before using any methods
@@ -73,7 +73,7 @@ AndroidDriver.supported_buttons = {"back", "home", "enter"}
 
 ## Lifecycle Methods
 
-<a id="droidrun.tools.driver.android.AndroidDriver.connect"></a>
+<a id="mobilerun.tools.driver.android.AndroidDriver.connect"></a>
 
 #### AndroidDriver.connect
 
@@ -90,7 +90,7 @@ driver = AndroidDriver(serial="emulator-5554")
 await driver.connect()
 ```
 
-<a id="droidrun.tools.driver.android.AndroidDriver.ensure_connected"></a>
+<a id="mobilerun.tools.driver.android.AndroidDriver.ensure_connected"></a>
 
 #### AndroidDriver.ensure\_connected
 
@@ -104,7 +104,7 @@ Connect if not already connected. Safe to call multiple times.
 
 ## Input Action Methods
 
-<a id="droidrun.tools.driver.android.AndroidDriver.tap"></a>
+<a id="mobilerun.tools.driver.android.AndroidDriver.tap"></a>
 
 #### AndroidDriver.tap
 
@@ -125,7 +125,7 @@ Tap at absolute pixel coordinates on the device screen.
 await driver.tap(540, 960)
 ```
 
-<a id="droidrun.tools.driver.android.AndroidDriver.swipe"></a>
+<a id="mobilerun.tools.driver.android.AndroidDriver.swipe"></a>
 
 #### AndroidDriver.swipe
 
@@ -163,7 +163,7 @@ await driver.swipe(800, 960, 200, 960, duration_ms=250)
 - Duration is converted to seconds internally (dividing by 1000)
 - Includes an async sleep matching the swipe duration for UI settling
 
-<a id="droidrun.tools.driver.android.AndroidDriver.input_text"></a>
+<a id="mobilerun.tools.driver.android.AndroidDriver.input_text"></a>
 
 #### AndroidDriver.input\_text
 
@@ -193,10 +193,10 @@ success = await driver.input_text("New text", clear=True)
 ```
 
 **Notes:**
-- Uses the Droidrun Portal app keyboard for reliable text input via PortalClient
+- Uses the Mobilerun Portal app keyboard for reliable text input via PortalClient
 - Supports Unicode characters and special characters
 
-<a id="droidrun.tools.driver.android.AndroidDriver.press_button"></a>
+<a id="mobilerun.tools.driver.android.AndroidDriver.press_button"></a>
 
 #### AndroidDriver.press\_button
 
@@ -222,7 +222,7 @@ await driver.press_button("home")
 await driver.press_button("back")
 ```
 
-<a id="droidrun.tools.driver.android.AndroidDriver.drag"></a>
+<a id="mobilerun.tools.driver.android.AndroidDriver.drag"></a>
 
 #### AndroidDriver.drag
 
@@ -253,7 +253,7 @@ Drag from (x1, y1) to (x2, y2).
 
 ## App Management Methods
 
-<a id="droidrun.tools.driver.android.AndroidDriver.start_app"></a>
+<a id="mobilerun.tools.driver.android.AndroidDriver.start_app"></a>
 
 #### AndroidDriver.start\_app
 
@@ -284,7 +284,7 @@ result = await driver.start_app("com.android.settings")
 result = await driver.start_app("com.android.settings", ".Settings")
 ```
 
-<a id="droidrun.tools.driver.android.AndroidDriver.install_app"></a>
+<a id="mobilerun.tools.driver.android.AndroidDriver.install_app"></a>
 
 #### AndroidDriver.install\_app
 
@@ -311,7 +311,7 @@ result = await driver.install_app("/path/to/app.apk")
 result = await driver.install_app("/path/to/app.apk", reinstall=True)
 ```
 
-<a id="droidrun.tools.driver.android.AndroidDriver.list_packages"></a>
+<a id="mobilerun.tools.driver.android.AndroidDriver.list_packages"></a>
 
 #### AndroidDriver.list\_packages
 
@@ -329,7 +329,7 @@ Return installed package names.
 
 - `List[str]` - List of package names
 
-<a id="droidrun.tools.driver.android.AndroidDriver.get_apps"></a>
+<a id="mobilerun.tools.driver.android.AndroidDriver.get_apps"></a>
 
 #### AndroidDriver.get\_apps
 
@@ -351,7 +351,7 @@ Return installed apps as list of dicts with 'package' and 'label' keys.
 
 ## State and Observation Methods
 
-<a id="droidrun.tools.driver.android.AndroidDriver.screenshot"></a>
+<a id="mobilerun.tools.driver.android.AndroidDriver.screenshot"></a>
 
 #### AndroidDriver.screenshot
 
@@ -377,7 +377,7 @@ with open("screenshot.png", "wb") as f:
     f.write(png_bytes)
 ```
 
-<a id="droidrun.tools.driver.android.AndroidDriver.get_ui_tree"></a>
+<a id="mobilerun.tools.driver.android.AndroidDriver.get_ui_tree"></a>
 
 #### AndroidDriver.get\_ui\_tree
 
@@ -393,7 +393,7 @@ Returns a dictionary containing both the accessibility tree and phone state data
 
 - `Dict[str, Any]` - Raw UI tree data from the device
 
-<a id="droidrun.tools.driver.android.AndroidDriver.get_date"></a>
+<a id="mobilerun.tools.driver.android.AndroidDriver.get_date"></a>
 
 #### AndroidDriver.get\_date
 
@@ -429,7 +429,7 @@ print(f"Device date: {date}")
 
 ## Notes
 
-- **Portal app required**: The Droidrun Portal app must be installed and accessibility service enabled on the device
+- **Portal app required**: The Mobilerun Portal app must be installed and accessibility service enabled on the device
 - **TCP vs Content Provider**: TCP is faster but requires port forwarding (`adb forward tcp:8080 tcp:8080`). Content provider is the fallback mode using ADB shell commands.
 - **Capability checking**: Check `"method_name" in driver.supported` to determine if a method is available before calling it
 - **Async-only**: All methods are async and must be awaited
@@ -441,7 +441,7 @@ print(f"Device date: {date}")
 
 ```python
 import asyncio
-from droidrun.tools import AndroidDriver
+from mobilerun.tools import AndroidDriver
 
 async def main():
     # Initialize driver
@@ -459,7 +459,7 @@ async def main():
     await driver.tap(540, 300)
 
     # Input text
-    await driver.input_text("Droidrun framework")
+    await driver.input_text("Mobilerun framework")
 
     # Press enter
     await driver.press_button("enter")
@@ -472,4 +472,4 @@ async def main():
 asyncio.run(main())
 ```
 
-**Note:** For higher-level interactions with element indexing and structured results, use action functions with `ActionContext` (see [DroidAgent](/sdk/droid-agent)) rather than calling the driver directly.
+**Note:** For higher-level interactions with element indexing and structured results, use action functions with `ActionContext` (see [MobileAgent](/sdk/droid-agent)) rather than calling the driver directly.

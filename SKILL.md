@@ -1,23 +1,23 @@
 ---
-name: droidrun-docs
-description: Droidrun documentation reference. Use when users ask about Droidrun setup, configuration, SDK usage, CLI commands, device setup, agents, architecture, app cards, credentials, tracing, Docker, migration, structured output, or any Droidrun "how do I..." questions.
+name: mobilerun-docs
+description: Mobilerun documentation reference. Use when users ask about Mobilerun setup, configuration, SDK usage, CLI commands, device setup, agents, architecture, app cards, credentials, tracing, Docker, migration, structured output, or any Mobilerun "how do I..." questions.
 ---
 
-# Droidrun
+# Mobilerun
 
-Droidrun is an open-source (MIT) framework for controlling Android and iOS devices through LLM agents.
+Mobilerun is an open-source (MIT) framework for controlling Android and iOS devices through LLM agents.
 It enables mobile automation using natural language commands.
 
-- **GitHub**: https://github.com/droidrun/droidrun
-- **Docs site**: https://docs.droidrun.ai
+- **GitHub**: https://github.com/mobilerun/mobilerun
+- **Docs site**: https://docs.mobilerun.ai
 - **License**: MIT
-- **Install**: `uv tool install droidrun` (Google Gemini, OpenAI, Ollama, OpenRouter included by default)
+- **Install**: `uv tool install mobilerun` (Google Gemini, OpenAI, Ollama, OpenRouter included by default)
 - **Optional extras**: `anthropic`, `deepseek`, `langfuse`
 - **Requires**: Python 3.11+, ADB, Portal APK on device
 
 ## Architecture
 
-Droidrun uses a multi-agent architecture coordinated by `DroidAgent`:
+Mobilerun uses a multi-agent architecture coordinated by `MobileAgent`:
 
 - **Reasoning mode** (`reasoning=True`): Manager plans → Executor acts → loop until done
 - **Direct mode** (`reasoning=False`): CodeActAgent generates and executes Python code directly
@@ -30,21 +30,21 @@ Atomic actions available to agents: `click`, `long_press`, `type`, `system_butto
 
 ## Repository Structure
 
-Source code is at `droidrun/` (Python package). Key locations:
+Source code is at `mobilerun/` (Python package). Key locations:
 
 | Path | Description |
 |------|-------------|
-| `droidrun/agent/droid/` | DroidAgent orchestrator |
-| `droidrun/agent/codeact/` | CodeActAgent (direct mode) |
-| `droidrun/agent/scripter/` | ScripterAgent (off-device scripts) |
-| `droidrun/agent/oneflows/` | StructuredOutputAgent |
-| `droidrun/agent/utils/` | Tools, executor, tracing, async utils |
-| `droidrun/tools/` | Device tools (ADB, iOS, portal client) |
-| `droidrun/cli/` | CLI entry point (click-based) |
-| `droidrun/config/prompts/` | Jinja2 prompt templates per agent |
-| `droidrun/config/app_cards/` | App-specific instruction cards |
-| `droidrun/credential_manager/` | YAML-based credential storage |
-| `droidrun/telemetry/` | Phoenix tracing integration |
+| `mobilerun/agent/droid/` | MobileAgent orchestrator |
+| `mobilerun/agent/codeact/` | CodeActAgent (direct mode) |
+| `mobilerun/agent/scripter/` | ScripterAgent (off-device scripts) |
+| `mobilerun/agent/oneflows/` | StructuredOutputAgent |
+| `mobilerun/agent/utils/` | Tools, executor, tracing, async utils |
+| `mobilerun/tools/` | Device tools (ADB, iOS, portal client) |
+| `mobilerun/cli/` | CLI entry point (click-based) |
+| `mobilerun/config/prompts/` | Jinja2 prompt templates per agent |
+| `mobilerun/config/app_cards/` | App-specific instruction cards |
+| `mobilerun/credential_manager/` | YAML-based credential storage |
+| `mobilerun/telemetry/` | Phoenix tracing integration |
 
 ## Documentation
 
@@ -75,11 +75,11 @@ read the doc before answering.
 | Docker | docs/v5/guides/docker.mdx |
 | Migration v3→v4 | docs/v5/guides/migration-v3-to-v4.mdx |
 | **SDK** | |
-| DroidAgent | docs/v5/sdk/droid-agent.mdx |
+| MobileAgent | docs/v5/sdk/droid-agent.mdx |
 | ADB tools | docs/v5/sdk/adb-tools.mdx |
 | iOS tools | docs/v5/sdk/ios-tools.mdx |
 | Base tools | docs/v5/sdk/base-tools.mdx |
 | Configuration | docs/v5/sdk/configuration.mdx |
 | API reference | docs/v5/sdk/reference.mdx |
 
-For deeper implementation details, check the source code directly in `droidrun/`.
+For deeper implementation details, check the source code directly in `mobilerun/`.

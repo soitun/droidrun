@@ -5,7 +5,7 @@ description: 'Customizing agent behavior with Jinja2 prompt templates.'
 
 ## Overview
 
-Droidrun uses **Jinja2 templates** for agent prompts. You can customize agent behavior by passing custom template strings to `DroidAgent`:
+Mobilerun uses **Jinja2 templates** for agent prompts. You can customize agent behavior by passing custom template strings to `MobileAgent`:
 
 ```python
 custom_prompts = {
@@ -15,7 +15,7 @@ custom_prompts = {
     "fast_agent_user": "..."
 }
 
-agent = DroidAgent(
+agent = MobileAgent(
     goal="Send an email",
     config=config,
     prompts=custom_prompts  # Pass template strings, not file paths
@@ -26,10 +26,10 @@ agent = DroidAgent(
 
 ## How It Works
 
-1. `DroidAgent` creates a `PromptResolver` with your custom prompts
+1. `MobileAgent` creates a `PromptResolver` with your custom prompts
 2. Each agent checks if you provided a custom template for its key (e.g., "manager_system")
 3. If found: uses your custom template
-4. If not found: loads the default template from Droidrun's built-in files
+4. If not found: loads the default template from Mobilerun's built-in files
 5. Templates are rendered with context variables specific to each agent
 
 ## Available Prompt Keys
@@ -53,7 +53,7 @@ Each agent has access to different variables in its templates:
 - `error_history` - List of recent failed actions with details
 - `custom_tools_descriptions` - Custom tool documentation
 - `available_secrets` - Available credential IDs
-- `variables` - Custom variables passed to DroidAgent
+- `variables` - Custom variables passed to MobileAgent
 - `output_schema` - Pydantic model schema (if provided)
 
 ### Executor
@@ -66,7 +66,7 @@ Each agent has access to different variables in its templates:
 - `atomic_actions` - Available actions (includes custom tools)
 - `action_history` - Recent actions with outcomes
 - `available_secrets` - Available credential IDs
-- `variables` - Custom variables passed to DroidAgent
+- `variables` - Custom variables passed to MobileAgent
 
 ### FastAgent
 
@@ -127,7 +127,7 @@ Task is done. Answer: ...
 """
 }
 
-agent = DroidAgent(
+agent = MobileAgent(
     goal="Send an email",
     config=config,
     prompts=custom_prompts,
@@ -159,7 +159,7 @@ Guidelines:
 """
 }
 
-agent = DroidAgent(
+agent = MobileAgent(
     goal="Buy a phone",
     config=config,
     prompts=custom_prompts,
@@ -260,8 +260,8 @@ Follow instructions exactly. Do not make assumptions.
 ## Complete Example
 
 ```python
-from droidrun import DroidAgent
-from droidrun.config_manager import DroidConfig
+from mobilerun import MobileAgent
+from mobilerun.config_manager import MobileConfig
 
 # E-commerce automation with custom prompts
 ecommerce_prompts = {
@@ -299,8 +299,8 @@ Output:
 """
 }
 
-config = DroidConfig()
-agent = DroidAgent(
+config = MobileConfig()
+agent = MobileAgent(
     goal="Buy iPhone 15 Pro from Amazon",
     config=config,
     prompts=ecommerce_prompts,
@@ -312,7 +312,7 @@ result = await agent.run()
 
 ## Key Points
 
-- Pass Jinja2 template **strings** (not file paths) to `DroidAgent(prompts={...})`
+- Pass Jinja2 template **strings** (not file paths) to `MobileAgent(prompts={...})`
 - Each agent has different available variables in its template
 - Use `variables` parameter to inject custom context
 - Templates are rendered at runtime with current state

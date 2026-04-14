@@ -8,24 +8,24 @@ description: 'Configure anonymous telemetry'
 Telemetry helps us:
 - Identify which features are most used and need improvement
 - Prioritize bug fixes and new features based on real usage
-- Ensure Droidrun works well across different environments
+- Ensure Mobilerun works well across different environments
 
 <b>We do not collect any personal or sensitive data.</b> All telemetry is strictly anonymized and used only to improve the framework for everyone.
 
-If you have questions or concerns, please reach out on [GitHub](https://github.com/droidrun/droidrun) or review our privacy policy.
+If you have questions or concerns, please reach out on [GitHub](https://github.com/mobilerun/mobilerun) or review our privacy policy.
 
 ---
 
 # Toggling Telemetry
 
-Droidrun collects <b>anonymized</b> usage data to help us understand which features are most valuable and where improvements are needed. This data is <b>never</b> used for advertising or tracking individuals, and is only used to make Droidrun better for the community.
+Mobilerun collects <b>anonymized</b> usage data to help us understand which features are most valuable and where improvements are needed. This data is <b>never</b> used for advertising or tracking individuals, and is only used to make Mobilerun better for the community.
 
 ## How to Disable Telemetry
 
 You can disable telemetry at any time by setting the following environment variable:
 
 ```bash
-export DROIDRUN_TELEMETRY_ENABLED=false
+export MOBILERUN_TELEMETRY_ENABLED=false
 ```
 
 Add this line to your shell profile (e.g., `.bashrc`, `.zshrc`, or `.profile`) to make it persistent across sessions.
@@ -35,11 +35,11 @@ Add this line to your shell profile (e.g., `.bashrc`, `.zshrc`, or `.profile`) t
 To re-enable telemetry, set the environment variable to `true`:
 
 ```bash
-export DROIDRUN_TELEMETRY_ENABLED=true
+export MOBILERUN_TELEMETRY_ENABLED=true
 ```
 
 <Note>
-Telemetry is currently controlled only by the `DROIDRUN_TELEMETRY_ENABLED` environment variable. While a `telemetry.enabled` config option exists in the configuration schema, it is not currently used by the telemetry system.
+Telemetry is currently controlled only by the `MOBILERUN_TELEMETRY_ENABLED` environment variable. While a `telemetry.enabled` config option exists in the configuration schema, it is not currently used by the telemetry system.
 </Note>
 
 ---

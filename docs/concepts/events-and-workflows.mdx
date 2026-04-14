@@ -1,21 +1,21 @@
 ---
 title: "Event Streaming"
-description: "How to consume real-time events from DroidAgent execution."
+description: "How to consume real-time events from MobileAgent execution."
 ---
 
 ## Overview
 
-Droidrun provides **real-time event streaming** that gives you visibility into agent execution as it happens. This allows you to build UIs, logging systems, or monitoring tools that react to agent actions in real-time.
+Mobilerun provides **real-time event streaming** that gives you visibility into agent execution as it happens. This allows you to build UIs, logging systems, or monitoring tools that react to agent actions in real-time.
 
-Under the hood, Droidrun uses [llama-index workflows](https://docs.llamaindex.ai/en/stable/understanding/workflows/) - an event-driven orchestration system that powers the agent architecture.
+Under the hood, Mobilerun uses [llama-index workflows](https://docs.llamaindex.ai/en/stable/understanding/workflows/) - an event-driven orchestration system that powers the agent architecture.
 
 ## Basic Usage
 
 ```python
-from droidrun.agent.droid import DroidAgent
+from mobilerun.agent.droid import MobileAgent
 
 # Create and run agent
-agent = DroidAgent(goal="Open Gmail and check inbox", config=config)
+agent = MobileAgent(goal="Open Gmail and check inbox", config=config)
 handler = agent.run()
 
 # Stream events in real-time
@@ -47,7 +47,7 @@ print(f"📝 Reason: {result.reason}")
 
 <AccordionGroup>
   <Accordion title="Workflow Coordination Events">
-Used for workflow coordination between DroidAgent and its child agents.
+Used for workflow coordination between MobileAgent and its child agents.
 
 ```python
 # Main workflow
@@ -176,7 +176,7 @@ class FastAgentEndEvent(Event):
 
   <Accordion title="Common, Visual & Telemetry Events">
 ```python
-# Common events (droidrun/agent/common/events.py)
+# Common events (mobilerun/agent/common/events.py)
 class ScreenshotEvent(Event):
     screenshot: bytes
 
@@ -190,7 +190,7 @@ class ToolExecutionEvent(Event):
     summary: str
 
 # Telemetry events (when enabled)
-class DroidAgentInitEvent(TelemetryEvent):
+class MobileAgentInitEvent(TelemetryEvent):
     goal: str
     llms: Dict[str, str]
     tools: str
@@ -209,7 +209,7 @@ class PackageVisitEvent(TelemetryEvent):
     activity_name: str
     step_number: int
 
-class DroidAgentFinalizeEvent(TelemetryEvent):
+class MobileAgentFinalizeEvent(TelemetryEvent):
     success: bool
     reason: str
     steps: int
@@ -232,7 +232,7 @@ class UsageResult(BaseModel):
 
 ```python
 async def run_with_ui(goal: str):
-    agent = DroidAgent(goal=goal, config=config)
+    agent = MobileAgent(goal=goal, config=config)
     handler = agent.run()
 
     async for event in handler.stream_events():
@@ -254,7 +254,7 @@ async def run_with_ui(goal: str):
 
 ```python
 async def track_token_usage(goal: str):
-    agent = DroidAgent(goal=goal, config=config)
+    agent = MobileAgent(goal=goal, config=config)
     handler = agent.run()
 
     total_tokens = 0
@@ -280,10 +280,10 @@ async def track_token_usage(goal: str):
 ```python
 import logging
 
-logger = logging.getLogger("droidrun.monitor")
+logger = logging.getLogger("mobilerun.monitor")
 
 async def monitor_execution(goal: str):
-    agent = DroidAgent(goal=goal, config=config)
+    agent = MobileAgent(goal=goal, config=config)
     handler = agent.run()
 
     start_time = time.time()
@@ -330,12 +330,12 @@ async def monitor_execution(goal: str):
 
 **All Modes** emit:
 - Finalization: `FinalizeEvent`, `ResultEvent`
-- Telemetry: `DroidAgentInitEvent`, `PackageVisitEvent`, `DroidAgentFinalizeEvent` (when telemetry enabled)
+- Telemetry: `MobileAgentInitEvent`, `PackageVisitEvent`, `MobileAgentFinalizeEvent` (when telemetry enabled)
 
 ### Event Categories
 
 **Coordination Events** - Used for workflow routing between agents (minimal data)
-- Located in `droidrun/agent/droid/events.py`
+- Located in `mobilerun/agent/droid/events.py`
 - Examples: `ManagerPlanEvent`, `ExecutorResultEvent`, `ExternalUserMessageAppliedEvent`
 
 **Internal Events** - Used for streaming to frontend/logging (full debug data)
@@ -343,12 +343,12 @@ async def monitor_execution(goal: str):
 - Examples: `ManagerPlanDetailsEvent`, `ExecutorActionEvent`, `FastAgentResponseEvent`
 
 **Common Events** - Emitted during execution (for screenshots, UI state recording, and tool tracking)
-- Located in `droidrun/agent/common/events.py`
+- Located in `mobilerun/agent/common/events.py`
 - Examples: `ScreenshotEvent`, `RecordUIStateEvent`, `ToolExecutionEvent`
 
 **Telemetry Events** - Captured for analytics (when enabled)
-- Located in `droidrun/telemetry/events.py`
-- Examples: `DroidAgentInitEvent`, `PackageVisitEvent`, `DroidAgentFinalizeEvent`
+- Located in `mobilerun/telemetry/events.py`
+- Examples: `MobileAgentInitEvent`, `PackageVisitEvent`, `MobileAgentFinalizeEvent`
 
 ## Learn More
 

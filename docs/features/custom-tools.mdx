@@ -1,6 +1,6 @@
 ---
 title: 'Custom Tools'
-description: 'Extend Droidrun with custom Python functions'
+description: 'Extend Mobilerun with custom Python functions'
 ---
 
 ## Overview
@@ -23,7 +23,7 @@ Simple custom tool without device access:
 
 ```python
 import asyncio
-from droidrun import DroidAgent, DroidConfig
+from mobilerun import MobileAgent, MobileConfig
 
 def calculate_tax(amount: float, rate: float, **kwargs) -> str:
     """Calculate tax for a given amount."""
@@ -43,9 +43,9 @@ custom_tools = {
 }
 
 async def main():
-    config = DroidConfig()
+    config = MobileConfig()
 
-    agent = DroidAgent(
+    agent = MobileAgent(
         goal="Calculate tax for $100 at 8% rate",
         config=config,
         custom_tools=custom_tools
@@ -127,7 +127,7 @@ custom_tools = {
 - `ctx.driver` - `DeviceDriver` for raw device I/O (screenshot, tap, swipe, etc.)
 - `ctx.state_provider` - `StateProvider` to fetch/parse UI state
 - `ctx.ui` - Current `UIState` (refreshed each step)
-- `ctx.shared_state` - `DroidAgentState` for agent coordination
+- `ctx.shared_state` - `MobileAgentState` for agent coordination
 - `ctx.credential_manager` - `CredentialManager` for secrets
 
 ---
@@ -169,7 +169,7 @@ custom_tools = {
 }
 ```
 
-**DroidAgentState fields:**
+**MobileAgentState fields:**
 - `step_number` - Current execution step
 - `action_history` - List of executed actions
 - `action_outcomes` - Success/failure per action
@@ -179,7 +179,7 @@ custom_tools = {
 - `visited_packages` - Apps visited
 - `current_package_name` - Current app package
 - `plan` - Current Manager plan
-- More in `droidrun/agent/droid/state.py`
+- More in `mobilerun/agent/droid/state.py`
 
 ---
 
@@ -323,7 +323,7 @@ Use Python logging for debugging:
 
 ```python
 import logging
-logger = logging.getLogger("droidrun")
+logger = logging.getLogger("mobilerun")
 
 def logged_tool(data: str, **kwargs) -> str:
     logger.info(f"Processing: {data[:50]}...")
@@ -383,7 +383,7 @@ custom_tools = {
 # Usage with credentials
 credentials = {"API_KEY": "sk-1234567890"}
 
-agent = DroidAgent(
+agent = MobileAgent(
     goal="Send data to API",
     config=config,
     custom_tools=custom_tools,

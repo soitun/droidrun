@@ -1,11 +1,11 @@
 ---
 title: 'Shared State'
-description: 'DroidAgentState - the coordination mechanism for multi-agent workflow communication.'
+description: 'MobileAgentState - the coordination mechanism for multi-agent workflow communication.'
 ---
 
 ## What is Shared State?
 
-**DroidAgentState** is a Pydantic model that serves as the **central coordination mechanism** for Droidrun's multi-agent workflow. It's a shared data structure that all agents (Manager, Executor, FastAgent) can read from and write to.
+**MobileAgentState** is a Pydantic model that serves as the **central coordination mechanism** for Mobilerun's multi-agent workflow. It's a shared data structure that all agents (Manager, Executor, FastAgent) can read from and write to.
 
 Shared state enables:
 - **Cross-agent communication**: Agents share information about actions, results, and errors
@@ -18,7 +18,7 @@ Shared state enables:
 ## Core State Fields
 
 ```python
-class DroidAgentState(BaseModel):
+class MobileAgentState(BaseModel):
     # Task context
     instruction: str = ""           # Original task
     step_number: int = 0            # Current step

@@ -1,9 +1,9 @@
 ---
 title: 'Quickstart with Docker'
-description: 'Get up and running with Droidrun in Docker quickly and effectively'
+description: 'Get up and running with Mobilerun in Docker quickly and effectively'
 ---
 
-This guide will help you get Droidrun running in a Docker container, controlling your Android device through natural language without installing it natively.
+This guide will help you get Mobilerun running in a Docker container, controlling your Android device through natural language without installing it natively.
 
 ### Host configuration
 
@@ -53,28 +53,28 @@ Follow the steps below to ensure your host system is properly configured to moun
 Pull the image from the GitHub Container Registry:
 
 ```bash
-docker pull ghcr.io/droidrun/droidrun:latest
+docker pull ghcr.io/mobilerun/mobilerun:latest
 ```
 
-Before running the container, note that the following options are always required when launching Droidrun in Docker:
+Before running the container, note that the following options are always required when launching Mobilerun in Docker:
 
-| Docker option | What it does | Why it matters for Droidrun |
+| Docker option | What it does | Why it matters for Mobilerun |
 |---------------|--------------|-----------------------------|
 | `--group-add plugdev` | Adds the host user to the container’s `plugdev` group. | Gives the container permission to access USB devices (e.g., your Android phone) without requiring root. |
-| `--device /dev/phone1/phone:/dev/phone` | Maps a specific USB device file from the host into the container. Thanks to our udev rule, the phone will always be mapped here. | Allows Droidrun to see the phone as `/dev/phone` inside the container, so it can communicate with the device. |
-| `--volume /dev/bus/usb:/dev/bus/usb` | Mounts the entire USB bus directory. | Provides access to all connected USB devices, enabling Droidrun to discover and interact with the phone. |
-| `--volume ~/.android:/home/droidrun/.android` | Mounts the host’s Android configuration directory into the container. | Stores ADB keys and settings so that once you grant permission on the host, Droidrun doesn’t prompt for it again inside the container. |
+| `--device /dev/phone1/phone:/dev/phone` | Maps a specific USB device file from the host into the container. Thanks to our udev rule, the phone will always be mapped here. | Allows Mobilerun to see the phone as `/dev/phone` inside the container, so it can communicate with the device. |
+| `--volume /dev/bus/usb:/dev/bus/usb` | Mounts the entire USB bus directory. | Provides access to all connected USB devices, enabling Mobilerun to discover and interact with the phone. |
+| `--volume ~/.android:/home/mobilerun/.android` | Mounts the host’s Android configuration directory into the container. | Stores ADB keys and settings so that once you grant permission on the host, Mobilerun doesn’t prompt for it again inside the container. |
 
-The Docker image uses the `droidrun` entrypoint, which means you can use any of the CLI commands described in the [CLI Usage](/guides/cli) section and append it to the following base command:
+The Docker image uses the `mobilerun` entrypoint, which means you can use any of the CLI commands described in the [CLI Usage](/guides/cli) section and append it to the following base command:
 
 ```bash
 docker run \
   --group-add plugdev \
   --device /dev/phone1/phone:/dev/phone \
   --volume /dev/bus/usb:/dev/bus/usb \
-  --volume ~/.android:/home/droidrun/.android \
-  ghcr.io/droidrun/droidrun:latest \
-  <droidrun command>
+  --volume ~/.android:/home/mobilerun/.android \
+  ghcr.io/mobilerun/mobilerun:latest \
+  <mobilerun command>
 ```
 
 #### Set Up the Portal APK
@@ -86,8 +86,8 @@ docker run \
   --group-add plugdev \
   --device /dev/phone1/phone:/dev/phone \
   --volume /dev/bus/usb:/dev/bus/usb \
-  --volume ~/.android:/home/droidrun/.android \
-  ghcr.io/droidrun/droidrun:latest \
+  --volume ~/.android:/home/mobilerun/.android \
+  ghcr.io/mobilerun/mobilerun:latest \
   setup
 ```
 
@@ -100,8 +100,8 @@ docker run \
   --group-add plugdev \
   --device /dev/phone1/phone:/dev/phone \
   --volume /dev/bus/usb:/dev/bus/usb \
-  --volume ~/.android:/home/droidrun/.android \
-  ghcr.io/droidrun/droidrun:latest \
+  --volume ~/.android:/home/mobilerun/.android \
+  ghcr.io/mobilerun/mobilerun:latest \
   ping
 ```
 
@@ -111,13 +111,13 @@ Now you’re ready to control your device using Docker and natural language:
 
 ```bash
 # Using default configuration with Google API key
-docker run --group-add plugdev --device /dev/phone1/phone:/dev/phone --volume /dev/bus/usb:/dev/bus/usb --volume ~/.android:/home/droidrun/.android --env GOOGLE_API_KEY=your-api-key-here ghcr.io/droidrun/droidrun:latest run "Open the settings app and tell me the Android version"
+docker run --group-add plugdev --device /dev/phone1/phone:/dev/phone --volume /dev/bus/usb:/dev/bus/usb --volume ~/.android:/home/mobilerun/.android --env GOOGLE_API_KEY=your-api-key-here ghcr.io/mobilerun/mobilerun:latest run "Open the settings app and tell me the Android version"
 
 # Override provider and model
-docker run --group-add plugdev --device /dev/phone1/phone:/dev/phone --volume /dev/bus/usb:/dev/bus/usb --volume ~/.android:/home/droidrun/.android --env OPENAI_API_KEY=your-api-key-here ghcr.io/droidrun/droidrun:latest run "Open a browser and search for droidrun" -p OpenAI -m gpt-4o
+docker run --group-add plugdev --device /dev/phone1/phone:/dev/phone --volume /dev/bus/usb:/dev/bus/usb --volume ~/.android:/home/mobilerun/.android --env OPENAI_API_KEY=your-api-key-here ghcr.io/mobilerun/mobilerun:latest run "Open a browser and search for mobilerun" -p OpenAI -m gpt-4o
 
 # Use a locally-running LLM, example for LM Studio running in the LAN
-docker run --group-add plugdev --device /dev/phone1/phone:/dev/phone --volume /dev/bus/usb:/dev/bus/usb --volume ~/.android:/home/droidrun/.android --network host ghcr.io/droidrun/droidrun:latest run "Open a browser and search for droidrun" -p OpenAILike -m gpt-oss --api_base http://IP-of-LMStudio-server:PORT/v1
+docker run --group-add plugdev --device /dev/phone1/phone:/dev/phone --volume /dev/bus/usb:/dev/bus/usb --volume ~/.android:/home/mobilerun/.android --network host ghcr.io/mobilerun/mobilerun:latest run "Open a browser and search for mobilerun" -p OpenAILike -m gpt-oss --api_base http://IP-of-LMStudio-server:PORT/v1
 ```
 
 #### Troubleshooting

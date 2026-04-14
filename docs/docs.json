@@ -1,7 +1,7 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "almond",
-  "name": "Droidrun",
+  "name": "Mobilerun",
   "colors": {
     "primary": "#0D9373",
     "light": "#07C983",
@@ -20,7 +20,7 @@
   "integrations": {
     "posthog": {
       "apiKey": "phc_3BmiVdnS2Wvlm007eHGZLBPwRFCVVWzIZXbB0u3ZH1d",
-      "apiHost": "https://pineapple.droidrun.ai"
+      "apiHost": "https://pineapple.mobilerun.ai"
     }
   },
   "navigation": {
@@ -87,14 +87,14 @@
       {
         "tab": "GitHub",
         "icon": "github",
-        "href": "https://github.com/droidrun/droidrun"
+        "href": "https://github.com/mobilerun/mobilerun"
       }
     ]
   },
   "logo": {
     "light": "/logo/light.png",
     "dark": "/logo/dark.png",
-    "href": "https://droidrun.ai"
+    "href": "https://mobilerun.ai"
   },
   "navbar": {
     "primary": {
@@ -105,10 +105,10 @@
   },
   "footer": {
     "socials": {
-      "github": "https://github.com/droidrun/droidrun",
-      "x": "https://x.com/droid_run",
+      "github": "https://github.com/mobilerun/mobilerun",
+      "x": "https://x.com/mobilerun_ai",
       "discord": "https://discord.gg/gdekvkJFvn",
-      "website": "https://droidrun.ai"
+      "website": "https://mobilerun.ai"
     }
   },
   "errors": {

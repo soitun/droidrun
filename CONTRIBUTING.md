@@ -1,14 +1,14 @@
-# Contributing to Droidrun
+# Contributing to Mobilerun
 
-Thank you for your interest in contributing to Droidrun! This document provides guidelines and instructions for contributing to the project.
+Thank you for your interest in contributing to Mobilerun! This document provides guidelines and instructions for contributing to the project.
 
 ## Getting Started
 
 1. Fork the repository on GitHub
 2. Clone your fork:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/droidrun.git
-   cd droidrun
+   git clone https://github.com/YOUR_USERNAME/mobilerun.git
+   cd mobilerun
    ```
 3. Set up your development environment as described below
 
@@ -60,9 +60,9 @@ Thank you for your interest in contributing to Droidrun! This document provides 
 ## Community
 
 - Join our [Discord server](https://discord.gg/ZZbKEZZkwK) for discussions
-- Follow us on [Twitter/X](https://x.com/droid_run)
-- Check our [Documentation](https://docs.droidrun.ai)
-- Report bugs and request features through [GitHub Issues](https://github.com/droidrun/droidrun/issues)
+- Follow us on [Twitter/X](https://x.com/mobilerun_ai)
+- Check our [Documentation](https://docs.mobilerun.ai)
+- Report bugs and request features through [GitHub Issues](https://github.com/mobilerun/mobilerun/issues)
 
 ## Security Checks
 
@@ -74,7 +74,7 @@ Before submitting any code, please run the following security checks:
 
 1. **Bandit**: A tool to find common security issues in Python code.
    ```bash
-   bandit -r droidrun
+   bandit -r mobilerun
    ```
 
 2. **Safety**: A tool to check your installed dependencies for known security vulnerabilities.
@@ -100,7 +100,7 @@ If you have questions about contributing:
 2. Ask in our Discord server
 3. Open a new GitHub issue for complex questions
 
-Thank you for contributing to Droidrun! 🚀
+Thank you for contributing to Mobilerun! 🚀
 
 ## Language
 

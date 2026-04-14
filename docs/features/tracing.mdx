@@ -3,7 +3,7 @@ title: 'Tracing'
 description: 'Configure Phoenix/Langfuse tracing and trajectory recording'
 ---
 
-Droidrun provides multiple monitoring capabilities:
+Mobilerun provides multiple monitoring capabilities:
 
 1. **LLM Tracing** - Real-time execution tracing via Arize Phoenix or Langfuse
 2. **Trajectory Recording** - Local screenshots and UI state for debugging
@@ -12,17 +12,17 @@ Droidrun provides multiple monitoring capabilities:
 
 ```sh
 # Enable Phoenix tracing
-droidrun run "task" --tracing
+mobilerun run "task" --tracing
 
 # Enable trajectory recording
-droidrun run "task" --save-trajectory step
+mobilerun run "task" --save-trajectory step
 ```
 
 ---
 
 ## LLM Tracing
 
-Droidrun supports two tracing providers for real-time monitoring of LLM calls, agent execution, and tool invocations:
+Mobilerun supports two tracing providers for real-time monitoring of LLM calls, agent execution, and tool invocations:
 
 - **Arize Phoenix** (default) - Open-source observability platform
 - **Langfuse** - LLM engineering platform with cloud and self-hosted options
@@ -49,12 +49,12 @@ phoenix serve
 
 The server starts at `http://localhost:6006` and provides a web UI for viewing traces.
 
-**3. Enable tracing in Droidrun:**
+**3. Enable tracing in Mobilerun:**
 
 **Via CLI:**
 
 ```sh
-droidrun run "Open settings" --tracing
+mobilerun run "Open settings" --tracing
 ```
 
 **Via config.yaml:**
@@ -67,12 +67,12 @@ tracing:
 **Via code:**
 
 ```python
-from droidrun import DroidAgent, DroidConfig
+from mobilerun import MobileAgent, MobileConfig
 
-config = DroidConfig()
+config = MobileConfig()
 config.tracing.enabled = True
 
-agent = DroidAgent(goal="Open settings", config=config)
+agent = MobileAgent(goal="Open settings", config=config)
 await agent.run()
 ```
 
@@ -95,7 +95,7 @@ Set environment variables to customize Phoenix:
 export phoenix_url=http://localhost:6006
 
 # Project name for organizing traces
-export phoenix_project_name=my_droidrun_project
+export phoenix_project_name=my_mobilerun_project
 ```
 
 <Note>
@@ -114,7 +114,7 @@ Langfuse provides LLM observability with features like session tracking, user an
 - **Cloud**: Sign up at [cloud.langfuse.com](https://cloud.langfuse.com)
 - **Self-hosted**: Deploy using [Langfuse docs](https://langfuse.com/docs/deployment/self-host)
 
-**2. Configure Droidrun:**
+**2. Configure Mobilerun:**
 
 **Via environment variables:**
 ```sh
@@ -137,9 +137,9 @@ tracing:
 
 **Via code:**
 ```python
-from droidrun import DroidAgent, DroidConfig, TracingConfig
+from mobilerun import MobileAgent, MobileConfig, TracingConfig
 
-config = DroidConfig(
+config = MobileConfig(
     tracing=TracingConfig(
         enabled=True,
         provider="langfuse",
@@ -150,7 +150,7 @@ config = DroidConfig(
     )
 )
 
-agent = DroidAgent(goal="Open settings", config=config)
+agent = MobileAgent(goal="Open settings", config=config)
 await agent.run()
 ```
 
@@ -185,7 +185,7 @@ Trajectory recording saves screenshots and UI state locally for offline debuggin
 **Via CLI:**
 
 ```sh
-droidrun run "Open settings" --save-trajectory step
+mobilerun run "Open settings" --save-trajectory step
 ```
 
 **Via config.yaml:**
@@ -198,12 +198,12 @@ logging:
 **Via code:**
 
 ```python
-from droidrun import DroidAgent, DroidConfig
+from mobilerun import MobileAgent, MobileConfig
 
-config = DroidConfig()
+config = MobileConfig()
 config.logging.save_trajectory = "action"
 
-agent = DroidAgent(goal="Open settings", config=config)
+agent = MobileAgent(goal="Open settings", config=config)
 await agent.run()
 ```
 

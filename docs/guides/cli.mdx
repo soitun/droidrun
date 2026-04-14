@@ -5,20 +5,20 @@ description: 'Command-line interface for controlling devices with natural langua
 
 ## Overview
 
-The Droidrun CLI lets you control Android and iOS devices using natural language commands powered by LLM agents.
+The Mobilerun CLI lets you control Android and iOS devices using natural language commands powered by LLM agents.
 
 ### Quick Start
 
 ```bash
 # Setup device
-droidrun setup
+mobilerun setup
 
 # Run a command
-droidrun run "Open Spotify and play my Discover Weekly"
+mobilerun run "Open Spotify and play my Discover Weekly"
 ```
 
 <Note>
-**Auto-configuration**: If no config exists, Droidrun creates a default `config.yaml` at `~/.config/droidrun/config.yaml` automatically.
+**Auto-configuration**: If no config exists, Mobilerun creates a default `config.yaml` at `~/.config/mobilerun/config.yaml` automatically.
 </Note>
 
 ---
@@ -33,7 +33,7 @@ Execute natural language commands on your device.
 ### Usage
 
 ```bash
-droidrun run "<command>" [OPTIONS]
+mobilerun run "<command>" [OPTIONS]
 ```
 
 ### Common Flags
@@ -50,7 +50,7 @@ droidrun run "<command>" [OPTIONS]
 | `--tcp` | Use TCP instead of content provider | `false` |
 | `--debug` | Verbose logging | `false` |
 | `--save-trajectory` | Save execution (`none`, `step`, `action`) | `none` |
-| `--config`, `-c` | Custom config path | `~/.config/droidrun/config.yaml` |
+| `--config`, `-c` | Custom config path | `~/.config/mobilerun/config.yaml` |
 
 ### Examples
 
@@ -58,13 +58,13 @@ droidrun run "<command>" [OPTIONS]
   <Tab title="Basic">
 ```bash
 # Simple command
-droidrun run "Open Settings"
+mobilerun run "Open Settings"
 
 # Multi-step task
-droidrun run "Send WhatsApp to John: I'll be late"
+mobilerun run "Send WhatsApp to John: I'll be late"
 
 # Specific device
-droidrun run "Check battery" --device emulator-5554
+mobilerun run "Check battery" --device emulator-5554
 ```
   </Tab>
 
@@ -72,24 +72,24 @@ droidrun run "Check battery" --device emulator-5554
 ```bash
 # Google Gemini
 export GOOGLE_API_KEY=your-key
-droidrun run "Archive old emails" \
+mobilerun run "Archive old emails" \
   --provider GoogleGenAI \
   --model gemini-3.1-flash-lite-preview
 
 # OpenAI
 export OPENAI_API_KEY=your-key
-droidrun run "Create shopping list" \
+mobilerun run "Create shopping list" \
   --provider OpenAI \
   --model gpt-4o
 
 # Anthropic Claude
 export ANTHROPIC_API_KEY=your-key
-droidrun run "Reply to latest email" \
+mobilerun run "Reply to latest email" \
   --provider Anthropic \
   --model claude-sonnet-4-5-latest
 
 # Local Ollama (free)
-droidrun run "Turn on dark mode" \
+mobilerun run "Turn on dark mode" \
   --provider Ollama \
   --model llama3.3:70b \
   --base_url http://localhost:11434
@@ -99,23 +99,23 @@ droidrun run "Turn on dark mode" \
   <Tab title="Advanced">
 ```bash
 # Complex task with planning
-droidrun run "Organize inbox by sender" \
+mobilerun run "Organize inbox by sender" \
   --reasoning \
   --vision \
   --steps 30
 
 # Debug failing command
-droidrun run "Book Uber to airport" \
+mobilerun run "Book Uber to airport" \
   --debug \
   --save-trajectory action
 
 # Wireless execution
-droidrun run "Clear cache" \
+mobilerun run "Clear cache" \
   --device 192.168.1.100:5555 \
   --tcp
 
 # Custom config
-droidrun run "Enable 2FA" \
+mobilerun run "Enable 2FA" \
   --config /path/to/config.yaml
 ```
   </Tab>
@@ -130,19 +130,19 @@ droidrun run "Enable 2FA" \
 | OpenAILike | Included by default | Varies by provider |
 | OpenRouter | Included by default | `OPENROUTER_API_KEY` |
 | Ollama | Included by default | None (local) |
-| Anthropic | `uv pip install 'droidrun[anthropic]'` | `ANTHROPIC_API_KEY` |
-| DeepSeek | `uv pip install 'droidrun[deepseek]'` | `DEEPSEEK_API_KEY` |
+| Anthropic | `uv pip install 'mobilerun[anthropic]'` | `ANTHROPIC_API_KEY` |
+| DeepSeek | `uv pip install 'mobilerun[deepseek]'` | `DEEPSEEK_API_KEY` |
 
   </Tab>
 
   <Tab title="Device Management">
 
-### `droidrun devices`
+### `mobilerun devices`
 
 List connected devices.
 
 ```bash
-droidrun devices
+mobilerun devices
 # Output:
 # Found 2 connected device(s):
 #   • emulator-5554
@@ -151,19 +151,19 @@ droidrun devices
 
 ---
 
-### `droidrun setup`
+### `mobilerun setup`
 
 Install Portal APK on device.
 
 ```bash
 # Auto-detect device
-droidrun setup
+mobilerun setup
 
 # Specific device
-droidrun setup --device emulator-5554
+mobilerun setup --device emulator-5554
 
 # Custom APK
-droidrun setup --path /path/to/portal.apk
+mobilerun setup --path /path/to/portal.apk
 ```
 
 **What it does:**
@@ -174,31 +174,31 @@ droidrun setup --path /path/to/portal.apk
 
 ---
 
-### `droidrun ping`
+### `mobilerun ping`
 
 Test Portal connection.
 
 ```bash
 # Test default communication
-droidrun ping
+mobilerun ping
 
 # Test TCP mode
-droidrun ping --tcp
+mobilerun ping --tcp
 
 # Specific device
-droidrun ping --device 192.168.1.100:5555
+mobilerun ping --device 192.168.1.100:5555
 ```
 
 **Success output:** `Portal is installed and accessible. You're good to go!`
 
 ---
 
-### `droidrun connect`
+### `mobilerun connect`
 
 Connect to device via TCP/IP.
 
 ```bash
-droidrun connect 192.168.1.100:5555
+mobilerun connect 192.168.1.100:5555
 ```
 
 **Prerequisites:**
@@ -209,52 +209,52 @@ droidrun connect 192.168.1.100:5555
 # Or via USB:
 adb tcpip 5555
 adb shell ip route | awk '{print $9}'  # Get IP
-droidrun connect <IP>:5555
+mobilerun connect <IP>:5555
 ```
 
 ---
 
-### `droidrun disconnect`
+### `mobilerun disconnect`
 
 Disconnect from device.
 
 ```bash
-droidrun disconnect 192.168.1.100:5555
+mobilerun disconnect 192.168.1.100:5555
 ```
 
 ---
 
-### `droidrun device`
+### `mobilerun device`
 
 Direct device actions that bypass the LLM agent.
 
 ```bash
 # Take a screenshot
-droidrun device screenshot
+mobilerun device screenshot
 
 # Print the UI accessibility tree
-droidrun device ui
+mobilerun device ui
 
 # Tap at coordinates
-droidrun device tap 500 500
+mobilerun device tap 500 500
 
 # Swipe from point to point
-droidrun device swipe 100 500 100 200 --duration 0.5
+mobilerun device swipe 100 500 100 200 --duration 0.5
 
 # Long press at coordinates
-droidrun device long-press 500 500
+mobilerun device long-press 500 500
 
 # Type text into focused field
-droidrun device type "Hello world" --clear
+mobilerun device type "Hello world" --clear
 
 # Press a system button (back, home, enter)
-droidrun device press back
+mobilerun device press back
 
 # List installed apps
-droidrun device apps --system
+mobilerun device apps --system
 
 # Launch an app by package name
-droidrun device start com.example.app
+mobilerun device start com.example.app
 ```
 
 All `device` subcommands support `--device`, `--config`, `--tcp`, and `--ios` flags.
@@ -265,16 +265,16 @@ All `device` subcommands support `--device`, `--config`, `--tcp`, and `--ios` fl
 
 Record and replay automation sequences.
 
-### `droidrun macro list`
+### `mobilerun macro list`
 
 List saved trajectories.
 
 ```bash
 # Default directory
-droidrun macro list
+mobilerun macro list
 
 # Custom directory
-droidrun macro list /path/to/trajectories
+mobilerun macro list /path/to/trajectories
 ```
 
 **Output:**
@@ -291,26 +291,26 @@ Found 3 trajectory(s):
 
 ---
 
-### `droidrun macro replay`
+### `mobilerun macro replay`
 
 Replay recorded macro.
 
 ```bash
 # Basic replay
-droidrun macro replay trajectories/open-settings
+mobilerun macro replay trajectories/open-settings
 
 # Custom device and timing
-droidrun macro replay trajectories/login-flow \
+mobilerun macro replay trajectories/login-flow \
   --device emulator-5554 \
   --delay 0.5
 
 # Start from specific step
-droidrun macro replay trajectories/checkout \
+mobilerun macro replay trajectories/checkout \
   --start-from 5 \
   --max-steps 10
 
 # Preview without executing
-droidrun macro replay trajectories/test --dry-run
+mobilerun macro replay trajectories/test --dry-run
 ```
 
 **Flags:**
@@ -329,10 +329,10 @@ droidrun macro replay trajectories/test --dry-run
 
 ```bash
 # Record at action level (most detailed)
-droidrun run "Create alarm for 7am" --save-trajectory action
+mobilerun run "Create alarm for 7am" --save-trajectory action
 
 # Record at step level
-droidrun run "Export contacts" --save-trajectory step
+mobilerun run "Export contacts" --save-trajectory step
 ```
 
 **Trajectory structure:**
@@ -354,7 +354,7 @@ trajectories/2025-10-16_14-30-45/
 ### Override Priority
 
 1. **CLI flags** (highest)
-2. **Config file** (`~/.config/droidrun/config.yaml`)
+2. **Config file** (`~/.config/mobilerun/config.yaml`)
 3. **Defaults** (lowest)
 
 ### Common Patterns
@@ -362,13 +362,13 @@ trajectories/2025-10-16_14-30-45/
 <CodeGroup>
 
 ```bash Quick Test
-droidrun run "Turn on dark mode" \
+mobilerun run "Turn on dark mode" \
   --provider GoogleGenAI \
   --model gemini-3.1-flash-lite-preview
 ```
 
 ```bash Debug Task
-droidrun run "Book ride to airport" \
+mobilerun run "Book ride to airport" \
   --debug \
   --reasoning \
   --vision \
@@ -376,7 +376,7 @@ droidrun run "Book ride to airport" \
 ```
 
 ```bash Cost Optimization
-droidrun run "Set alarm" \
+mobilerun run "Set alarm" \
   --provider GoogleGenAI \
   --model gemini-3.1-flash-lite-preview \
   --no-vision
@@ -384,7 +384,7 @@ droidrun run "Set alarm" \
 
 ```bash Multiple Devices
 for device in $(adb devices | awk 'NR>1 {print $1}'); do
-  droidrun run "Clear notifications" --device $device
+  mobilerun run "Clear notifications" --device $device
 done
 ```
 
@@ -410,21 +410,21 @@ adb kill-server && adb start-server
   <Accordion title="Portal not accessible">
 ```bash
 # Verify installation
-adb shell pm list packages | grep droidrun
+adb shell pm list packages | grep mobilerun
 
 # Reinstall
-droidrun setup
+mobilerun setup
 
 # Enable accessibility manually
 adb shell settings put secure enabled_accessibility_services \
-  com.droidrun.portal/com.droidrun.portal.service.DroidrunAccessibilityService
+  com.mobilerun.portal/com.mobilerun.portal.service.MobilerunAccessibilityService
 ```
   </Accordion>
 
   <Accordion title="LLM provider errors">
 ```bash
 # Install provider
-uv pip install 'droidrun[anthropic]'
+uv pip install 'mobilerun[anthropic]'
 
 # Check API key
 echo $GOOGLE_API_KEY
@@ -437,13 +437,13 @@ export GOOGLE_API_KEY=your-key
   <Accordion title="Command times out">
 ```bash
 # Increase steps
-droidrun run "Complex task" --steps 50
+mobilerun run "Complex task" --steps 50
 
 # Enable debug mode
-droidrun run "Task" --debug
+mobilerun run "Task" --debug
 
 # Try reasoning mode
-droidrun run "Multi-step task" --reasoning
+mobilerun run "Multi-step task" --reasoning
 ```
   </Accordion>
 
@@ -456,10 +456,10 @@ adb tcpip 5555
 adb shell ip route | awk '{print $9}'
 
 # Connect
-droidrun connect <IP>:5555
+mobilerun connect <IP>:5555
 
 # Verify
-droidrun ping --tcp
+mobilerun ping --tcp
 ```
   </Accordion>
 </AccordionGroup>
@@ -468,7 +468,7 @@ droidrun ping --tcp
 
 ## Environment Variables
 
-<Tip>For first-time setup, use `droidrun configure` to interactively choose your provider and credentials. Environment variables below are useful for overrides and CI/CD.</Tip>
+<Tip>For first-time setup, use `mobilerun configure` to interactively choose your provider and credentials. Environment variables below are useful for overrides and CI/CD.</Tip>
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -476,7 +476,7 @@ droidrun ping --tcp
 | `OPENAI_API_KEY` | OpenAI API key | None |
 | `ANTHROPIC_API_KEY` | Anthropic API key | None |
 | `DEEPSEEK_API_KEY` | DeepSeek API key | None |
-| `DROIDRUN_CONFIG` | Config file path | `~/.config/droidrun/config.yaml` |
+| `MOBILERUN_CONFIG` | Config file path | `~/.config/mobilerun/config.yaml` |
 
 **Setting variables:**
 

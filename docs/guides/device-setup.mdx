@@ -1,11 +1,11 @@
 ---
 title: 'Device Setup'
-description: 'Setting up Android and iOS devices for Droidrun automation'
+description: 'Setting up Android and iOS devices for Mobilerun automation'
 ---
 
 ## Overview
 
-Droidrun controls devices through a specialized Portal app that bridges your computer and the device.
+Mobilerun controls devices through a specialized Portal app that bridges your computer and the device.
 
 <Tabs>
   <Tab title="Android Setup">
@@ -36,10 +36,10 @@ Droidrun controls devices through a specialized Portal app that bridges your com
   <Step title="Install Portal App">
     ```bash
     # Automatic setup (downloads compatible Portal APK)
-    droidrun setup
+    mobilerun setup
 
     # Or specify device
-    droidrun setup --device SERIAL_NUMBER
+    mobilerun setup --device SERIAL_NUMBER
     ```
 
     This will:
@@ -50,7 +50,7 @@ Droidrun controls devices through a specialized Portal app that bridges your com
 
   <Step title="Verify Setup">
     ```bash
-    droidrun ping
+    mobilerun ping
     # Output: Portal is installed and accessible. You're good to go!
     ```
   </Step>
@@ -60,7 +60,7 @@ Droidrun controls devices through a specialized Portal app that bridges your com
 
 ## Portal App
 
-The Droidrun Portal (`com.droidrun.portal`) provides:
+The Mobilerun Portal (`com.mobilerun.portal`) provides:
 
 - **Accessibility Tree** - Extracts UI elements and their properties
 - **Device State** - Tracks current activity, keyboard visibility
@@ -80,15 +80,15 @@ The Portal only communicates locally via ADB. No data is sent to external server
     **How it works:**
     - Portal runs HTTP server on device port 8080
     - ADB forwards local port → device port 8080
-    - Droidrun sends HTTP requests to `localhost:PORT`
+    - Mobilerun sends HTTP requests to `localhost:PORT`
 
     **Enable:**
     ```bash
     # CLI
-    droidrun run "your command" --tcp
+    mobilerun run "your command" --tcp
 
     # Python
-    config = DroidConfig(device=DeviceConfig(serial="DEVICE_SERIAL", use_tcp=True))
+    config = MobileConfig(device=DeviceConfig(serial="DEVICE_SERIAL", use_tcp=True))
     ```
 
     **Troubleshooting:**
@@ -101,29 +101,29 @@ The Portal only communicates locally via ADB. No data is sent to external server
 
     # Remove all forwards and retry
     adb forward --remove-all
-    droidrun ping --tcp
+    mobilerun ping --tcp
     ```
   </Accordion>
 
   <Accordion title="Content Provider (Fallback) - per operation">
     **How it works:**
-    - Portal exposes content provider at `content://com.droidrun.portal/`
+    - Portal exposes content provider at `content://com.mobilerun.portal/`
     - Commands sent via ADB shell: `content query --uri ...`
     - JSON responses parsed from shell output
 
     **Usage:**
     ```bash
     # Default mode (no flag needed)
-    droidrun ping
+    mobilerun ping
 
     # Python
-    config = DroidConfig(device=DeviceConfig(serial="DEVICE_SERIAL", use_tcp=False))
+    config = MobileConfig(device=DeviceConfig(serial="DEVICE_SERIAL", use_tcp=False))
     ```
 
     **Troubleshooting:**
     ```bash
     # Test content provider directly
-    adb shell content query --uri content://com.droidrun.portal/state
+    adb shell content query --uri content://com.mobilerun.portal/state
 
     # Should show: Row: 0 result={"data": "{...}"}
     ```
@@ -160,7 +160,7 @@ The Portal only communicates locally via ADB. No data is sent to external server
       <Step title="Connect">
         ```bash
         adb connect IP:PORT
-        droidrun ping --device IP:PORT
+        mobilerun ping --device IP:PORT
         ```
       </Step>
     </Steps>
@@ -191,7 +191,7 @@ The Portal only communicates locally via ADB. No data is sent to external server
         ```bash
         # Disconnect USB cable
         adb connect DEVICE_IP:5555
-        droidrun ping --device DEVICE_IP:5555
+        mobilerun ping --device DEVICE_IP:5555
         ```
       </Step>
     </Steps>
@@ -201,7 +201,7 @@ The Portal only communicates locally via ADB. No data is sent to external server
     ### List Devices
 
     ```bash
-    droidrun devices
+    mobilerun devices
     # Found 2 connected device(s):
     #   • emulator-5554
     #   • 192.168.1.100:5555
@@ -211,24 +211,24 @@ The Portal only communicates locally via ADB. No data is sent to external server
 
     ```bash
     # CLI
-    droidrun run "your command" --device emulator-5554
+    mobilerun run "your command" --device emulator-5554
 
     # Python
-    config = DroidConfig(device=DeviceConfig(serial="emulator-5554"))
-    agent = DroidAgent(goal="your task", config=config)
+    config = MobileConfig(device=DeviceConfig(serial="emulator-5554"))
+    agent = MobileAgent(goal="your task", config=config)
     ```
 
     ### Parallel Control
 
     ```python
     import asyncio
-    from droidrun import DeviceConfig, DroidConfig, DroidAgent
+    from mobilerun import DeviceConfig, MobileConfig, MobileAgent
     from async_adbutils import adb
 
     async def control_device(serial: str, command: str):
         device_config = DeviceConfig(serial=serial)
-        config = DroidConfig(device=device_config)
-        agent = DroidAgent(goal=command, config=config)
+        config = MobileConfig(device=device_config)
+        agent = MobileAgent(goal=command, config=config)
         return await agent.run()
 
     async def main():
@@ -264,29 +264,29 @@ The Portal only communicates locally via ADB. No data is sent to external server
   </Accordion>
 
   <Accordion title="Portal not installed">
-    **Symptoms:** `droidrun ping` fails with "Portal is not installed"
+    **Symptoms:** `mobilerun ping` fails with "Portal is not installed"
 
     **Solutions:**
-    1. Reinstall: `droidrun setup`
-    2. Check: `adb shell pm list packages | grep droidrun`
+    1. Reinstall: `mobilerun setup`
+    2. Check: `adb shell pm list packages | grep mobilerun`
     3. Verify APK architecture matches device (arm64-v8a for most devices)
   </Accordion>
 
   <Accordion title="Accessibility service not enabled">
-    **Symptoms:** `droidrun ping` fails with "accessibility service not enabled"
+    **Symptoms:** `mobilerun ping` fails with "accessibility service not enabled"
 
     **Solutions:**
     1. Auto-enable:
        ```bash
        adb shell settings put secure enabled_accessibility_services \
-         com.droidrun.portal/com.droidrun.portal.service.DroidrunAccessibilityService
+         com.mobilerun.portal/com.mobilerun.portal.service.MobilerunAccessibilityService
        adb shell settings put secure accessibility_enabled 1
        ```
-    2. Manual: Settings > Accessibility > Droidrun Portal > Toggle ON
+    2. Manual: Settings > Accessibility > Mobilerun Portal > Toggle ON
     3. Verify:
        ```bash
        adb shell settings get secure enabled_accessibility_services
-       # Should contain: com.droidrun.portal/...
+       # Should contain: com.mobilerun.portal/...
        ```
   </Accordion>
 
@@ -298,9 +298,9 @@ The Portal only communicates locally via ADB. No data is sent to external server
        ```bash
        # Verify
        adb shell settings get secure default_input_method
-       # Should show: com.droidrun.portal/.input.DroidrunKeyboardIME
+       # Should show: com.mobilerun.portal/.input.MobilerunKeyboardIME
        ```
-    2. Manual switch: Long press space bar → Select "Droidrun Keyboard"
+    2. Manual switch: Long press space bar → Select "Mobilerun Keyboard"
     3. Focus the element first (tap it), then input text
   </Accordion>
 
@@ -308,7 +308,7 @@ The Portal only communicates locally via ADB. No data is sent to external server
     **Symptoms:** `get_state()` returns empty or incomplete UI tree
 
     **Solutions:**
-    1. Verify accessibility: `droidrun ping`
+    1. Verify accessibility: `mobilerun ping`
     2. Some apps block accessibility services (WebViews, games, custom UI)
     3. Wait for UI: `time.sleep(1)` after tap/swipe
     4. Enable Portal overlay to see detected elements
@@ -350,37 +350,37 @@ brew install libimobiledevice
 
 ## Build and Install the iOS Portal
 
-The iOS Portal is an Xcode project that runs as a UI test — it launches an HTTP server on port **6643** that Droidrun communicates with.
+The iOS Portal is an Xcode project that runs as a UI test — it launches an HTTP server on port **6643** that Mobilerun communicates with.
 
 <Steps>
   <Step title="Clone the iOS Portal repository">
     ```bash
-    git clone https://github.com/droidrun/ios-portal.git
+    git clone https://github.com/mobilerun/ios-portal.git
     cd ios-portal
     ```
   </Step>
 
   <Step title="Open the project in Xcode">
     ```bash
-    open droidrun-ios-portal.xcodeproj
+    open mobilerun-ios-portal.xcodeproj
     ```
   </Step>
 
   <Step title="Configure code signing">
     You must change the signing team and bundle identifier to your own:
 
-    1. In Xcode, select the **droidrun-ios-portal** project in the navigator
-    2. For **each target** (`droidrun-ios-portal`, `droidrun-ios-portalUITests`):
+    1. In Xcode, select the **mobilerun-ios-portal** project in the navigator
+    2. For **each target** (`mobilerun-ios-portal`, `mobilerun-ios-portalUITests`):
        - Select the target
        - Go to the **Signing & Capabilities** tab
        - Set **Team** to your Apple Developer account
        - Change the **Bundle Identifier** to something unique, e.g.:
-         - `com.yourname.droidrun-ios-portal`
-         - `com.yourname.droidrun-ios-portalUITests`
+         - `com.yourname.mobilerun-ios-portal`
+         - `com.yourname.mobilerun-ios-portalUITests`
     3. Let Xcode automatically manage provisioning profiles
 
     <Warning>
-    You **must** change the bundle identifiers — the default ones are tied to the Droidrun team's signing certificate and will fail to build on your machine.
+    You **must** change the bundle identifiers — the default ones are tied to the Mobilerun team's signing certificate and will fail to build on your machine.
     </Warning>
   </Step>
 
@@ -393,7 +393,7 @@ The iOS Portal is an Xcode project that runs as a UI test — it launches an HTT
 
     **Option A — Xcode UI:**
     - Go to **Product** > **Test** (or press `Cmd + U`)
-    - This builds the app, installs it, and starts the "Droidrun Server" UI test
+    - This builds the app, installs it, and starts the "Mobilerun Server" UI test
 
     **Option B — Command line:**
     ```bash
@@ -429,14 +429,14 @@ The iOS Portal is an Xcode project that runs as a UI test — it launches an HTT
     # Should return something like: {"date": "2026-03-31 10:30:00"}
     ```
 
-    Then test with Droidrun:
+    Then test with Mobilerun:
     ```bash
-    droidrun run "take a screenshot" --ios
+    mobilerun run "take a screenshot" --ios
     ```
 
-    Droidrun will auto-discover the portal on port 6643. If it's on a different port, pass the URL explicitly:
+    Mobilerun will auto-discover the portal on port 6643. If it's on a different port, pass the URL explicitly:
     ```bash
-    droidrun run "take a screenshot" --ios --device http://127.0.0.1:6643
+    mobilerun run "take a screenshot" --ios --device http://127.0.0.1:6643
     ```
   </Step>
 </Steps>
@@ -467,7 +467,7 @@ iOS Portal uses a different architecture than Android:
 |---------|---------|-----|
 | Communication | ADB + TCP/Content Provider | HTTP server (port 6643) |
 | Portal type | APK (auto-installed) | Xcode UI test (built from source) |
-| Setup tool | `droidrun setup` | Xcode build + `iproxy` |
+| Setup tool | `mobilerun setup` | Xcode build + `iproxy` |
 | Accessibility | Android Accessibility API | iOS XCUITest framework |
 | Text Input | Custom keyboard IME | Direct XCUITest text input |
 | Connection | ADB over USB/TCP | USB via `iproxy` or WiFi |
@@ -482,25 +482,25 @@ The iOS Portal leverages XCUITest to extract accessibility trees, perform gestur
 
 ```bash
 # Auto-discovers portal on port 6643
-droidrun run "your command" --ios
+mobilerun run "your command" --ios
 
 # Explicit portal URL
-droidrun run "your command" --ios --device http://127.0.0.1:6643
+mobilerun run "your command" --ios --device http://127.0.0.1:6643
 ```
 
 ### Python API
 
 ```python
-from droidrun import DroidAgent, DroidConfig, DeviceConfig
+from mobilerun import MobileAgent, MobileConfig, DeviceConfig
 
-config = DroidConfig(
+config = MobileConfig(
     device=DeviceConfig(
         platform="ios",
         serial="http://127.0.0.1:6643",  # optional, auto-discovered if omitted
     )
 )
 
-agent = DroidAgent(
+agent = MobileAgent(
     goal="Open Settings and check WiFi",
     config=config
 )
@@ -548,7 +548,7 @@ result = await agent.run()
   </Accordion>
 
   <Accordion title="Auto-discovery fails">
-    **Symptoms:** `droidrun run ... --ios` says "Could not find iOS portal"
+    **Symptoms:** `mobilerun run ... --ios` says "Could not find iOS portal"
 
     **Solutions:**
     1. Auto-discovery scans ports 6643-6652. Make sure `iproxy` is forwarding to one of these.

@@ -1,6 +1,6 @@
 ---
 title: 'Custom Variables'
-description: 'Pass dynamic data to your Droidrun agents using the `variables` parameter. Variables enable parameterized workflows and reusable automation.'
+description: 'Pass dynamic data to your Mobilerun agents using the `variables` parameter. Variables enable parameterized workflows and reusable automation.'
 ---
 
 Custom variables are accessible in:
@@ -12,7 +12,7 @@ Custom variables are accessible in:
 ## Quick Start
 
 ```python
-from droidrun import DroidAgent, DroidConfig
+from mobilerun import MobileAgent, MobileConfig
 
 # Define custom prompts that render variables
 custom_prompts = {
@@ -29,9 +29,9 @@ Available variables:
 }
 
 # Create agent with variables
-config = DroidConfig()
+config = MobileConfig()
 
-agent = DroidAgent(
+agent = MobileAgent(
     goal="Send email to recipient with subject",
     config=config,
     variables={"recipient": "john@example.com", "subject": "Update"},
@@ -47,9 +47,9 @@ result = await agent.run()
 
 ## How Variables Work
 
-When you pass `variables` to `DroidAgent`:
+When you pass `variables` to `MobileAgent`:
 
-1. **Stored** in `DroidAgentState.custom_variables`
+1. **Stored** in `MobileAgentState.custom_variables`
 2. **Passed** to prompt templates as `variables` dict
 3. **Rendered** in Jinja2 templates via `{% if variables %}` blocks
 4. **Available** to all child agents throughout the workflow
@@ -64,12 +64,12 @@ When you pass `variables` to `DroidAgent`:
 ## Basic Usage
 
 ```python
-from droidrun import DroidAgent, DroidConfig
+from mobilerun import MobileAgent, MobileConfig
 
 # Define variables
 variables = {
     "recipient": "alice@example.com",
-    "message": "Hello from Droidrun!"
+    "message": "Hello from Mobilerun!"
 }
 
 # Custom prompt to render variables
@@ -89,9 +89,9 @@ Use these variables when executing tasks.
 }
 
 # Create agent
-config = DroidConfig()
+config = MobileConfig()
 
-agent = DroidAgent(
+agent = MobileAgent(
     goal="Send message to recipient",
     config=config,
     variables=variables,
@@ -117,7 +117,7 @@ Customize these prompts to render variables:
 Custom tools can access variables via the `ctx` keyword argument (an `ActionContext` instance injected automatically):
 
 ```python
-from droidrun import DroidAgent, DroidConfig
+from mobilerun import MobileAgent, MobileConfig
 
 async def send_notification(title: str, *, ctx, **kwargs):
     """Send a notification using channel from custom variables.
@@ -140,9 +140,9 @@ custom_tools = {
     }
 }
 
-config = DroidConfig()
+config = MobileConfig()
 
-agent = DroidAgent(
+agent = MobileAgent(
     goal="Send notification with title 'Alert'",
     config=config,
     custom_tools=custom_tools,
@@ -159,7 +159,7 @@ agent = DroidAgent(
 ```python
 # Define reusable workflow with different variables
 for user in ["alice@example.com", "bob@example.com"]:
-    agent = DroidAgent(
+    agent = MobileAgent(
         goal="Send welcome email",
         config=config,
         variables={"recipient": user},
@@ -176,7 +176,7 @@ variables = {
     "timeout": 30
 }
 
-agent = DroidAgent(
+agent = MobileAgent(
     goal="Call API endpoint",
     config=config,
     variables=variables,
@@ -198,4 +198,4 @@ agent = DroidAgent(
 
 - [Custom Prompts](/concepts/prompts) - How to customize agent prompts
 - [Custom Tools](/features/custom-tools) - Creating custom tool functions
-- [DroidAgent SDK](/sdk/droid-agent) - Complete API reference
+- [MobileAgent SDK](/sdk/droid-agent) - Complete API reference
