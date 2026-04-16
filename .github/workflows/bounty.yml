@@ -88,7 +88,7 @@ jobs:
             }
           }' \
           -f owner="droidrun" \
-          -f repo="droidrun" \
+          -f repo="mobilerun" \
           -F number=104 \
           --jq '.data.repository.issue as $i |
           { issueId: $i.id,

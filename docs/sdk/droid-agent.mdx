@@ -1,15 +1,15 @@
 ---
-title: DroidAgent
+title: MobileAgent
 ---
 
-DroidAgent - A wrapper class that coordinates the planning and execution of tasks to achieve a user's goal on an Android or iOS device.
+MobileAgent - A wrapper class that coordinates the planning and execution of tasks to achieve a user's goal on an Android or iOS device.
 
-<a id="droidrun.agent.droid.droid_agent.DroidAgent"></a>
+<a id="mobilerun.agent.droid.droid_agent.MobileAgent"></a>
 
-## DroidAgent
+## MobileAgent
 
 ```python
-class DroidAgent(Workflow)
+class MobileAgent(Workflow)
 ```
 
 A wrapper class that coordinates between agents to achieve a user's goal.
@@ -18,14 +18,14 @@ A wrapper class that coordinates between agents to achieve a user's goal.
 - When `reasoning=False`: Uses FastAgent directly for immediate execution
 - When `reasoning=True`: Uses ManagerAgent (planning) + ExecutorAgent (actions)
 
-<a id="droidrun.agent.droid.droid_agent.DroidAgent.__init__"></a>
+<a id="mobilerun.agent.droid.droid_agent.MobileAgent.__init__"></a>
 
-#### DroidAgent.\_\_init\_\_
+#### MobileAgent.\_\_init\_\_
 
 ```python
 def __init__(
     goal: str,
-    config: DroidConfig | None = None,
+    config: MobileConfig | None = None,
     llms: dict[str, LLM] | LLM | None = None,
     custom_tools: dict = None,
     credentials: Union[dict, CredentialManager, None] = None,
@@ -38,12 +38,12 @@ def __init__(
 )
 ```
 
-Initialize the DroidAgent wrapper.
+Initialize the MobileAgent wrapper.
 
 **Arguments**:
 
 - `goal` _str_ - User's goal or command to execute
-- `config` _DroidConfig | None_ - Full configuration object (required if llms not provided). Contains agent settings, LLM profiles, device config, and more.
+- `config` _MobileConfig | None_ - Full configuration object (required if llms not provided). Contains agent settings, LLM profiles, device config, and more.
 - `llms` _dict[str, LLM] | LLM | None_ - Optional LLM configuration:
   - `dict[str, LLM]`: Agent-specific LLMs with keys: "manager", "executor", "fast_agent", "app_opener", "structured_output"
   - `LLM`: Single LLM instance used for all agents
@@ -60,15 +60,15 @@ Initialize the DroidAgent wrapper.
 **Basic initialization pattern (recommended):**
 
 ```python
-from droidrun import DroidAgent
-from droidrun.config_manager import DroidConfig
+from mobilerun import MobileAgent
+from mobilerun.config_manager import MobileConfig
 
 # Initialize with default config
-config = DroidConfig()
+config = MobileConfig()
 
 # Create agent (LLMs loaded from config.llm_profiles)
-agent = DroidAgent(
-    goal="Open Chrome and search for Droidrun",
+agent = MobileAgent(
+    goal="Open Chrome and search for Mobilerun",
     config=config
 )
 
@@ -79,15 +79,15 @@ result = await agent.run()
 **Loading from YAML (optional):**
 
 ```python
-from droidrun import DroidAgent
-from droidrun.config_manager import DroidConfig
+from mobilerun import MobileAgent
+from mobilerun.config_manager import MobileConfig
 
 # Load config from config.yaml
-config = DroidConfig.from_yaml("config.yaml")
+config = MobileConfig.from_yaml("config.yaml")
 
 # Create agent (LLMs loaded from config.llm_profiles)
-agent = DroidAgent(
-    goal="Open Chrome and search for Droidrun",
+agent = MobileAgent(
+    goal="Open Chrome and search for Mobilerun",
     config=config
 )
 
@@ -98,13 +98,13 @@ result = await agent.run()
 **Custom LLM dictionary pattern:**
 
 ```python
-from droidrun import DroidAgent
-from droidrun.config_manager import DroidConfig
+from mobilerun import MobileAgent
+from mobilerun.config_manager import MobileConfig
 from llama_index.llms.openai import OpenAI
 from llama_index.llms.anthropic import Anthropic
 
 # Initialize config
-config = DroidConfig()
+config = MobileConfig()
 
 # Create custom LLMs
 llms = {
@@ -116,7 +116,7 @@ llms = {
 }
 
 # Create agent with custom LLMs
-agent = DroidAgent(
+agent = MobileAgent(
     goal="Send a message to John",
     llms=llms,
     config=config
@@ -128,17 +128,17 @@ result = await agent.run()
 **Single LLM pattern:**
 
 ```python
-from droidrun import DroidAgent
-from droidrun.config_manager import DroidConfig
+from mobilerun import MobileAgent
+from mobilerun.config_manager import MobileConfig
 from llama_index.llms.openai import OpenAI
 
 # Initialize config
-config = DroidConfig()
+config = MobileConfig()
 
 # Use same LLM for all agents
 llm = OpenAI(model="gpt-4o", temperature=0.2)
 
-agent = DroidAgent(
+agent = MobileAgent(
     goal="Take a screenshot and save it",
     llms=llm,
     config=config
@@ -150,11 +150,11 @@ result = await agent.run()
 **Custom tools and credentials:**
 
 ```python
-from droidrun import DroidAgent
-from droidrun.config_manager import DroidConfig
+from mobilerun import MobileAgent
+from mobilerun.config_manager import MobileConfig
 
 # Initialize config
-config = DroidConfig()
+config = MobileConfig()
 
 # Define custom tool
 def search_database(query: str) -> str:
@@ -178,7 +178,7 @@ credentials = {
     "GMAIL_PASSWORD": "secret123"
 }
 
-agent = DroidAgent(
+agent = MobileAgent(
     goal="Search database and email results",
     config=config,
     custom_tools=custom_tools,
@@ -191,12 +191,12 @@ result = await agent.run()
 **Structured output extraction:**
 
 ```python
-from droidrun import DroidAgent
-from droidrun.config_manager import DroidConfig
+from mobilerun import MobileAgent
+from mobilerun.config_manager import MobileConfig
 from pydantic import BaseModel, Field
 
 # Initialize config
-config = DroidConfig()
+config = MobileConfig()
 
 # Define output schema
 class WeatherInfo(BaseModel):
@@ -205,7 +205,7 @@ class WeatherInfo(BaseModel):
     condition: str = Field(description="Weather condition")
     humidity: int = Field(description="Humidity percentage")
 
-agent = DroidAgent(
+agent = MobileAgent(
     goal="Open weather app and get current weather",
     config=config,
     output_model=WeatherInfo
@@ -220,15 +220,15 @@ if result.success and result.structured_output:
     print(f"Condition: {weather.condition}")
 ```
 
-<a id="droidrun.agent.droid.droid_agent.DroidAgent.run"></a>
+<a id="mobilerun.agent.droid.droid_agent.MobileAgent.run"></a>
 
-#### DroidAgent.run
+#### MobileAgent.run
 
 ```python
 async def run(*args, **kwargs) -> ResultEvent
 ```
 
-Run the DroidAgent workflow.
+Run the MobileAgent workflow.
 
 **Returns**:
 
@@ -241,14 +241,14 @@ Run the DroidAgent workflow.
 **Usage:**
 
 ```python
-from droidrun import DroidAgent
-from droidrun.config_manager import DroidConfig
+from mobilerun import MobileAgent
+from mobilerun.config_manager import MobileConfig
 
 # Initialize config
-config = DroidConfig()
+config = MobileConfig()
 
 # Create and run agent
-agent = DroidAgent(goal="...", config=config)
+agent = MobileAgent(goal="...", config=config)
 result = await agent.run()
 
 print(f"Success: {result.success}")
@@ -259,13 +259,13 @@ print(f"Steps: {result.steps}")
 **Streaming events:**
 
 ```python
-from droidrun import DroidAgent
-from droidrun.config_manager import DroidConfig
+from mobilerun import MobileAgent
+from mobilerun.config_manager import MobileConfig
 
 # Initialize config
-config = DroidConfig()
+config = MobileConfig()
 
-agent = DroidAgent(goal="...", config=config)
+agent = MobileAgent(goal="...", config=config)
 
 # Stream events as they occur
 async for event in agent.run_event_stream():
@@ -281,7 +281,7 @@ async for event in agent.run_event_stream():
         print(f"Reason: {event.reason}")
 ```
 
-#### DroidAgent.send\_user\_message
+#### MobileAgent.send\_user\_message
 
 ```python
 def send_user_message(message: str) -> QueuedUserMessage
@@ -302,7 +302,7 @@ Inject an external user message into the running workflow. The message is queued
 ```python
 import asyncio
 
-agent = DroidAgent(goal="...", config=config)
+agent = MobileAgent(goal="...", config=config)
 
 # Start the agent as a background task so it begins executing
 task = asyncio.create_task(agent.run())
@@ -324,7 +324,7 @@ If the agent has already finished or the message arrives at `max_steps`, the mes
 
 ## Event Types
 
-DroidAgent emits various events during execution:
+MobileAgent emits various events during execution:
 
 **Workflow Events:**
 - `StartEvent` - Workflow started
@@ -353,7 +353,7 @@ DroidAgent emits various events during execution:
 
 ## Configuration
 
-DroidAgent uses a hierarchical configuration system. See the [Configuration Guide](/sdk/configuration) for details.
+MobileAgent uses a hierarchical configuration system. See the [Configuration Guide](/sdk/configuration) for details.
 
 **Key configuration options:**
 
@@ -388,14 +388,14 @@ tracing:
 **Custom Tools instance:**
 
 ```python
-from droidrun import DroidAgent, DeviceConfig
-from droidrun.config_manager import DroidConfig
+from mobilerun import MobileAgent, DeviceConfig
+from mobilerun.config_manager import MobileConfig
 
 # Initialize config with device settings
 device_config = DeviceConfig(serial="emulator-5554", use_tcp=True)
-config = DroidConfig(device=device_config)
+config = MobileConfig(device=device_config)
 
-agent = DroidAgent(
+agent = MobileAgent(
     goal="Open settings",
     config=config,
 )
@@ -406,13 +406,13 @@ result = await agent.run()
 **Custom variables:**
 
 ```python
-from droidrun import DroidAgent
-from droidrun.config_manager import DroidConfig
+from mobilerun import MobileAgent
+from mobilerun.config_manager import MobileConfig
 
 # Initialize config
-config = DroidConfig()
+config = MobileConfig()
 
-agent = DroidAgent(
+agent = MobileAgent(
     goal="Complete task using context",
     config=config,
     variables={
@@ -430,11 +430,11 @@ Variables are accessible in shared_state.custom_variables throughout execution a
 **Custom prompts:**
 
 ```python
-from droidrun import DroidAgent
-from droidrun.config_manager import DroidConfig
+from mobilerun import MobileAgent
+from mobilerun.config_manager import MobileConfig
 
 # Initialize config
-config = DroidConfig()
+config = MobileConfig()
 
 # Override default prompts with custom Jinja2 templates
 custom_prompts = {
@@ -442,7 +442,7 @@ custom_prompts = {
     "manager_system": "You are a planning agent. Your goal: {{ instruction }}..."
 }
 
-agent = DroidAgent(
+agent = MobileAgent(
     goal="Complete specialized task",
     config=config,
     prompts=custom_prompts

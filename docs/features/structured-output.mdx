@@ -8,7 +8,7 @@ description: 'Extract structured data from device interactions using Pydantic mo
 ```python
 import asyncio
 from pydantic import BaseModel, Field
-from droidrun import DroidAgent, DroidConfig
+from mobilerun import MobileAgent, MobileConfig
 
 # 1. Define output structure
 class ContactInfo(BaseModel):
@@ -19,9 +19,9 @@ class ContactInfo(BaseModel):
 
 # 2. Create agent with output_model
 async def main():
-    config = DroidConfig()
+    config = MobileConfig()
 
-    agent = DroidAgent(
+    agent = MobileAgent(
         goal="Find John Smith's contact information",
         config=config,
         output_model=ContactInfo,
@@ -46,7 +46,7 @@ asyncio.run(main())
 ### Two-Stage Process
 
 **Stage 1: Task Execution**
-- DroidAgent performs device actions while collecting required information
+- MobileAgent performs device actions while collecting required information
 - System prompt is automatically injected with your Pydantic schema
 - Agent completes with natural language answer containing the data
 
@@ -69,9 +69,9 @@ class Invoice(BaseModel):
     vendor_name: str = Field(description="Vendor name")
     total_due: float = Field(description="Total amount in dollars")
 
-agent = DroidAgent(
+agent = MobileAgent(
     goal="Open Gmail and extract invoice from Acme Corp email",
-    config=DroidConfig(),
+    config=MobileConfig(),
     output_model=Invoice,
 )
 
@@ -135,16 +135,16 @@ llm_profiles:
 
 **Programmatically:**
 ```python
-from droidrun import load_llm
+from mobilerun import load_llm
 
-config = DroidConfig()
+config = MobileConfig()
 
 llms = {
     "fast_agent": load_llm("GoogleGenAI", "gemini-3.1-flash-lite-preview"),
     "structured_output": load_llm("OpenAI", "gpt-4o-mini"),
 }
 
-agent = DroidAgent(
+agent = MobileAgent(
     goal="Extract contact info for Alice",
     llms=llms,
     config=config,
@@ -158,10 +158,10 @@ Works in both direct and reasoning modes:
 
 ```python
 # Direct mode
-config = DroidConfig()
+config = MobileConfig()
 config.agent.reasoning = False
 
-agent = DroidAgent(
+agent = MobileAgent(
     goal="Find weather for SF",
     config=config,
     output_model=WeatherInfo,
@@ -170,7 +170,7 @@ agent = DroidAgent(
 # Reasoning mode
 config.agent.reasoning = True
 
-agent = DroidAgent(
+agent = MobileAgent(
     goal="Find weather for SF",
     config=config,
     output_model=WeatherInfo,
@@ -193,7 +193,7 @@ rating: Optional[float] = Field(description="Customer rating (1-5)", default=Non
 
 **3. Guide data collection in your goal**:
 ```python
-agent = DroidAgent(
+agent = MobileAgent(
     goal="Find contact and get their phone number, email, and full name",
     config=config,
     output_model=ContactInfo,
@@ -205,7 +205,7 @@ agent = DroidAgent(
 ## Troubleshooting
 
 **Extraction returns None:**
-- Verify `output_model` is passed to `DroidAgent`
+- Verify `output_model` is passed to `MobileAgent`
 - Check if task succeeded: `result.success`
 - Enable debug logging: `config.logging.debug = True`
 
@@ -229,7 +229,7 @@ class ContactList(BaseModel):
     """Multiple contacts."""
     contacts: List[ContactInfo] = Field(description="List of contacts")
 
-agent = DroidAgent(
+agent = MobileAgent(
     goal="Find contacts for John Smith and Jane Doe",
     config=config,
     output_model=ContactList,
@@ -238,7 +238,7 @@ agent = DroidAgent(
 
 ### Workflow Integration
 
-Extraction happens automatically in `DroidAgent.finalize()`:
+Extraction happens automatically in `MobileAgent.finalize()`:
 
 ```python
 @step
@@ -268,7 +268,7 @@ async def finalize(self, ctx: Context, ev: FinalizeEvent) -> ResultEvent:
 
 ## Related Documentation
 
-- [DroidAgent API](/sdk/droid-agent)
+- [MobileAgent API](/sdk/droid-agent)
 - [Pydantic Documentation](https://docs.pydantic.dev/)
 - [Configuration Guide](/sdk/configuration)
 - [Custom Variables](/features/custom-variables)

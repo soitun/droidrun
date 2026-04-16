@@ -4,7 +4,7 @@ title: DeviceDriver Base Class
 
 Base class defining the interface for all device drivers.
 
-<a id="droidrun.tools.driver.base.DeviceDriver"></a>
+<a id="mobilerun.tools.driver.base.DeviceDriver"></a>
 
 ## DeviceDriver
 
@@ -96,7 +96,7 @@ All DeviceDriver implementations may provide these methods (check `supported` se
 
 ## StateProvider
 
-<a id="droidrun.tools.ui.provider.StateProvider"></a>
+<a id="mobilerun.tools.ui.provider.StateProvider"></a>
 
 ```python
 class StateProvider:
@@ -118,7 +118,7 @@ Fetches state from an Android device via `driver.get_ui_tree()`. Includes retry 
 
 ## UIState
 
-<a id="droidrun.tools.ui.state.UIState"></a>
+<a id="mobilerun.tools.ui.state.UIState"></a>
 
 ```python
 class UIState
@@ -147,7 +147,7 @@ Holds parsed UI elements for a single device state snapshot.
 
 ## ActionContext
 
-<a id="droidrun.agent.action_context.ActionContext"></a>
+<a id="mobilerun.agent.action_context.ActionContext"></a>
 
 ```python
 class ActionContext
@@ -159,7 +159,7 @@ Everything an action function needs to interact with the device.
 
 - `driver` - `DeviceDriver` instance for raw device I/O
 - `ui` - `UIState` instance for element resolution (refreshed each step)
-- `shared_state` - `DroidAgentState` for shared agent state
+- `shared_state` - `MobileAgentState` for shared agent state
 - `state_provider` - `StateProvider` for fetching fresh UI state
 - `app_opener_llm` - LLM instance for app opening workflow (optional)
 - `credential_manager` - CredentialManager instance (optional)
@@ -169,7 +169,7 @@ Everything an action function needs to interact with the device.
 
 ## ActionResult
 
-<a id="droidrun.agent.action_result.ActionResult"></a>
+<a id="mobilerun.agent.action_result.ActionResult"></a>
 
 ```python
 @dataclass
@@ -213,7 +213,7 @@ async def click(index: int, *, ctx: ActionContext) -> ActionResult:
 
 ## ToolRegistry
 
-<a id="droidrun.agent.tool_registry.ToolRegistry"></a>
+<a id="mobilerun.agent.tool_registry.ToolRegistry"></a>
 
 ```python
 class ToolRegistry
@@ -254,7 +254,7 @@ custom_tools = {
     }
 }
 
-agent = DroidAgent(
+agent = MobileAgent(
     goal="Do something",
     config=config,
     custom_tools=custom_tools
@@ -304,7 +304,7 @@ async def my_action(param: str, *, ctx: ActionContext) -> ActionResult:
 ### 3. Use StateProvider for UI state
 
 ```python
-from droidrun.tools import AndroidStateProvider, AndroidDriver
+from mobilerun.tools import AndroidStateProvider, AndroidDriver
 
 # StateProvider handles fetching + parsing + retries
 provider = AndroidStateProvider(driver, tree_filter=my_filter, tree_formatter=my_formatter)
@@ -343,5 +343,5 @@ if not result.success:
 
 - [AndroidDriver API](/sdk/adb-tools) - Android driver implementation
 - [IOSDriver API](/sdk/ios-tools) - iOS driver implementation
-- [DroidAgent API](/sdk/droid-agent) - Agent integration
+- [MobileAgent API](/sdk/droid-agent) - Agent integration
 - [Configuration](/sdk/configuration) - Configuration reference

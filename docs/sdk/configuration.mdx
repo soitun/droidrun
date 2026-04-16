@@ -1,31 +1,31 @@
 ---
 title: 'Configuration'
-description: 'Complete DroidAgent configuration guide - all parameters, minimal examples'
+description: 'Complete MobileAgent configuration guide - all parameters, minimal examples'
 ---
 
 ## Quick Start
 
 ```python
-from droidrun import DroidAgent, DroidConfig
+from mobilerun import MobileAgent, MobileConfig
 
 # Minimal (uses defaults)
-agent = DroidAgent(goal="Open settings")
+agent = MobileAgent(goal="Open settings")
 result = await agent.run()
 
 # Load from config.yaml
-config = DroidConfig.from_yaml("config.yaml")
-agent = DroidAgent(goal="Open settings", config=config)
+config = MobileConfig.from_yaml("config.yaml")
+agent = MobileAgent(goal="Open settings", config=config)
 result = await agent.run()
 ```
 
 ---
 
-## DroidAgent Parameters
+## MobileAgent Parameters
 
 ### Required
 
 ```python
-DroidAgent(
+MobileAgent(
     goal="Your task",  # REQUIRED: Task description
 )
 ```
@@ -34,7 +34,7 @@ DroidAgent(
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `config` | `DroidConfig \| None` | `None` | Full config object (loads LLMs from profiles if `llms` not provided) |
+| `config` | `MobileConfig \| None` | `None` | Full config object (loads LLMs from profiles if `llms` not provided) |
 | `llms` | `dict[str, LLM] \| LLM \| None` | `None` | LLM(s) - dict for per-agent, single LLM for all, or None to load from config |
 | `custom_tools` | `dict` | `None` | Custom tool definitions |
 | `credentials` | `Union[dict, CredentialManager, None]` | `None` | Dict of credential secrets or CredentialManager instance |
@@ -52,11 +52,11 @@ DroidAgent(
 ### AgentConfig
 
 ```python
-from droidrun import AgentConfig, FastAgentConfig, ManagerConfig, ExecutorConfig, AppCardConfig
+from mobilerun import AgentConfig, FastAgentConfig, ManagerConfig, ExecutorConfig, AppCardConfig
 
 AgentConfig(
     # Core settings
-    name="droidrun",                 # Agent name (use "droidrun" for default agent)
+    name="mobilerun",                 # Agent name (use "mobilerun" for default agent)
     max_steps=15,                    # Max execution steps
     reasoning=False,                 # Enable Manager/Executor workflow
     streaming=True,                  # Stream LLM responses
@@ -116,7 +116,7 @@ AppCardConfig(
 ### DeviceConfig
 
 ```python
-from droidrun import DeviceConfig
+from mobilerun import DeviceConfig
 
 DeviceConfig(
     serial=None,          # Device serial/IP (None = auto-detect)
@@ -131,7 +131,7 @@ DeviceConfig(
 ### LoggingConfig
 
 ```python
-from droidrun import LoggingConfig
+from mobilerun import LoggingConfig
 
 LoggingConfig(
     debug=False,                   # Enable debug logs
@@ -147,7 +147,7 @@ LoggingConfig(
 ### TracingConfig
 
 ```python
-from droidrun import TracingConfig
+from mobilerun import TracingConfig
 
 TracingConfig(
     enabled=False,                      # Enable tracing
@@ -168,7 +168,7 @@ TracingConfig(
 ### TelemetryConfig
 
 ```python
-from droidrun import TelemetryConfig
+from mobilerun import TelemetryConfig
 
 TelemetryConfig(
     enabled=True,  # Enable anonymous telemetry
@@ -180,7 +180,7 @@ TelemetryConfig(
 ### ToolsConfig
 
 ```python
-from droidrun import ToolsConfig
+from mobilerun import ToolsConfig
 
 ToolsConfig(
     disabled_tools=["click_at", "click_area", "long_press_at"],  # Tools to disable (default disables coordinate-based tools)
@@ -203,7 +203,7 @@ Disabled tools will not be available to agents during execution. The default `di
 ### CredentialsConfig
 
 ```python
-from droidrun import CredentialsConfig
+from mobilerun import CredentialsConfig
 
 CredentialsConfig(
     enabled=True,                        # Enable credential manager
@@ -221,7 +221,7 @@ CredentialsConfig(
 from llama_index.llms.google_genai import GoogleGenAI
 
 llm = GoogleGenAI(model="gemini-3.1-flash-lite-preview", temperature=0.2)
-agent = DroidAgent(goal="...", llms=llm)
+agent = MobileAgent(goal="...", llms=llm)
 ```
 
 ### Per-Agent LLMs
@@ -230,7 +230,7 @@ agent = DroidAgent(goal="...", llms=llm)
 from llama_index.llms.openai import OpenAI
 from llama_index.llms.google_genai import GoogleGenAI
 
-agent = DroidAgent(
+agent = MobileAgent(
     goal="...",
     llms={
         "manager": OpenAI(model="gpt-4o"),                    # Planning
@@ -258,7 +258,7 @@ def my_tool(param: str, **kwargs) -> str:
     """Tool description."""
     return f"Result: {param}"
 
-agent = DroidAgent(
+agent = MobileAgent(
     goal="...",
     custom_tools={
         "my_tool": {
@@ -278,7 +278,7 @@ agent = DroidAgent(
 
 ### Dict Format (Recommended)
 ```python
-agent = DroidAgent(
+agent = MobileAgent(
     goal="...",
     credentials={
         "USERNAME": "alice@example.com",
@@ -290,16 +290,16 @@ agent = DroidAgent(
 
 ### Config Format
 ```python
-from droidrun import DroidConfig, CredentialsConfig
+from mobilerun import MobileConfig, CredentialsConfig
 
-config = DroidConfig(
+config = MobileConfig(
     credentials=CredentialsConfig(
         enabled=True,
         file_path="config/credentials.yaml"
     )
 )
 
-agent = DroidAgent(
+agent = MobileAgent(
     goal="...",
     config=config
 )
@@ -310,7 +310,7 @@ agent = DroidAgent(
 ## Custom Variables
 
 ```python
-agent = DroidAgent(
+agent = MobileAgent(
     goal="...",
     variables={
         "api_url": "https://api.example.com",
@@ -333,7 +333,7 @@ class FlightInfo(BaseModel):
     flight_number: str
     confirmation_code: str
 
-agent = DroidAgent(
+agent = MobileAgent(
     goal="Book a flight and extract details",
     output_model=FlightInfo
 )
@@ -352,7 +352,7 @@ Goal: {{ instruction }}
 Be precise and efficient.
 """
 
-agent = DroidAgent(
+agent = MobileAgent(
     goal="...",
     prompts={
         "fast_agent_system": custom_prompt,
@@ -375,8 +375,8 @@ agent = DroidAgent(
 ## Complete Example
 
 ```python
-from droidrun import (
-    DroidAgent, DroidConfig,
+from mobilerun import (
+    MobileAgent, MobileConfig,
     AgentConfig, FastAgentConfig, DeviceConfig, LoggingConfig, TracingConfig
 )
 from llama_index.llms.openai import OpenAI
@@ -394,7 +394,7 @@ def send_email(to: str, subject: str, **kwargs) -> str:
     return f"Sent to {to}"
 
 # Build configuration
-config = DroidConfig(
+config = MobileConfig(
     agent=AgentConfig(
         max_steps=30,
         reasoning=True,
@@ -414,7 +414,7 @@ config = DroidConfig(
     tracing=TracingConfig(enabled=True),
 )
 
-agent = DroidAgent(
+agent = MobileAgent(
     goal="Complex task",
     config=config,
 
@@ -463,7 +463,7 @@ For CLI usage, create `config.yaml`:
 
 ```yaml
 agent:
-  name: droidrun
+  name: mobilerun
   max_steps: 15
   reasoning: false
   streaming: true
@@ -570,19 +570,19 @@ credentials:
 
 ```bash
 # Override agent settings
-droidrun run "Task" --steps 30 --reasoning --vision
+mobilerun run "Task" --steps 30 --reasoning --vision
 
 # Override device
-droidrun run "Task" --device emulator-5554 --tcp
+mobilerun run "Task" --device emulator-5554 --tcp
 
 # Override LLM (applies to ALL agents)
-droidrun run "Task" --provider GoogleGenAI --model gemini-3.1-flash-lite-preview
+mobilerun run "Task" --provider GoogleGenAI --model gemini-3.1-flash-lite-preview
 
 # Override logging
-droidrun run "Task" --debug --save-trajectory action --tracing
+mobilerun run "Task" --debug --save-trajectory action --tracing
 
 # Custom config file
-droidrun run "Task" --config /path/to/config.yaml
+mobilerun run "Task" --config /path/to/config.yaml
 ```
 
 **All CLI Flags:**
@@ -614,5 +614,5 @@ export GOOGLE_API_KEY=your-key
 export OPENAI_API_KEY=your-key
 export ANTHROPIC_API_KEY=your-key
 export DEEPSEEK_API_KEY=your-key
-export DROIDRUN_CONFIG=/path/to/config.yaml  # Custom config path
+export MOBILERUN_CONFIG=/path/to/config.yaml  # Custom config path
 ```

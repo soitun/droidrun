@@ -39,11 +39,11 @@ This knowledge helps agents complete tasks faster and more reliably.
 
 ## Quick Start
 
-Droidrun includes a sample Gmail app card to demonstrate how app cards work:
+Mobilerun includes a sample Gmail app card to demonstrate how app cards work:
 
 ```bash
 # App cards are enabled by default
-droidrun run "Send an email to john@example.com" --reasoning
+mobilerun run "Send an email to john@example.com" --reasoning
 ```
 
 When the agent opens Gmail, the Gmail app card automatically loads and guides the workflow.
@@ -60,7 +60,7 @@ You can use this as a template to create cards for other apps (see "Creating Cus
 ### Automatic Loading
 
 1. **Detection:** Agent detects the current foreground app (e.g., Gmail)
-2. **Loading:** Droidrun loads the app card for that package name
+2. **Loading:** Mobilerun loads the app card for that package name
 3. **Injection:** App card content is added to the agent's prompt
 4. **Guidance:** Agent uses the instructions to make better decisions
 
@@ -72,10 +72,10 @@ App cards are used by the **Manager Agent** when running in reasoning mode (`--r
 
 ```bash
 # App cards enabled (Manager uses them for planning)
-droidrun run "Archive all unread emails" --reasoning
+mobilerun run "Archive all unread emails" --reasoning
 
 # App cards not used (direct execution mode)
-droidrun run "Tap the button"
+mobilerun run "Tap the button"
 ```
 
 ---
@@ -158,7 +158,7 @@ Add your app mapping to `config/app_cards/app_cards.json`:
 ### Step 4: Test
 
 ```bash
-droidrun run "Open Chrome and search for droidrun" --reasoning --debug
+mobilerun run "Open Chrome and search for mobilerun" --reasoning --debug
 ```
 
 Look for this log message:
@@ -257,7 +257,7 @@ with a floating action button, which is a circular button...
 
 5. **Are you using reasoning mode?**
    ```bash
-   droidrun run "command" --reasoning
+   mobilerun run "command" --reasoning
    ```
 
 ### Debug Mode
@@ -265,7 +265,7 @@ with a floating action button, which is a circular button...
 Run with `--debug` to see app card loading:
 
 ```bash
-droidrun run "Open Gmail" --reasoning --debug
+mobilerun run "Open Gmail" --reasoning --debug
 ```
 
 Look for these log messages:
@@ -278,7 +278,7 @@ Loaded app card for com.google.android.gm from config/app_cards/gmail.md
 
 ## Related Documentation
 
-- [CLI Usage](/guides/cli) - Droidrun CLI command reference
+- [CLI Usage](/guides/cli) - Mobilerun CLI command reference
 - [Configuration](/sdk/configuration) - Configuration system details
 - [Agent Architecture](/concepts/architecture) - How agents work
 - [Manager Agent](/concepts/architecture#manageragent-planner) - Agent that uses app cards

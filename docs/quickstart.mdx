@@ -1,6 +1,6 @@
 ---
 title: 'Quickstart'
-description: 'Get up and running with Droidrun quickly and effectively'
+description: 'Get up and running with Mobilerun quickly and effectively'
 ---
 
 <iframe
@@ -12,11 +12,11 @@ description: 'Get up and running with Droidrun quickly and effectively'
   allowFullScreen
 ></iframe>
 
-This guide will help you get Droidrun installed and running quickly, controlling your Android device through natural language in minutes.
+This guide will help you get Mobilerun installed and running quickly, controlling your Android device through natural language in minutes.
 
 ### Prerequisites
 
-Before installing Droidrun, ensure you have:
+Before installing Mobilerun, ensure you have:
 
 1. **Python 3.11-3.13** installed on your system
 2. [Android Debug Bridge (adb)](https://developer.android.com/studio/releases/platform-tools) installed and configured
@@ -27,7 +27,7 @@ Before installing Droidrun, ensure you have:
 
 ### Installation
 
-Droidrun is installed using [`uv`](https://docs.astral.sh/uv/), a fast Python package installer and resolver.
+Mobilerun is installed using [`uv`](https://docs.astral.sh/uv/), a fast Python package installer and resolver.
 
 **Install uv (if not already installed):**
 
@@ -43,24 +43,24 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 
 **For CLI usage only:**
 ```bash
-uv tool install droidrun
+uv tool install mobilerun
 ```
 
 **For CLI + Python code integration:**
 ```bash
-uv pip install droidrun
+uv pip install mobilerun
 ```
 
 <Note>
-Most LLM providers (Google Gemini, OpenAI, Ollama, OpenRouter) are included by default. For additional providers, install extras: `uv tool install 'droidrun[anthropic,deepseek]'`.
+Most LLM providers (Google Gemini, OpenAI, Ollama, OpenRouter) are included by default. For additional providers, install extras: `uv tool install 'mobilerun[anthropic,deepseek]'`.
 </Note>
 
 ### Set Up the Portal APK
 
-Droidrun requires the Portal app to be installed on your Android device for device control. The Portal app provides accessibility services that expose the UI accessibility tree, enabling the agent to see and interact with UI elements.
+Mobilerun requires the Portal app to be installed on your Android device for device control. The Portal app provides accessibility services that expose the UI accessibility tree, enabling the agent to see and interact with UI elements.
 
 ```bash
-droidrun setup
+mobilerun setup
 ```
 
 This command automatically:
@@ -70,10 +70,10 @@ This command automatically:
 
 ### Test Connection
 
-Verify that Droidrun can communicate with your device:
+Verify that Mobilerun can communicate with your device:
 
 ```bash
-droidrun ping
+mobilerun ping
 ```
 
 If successful, you'll see:
@@ -86,7 +86,7 @@ Portal is installed and accessible. You're good to go!
 Run the configure wizard to choose your provider, auth method (API key or OAuth), and model:
 
 ```bash
-droidrun configure
+mobilerun configure
 ```
 
 Alternatively, you can set an API key as an environment variable:
@@ -108,16 +108,16 @@ Now you're ready to control your device with natural language:
 
 ```bash
 # Using default configuration (Google Gemini)
-droidrun run "Open the settings app and tell me the Android version"
+mobilerun run "Open the settings app and tell me the Android version"
 
 # Override provider and model
-droidrun run "Check the battery level" --provider OpenAI --model gpt-4o
+mobilerun run "Check the battery level" --provider OpenAI --model gpt-4o
 
 # Enable vision mode (sends screenshots to LLM)
-droidrun run "What app is currently open?" --vision
+mobilerun run "What app is currently open?" --vision
 
 # Enable reasoning mode (uses Manager-Executor workflow for complex tasks)
-droidrun run "Find a contact named John and send him an email" --reasoning
+mobilerun run "Find a contact named John and send him an email" --reasoning
 ```
 
 **Common CLI flags:**
@@ -134,15 +134,15 @@ For complex automation or integration into your Python projects, create a script
 
 ```python
 import asyncio
-from droidrun import DroidAgent, DroidConfig
+from mobilerun import MobileAgent, MobileConfig
 
 async def main():
     # Use default configuration with built-in LLM profiles
-    config = DroidConfig()
+    config = MobileConfig()
 
     # Create agent
     # LLMs are automatically loaded from config.llm_profiles
-    agent = DroidAgent(
+    agent = MobileAgent(
         goal="Open Settings and check battery level",
         config=config,
     )
@@ -161,7 +161,7 @@ if __name__ == "__main__":
 
 ## Next Steps
 
-Now that you've got Droidrun running, explore these topics:
+Now that you've got Mobilerun running, explore these topics:
 
 - Walk through a [Guide](/guides/overview)
 - Learn about [Agent Architecture](/concepts/architecture)

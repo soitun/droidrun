@@ -1,21 +1,21 @@
 <picture align="center">
-  <source media="(prefers-color-scheme: dark)" srcset="./static/droidrun-dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="./static/droidrun.png">
-  <img src="./static/droidrun.png"  width="full">
+  <source media="(prefers-color-scheme: dark)" srcset="./static/mobilerun-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="./static/mobilerun.png">
+  <img src="./static/mobilerun.png"  width="full">
 </picture>
 
 
 <div align="center">
 
-[![Docs](https://img.shields.io/badge/Docs-📕-0D9373?style=for-the-badge)](https://docs.droidrun.ai)
-[![Cloud](https://img.shields.io/badge/Cloud-☁️-0D9373?style=for-the-badge)](https://cloud.droidrun.ai/sign-in?waitlist=true)
+[![Docs](https://img.shields.io/badge/Docs-📕-0D9373?style=for-the-badge)](https://docs.mobilerun.ai)
+[![Cloud](https://img.shields.io/badge/Cloud-☁️-0D9373?style=for-the-badge)](https://cloud.mobilerun.ai/sign-in?waitlist=true)
 
 
-[![GitHub stars](https://img.shields.io/github/stars/droidrun/droidrun?style=social)](https://github.com/droidrun/droidrun/stargazers)
-[![droidrun.ai](https://img.shields.io/badge/droidrun.ai-white)](https://droidrun.ai)
-[![Twitter Follow](https://img.shields.io/twitter/follow/droid_run?style=social)](https://x.com/droid_run)
+[![GitHub stars](https://img.shields.io/github/stars/droidrun/mobilerun?style=social)](https://github.com/droidrun/mobilerun/stargazers)
+[![mobilerun.ai](https://img.shields.io/badge/mobilerun.ai-white)](https://mobilerun.ai)
+[![Twitter Follow](https://img.shields.io/twitter/follow/mobilerun_ai?style=social)](https://x.com/mobilerun_ai)
 [![Discord](https://img.shields.io/discord/1360219330318696488?color=white&label=Discord&logo=discord&logoColor=white)](https://discord.gg/ZZbKEZZkwK)
-[![Benchmark](https://img.shields.io/badge/Benchmark-91.4﹪-white)](https://droidrun.ai/benchmark)
+[![Benchmark](https://img.shields.io/badge/Benchmark-91.4﹪-white)](https://mobilerun.ai/benchmark)
 
 
 
@@ -26,20 +26,19 @@
 </picture>
 
 
-[Deutsch](https://zdoc.app/de/droidrun/droidrun) | 
-[Español](https://zdoc.app/es/droidrun/droidrun) | 
-[français](https://zdoc.app/fr/droidrun/droidrun) | 
-[日本語](https://zdoc.app/ja/droidrun/droidrun) | 
-[한국어](https://zdoc.app/ko/droidrun/droidrun) | 
-[Português](https://zdoc.app/pt/droidrun/droidrun) | 
-[Русский](https://zdoc.app/ru/droidrun/droidrun) | 
-[中文](https://zdoc.app/zh/droidrun/droidrun)
+[Deutsch](https://zdoc.app/de/droidrun/mobilerun) | 
+[Español](https://zdoc.app/es/droidrun/mobilerun) | 
+[français](https://zdoc.app/fr/droidrun/mobilerun) | 
+[日本語](https://zdoc.app/ja/droidrun/mobilerun) | 
+[한국어](https://zdoc.app/ko/droidrun/mobilerun) | 
+[Português](https://zdoc.app/pt/droidrun/mobilerun) | 
+[Русский](https://zdoc.app/ru/droidrun/mobilerun) | 
+[中文](https://zdoc.app/zh/droidrun/mobilerun)
 
 </div>
 
 
-
-Mobilerun is a cloud solution powered by Droidrun a powerful framework for controlling Android and iOS devices through LLM agents. It allows you to automate device interactions using natural language commands. [Checkout our benchmark results](https://droidrun.ai/benchmark)
+Mobilerun a powerful framework for controlling Android and iOS devices through LLM agents. It allows you to automate device interactions using natural language commands. [Checkout our benchmark results](https://mobilerun.ai/benchmark)
 
 
 - 🤖 Control Android and iOS devices with natural language commands
@@ -55,48 +54,48 @@ Mobilerun is a cloud solution powered by Droidrun a powerful framework for contr
 > **Note:** Python 3.14 is not currently supported. Please use Python 3.11 – 3.13.
 
 ```bash
-pip install droidrun
+pip install mobilerun
 ```
 
 ## 🚀 Quickstart
 
 ### 1. Install the portal on your device
 ```bash
-droidrun setup
+mobilerun setup
 ```
 
 ### 2. Configure your LLM provider
 ```bash
-droidrun configure
+mobilerun configure
 ```
 This walks you through choosing a provider (Gemini, OpenAI, Anthropic, etc.), auth method (API key or OAuth), and model.
 
 ### 3. Run a command
 ```bash
-droidrun run "open settings and turn on dark mode"
+mobilerun run "open settings and turn on dark mode"
 ```
 
-Read the full guide in [our docs](https://docs.droidrun.ai/v3/quickstart)!
+Read the full guide in [our docs](https://docs.mobilerun.ai/v3/quickstart)!
 
 [![Quickstart Video](https://img.youtube.com/vi/4WT7FXJah2I/0.jpg)](https://www.youtube.com/watch?v=4WT7FXJah2I)
 
 ## 🎬 Demo Videos
 
-1. **Accommodation booking**: Let Droidrun search for an apartment for you
+1. **Accommodation booking**: Let Mobilerun search for an apartment for you
 
-   [![Droidrun Accommodation Booking Demo](https://img.youtube.com/vi/VUpCyq1PSXw/0.jpg)](https://youtu.be/VUpCyq1PSXw)
-
-<br>
-
-2. **Trend Hunter**: Let Droidrun hunt down trending posts
-
-   [![Droidrun Trend Hunter Demo](https://img.youtube.com/vi/7V8S2f8PnkQ/0.jpg)](https://youtu.be/7V8S2f8PnkQ)
+   [![Mobilerun Accommodation Booking Demo](https://img.youtube.com/vi/VUpCyq1PSXw/0.jpg)](https://youtu.be/VUpCyq1PSXw)
 
 <br>
 
-3. **Streak Saver**: Let Droidrun save your streak on your favorite language learning app
+2. **Trend Hunter**: Let Mobilerun hunt down trending posts
 
-   [![Droidrun Streak Saver Demo](https://img.youtube.com/vi/B5q2B467HKw/0.jpg)](https://youtu.be/B5q2B467HKw)
+   [![Mobilerun Trend Hunter Demo](https://img.youtube.com/vi/7V8S2f8PnkQ/0.jpg)](https://youtu.be/7V8S2f8PnkQ)
+
+<br>
+
+3. **Streak Saver**: Let Mobilerun save your streak on your favorite language learning app
+
+   [![Mobilerun Streak Saver Demo](https://img.youtube.com/vi/B5q2B467HKw/0.jpg)](https://youtu.be/B5q2B467HKw)
 
 
 ## 💡 Example Use Cases
@@ -125,7 +124,7 @@ Before submitting any code, please run the following security checks:
 
 1. **Bandit**: A tool to find common security issues in Python code.
    ```bash
-   bandit -r droidrun
+   bandit -r mobilerun
    ```
 
 2. **Safety**: A tool to check your installed dependencies for known security vulnerabilities.
