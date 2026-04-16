@@ -8,6 +8,7 @@ import importlib
 import importlib.abc
 import importlib.machinery
 import importlib.util
+import os
 import sys
 import warnings
 
@@ -24,6 +25,18 @@ warnings.warn(
 # Instead, use lazy __getattr__ for top-level symbols and a PEP 451
 # meta-path finder for submodule aliasing.
 
+# Names that are physical files within the compat package — they must NOT be
+# intercepted by the alias finder. Everything else under ``droidrun.*`` maps
+# to ``mobilerun.*``.
+_COMPAT_OWN_NAMES = frozenset(
+    {
+        "droidrun.__main__",
+        "droidrun.cli_shim",
+        "droidrun.macro",
+        "droidrun.macro.__main__",
+    }
+)
+
 
 class _DroidrunAliasLoader(importlib.abc.Loader):
     """PEP 451 loader: returns the real mobilerun.* module object."""
@@ -32,24 +45,34 @@ class _DroidrunAliasLoader(importlib.abc.Loader):
         self._real_name = real_name
 
     def create_module(self, spec):
-        # Import the real module and return it directly.
-        # sys.modules[droidrun.X] will point to the SAME object.
+        # Import the real module first so sys.modules[real_name] is populated.
         real_mod = importlib.import_module(self._real_name)
+        # Eagerly alias under the droidrun.* name so subsequent recursive
+        # imports (during create_module/exec_module) find the same object.
         sys.modules[spec.name] = real_mod
         return real_mod
 
     def exec_module(self, module):
-        pass  # already fully initialized
+        # The real module is already fully initialized; don't re-execute.
+        # But re-assert the alias in case another finder overwrote it.
+        sys.modules[module.__name__] = sys.modules.get(
+            module.__name__, module
+        )
 
 
 class _DroidrunAliasFinder(importlib.abc.MetaPathFinder):
     """PEP 451 finder: lazily alias droidrun.* -> mobilerun.*.
 
     Uses find_spec (not find_module) — required for Python 3.12+/3.13.
-    Physical compat files (__main__.py, macro/) are excluded.
+    Physical compat files (__main__.py, cli_shim.py, macro/) are excluded
+    so they load from the compat tree as normal.
+
+    All other ``droidrun.X.Y...`` names are remapped to ``mobilerun.X.Y...``
+    and the SAME module object is returned for both — this preserves class
+    identity so ``droidrun.X.Y.Cls is mobilerun.X.Y.Cls`` holds.
     """
 
-    _active = False  # re-entrancy guard
+    _active = False  # re-entrancy guard during importlib.util.find_spec
 
     def find_spec(self, fullname, path, target=None):
         if not fullname.startswith("droidrun."):
@@ -58,23 +81,11 @@ class _DroidrunAliasFinder(importlib.abc.MetaPathFinder):
             return None
         if self._active:
             return None
+        # Don't intercept the compat package's own physical files.
+        if fullname in _COMPAT_OWN_NAMES:
+            return None
 
-        # Check if this is a physical file in the compat tree
-        self._active = True
-        try:
-            for finder in sys.meta_path:
-                if finder is self:
-                    continue
-                find = getattr(finder, "find_spec", None)
-                if find is None:
-                    continue
-                spec = find(fullname, path, target)
-                if spec is not None:
-                    return None  # physical file exists — don't intercept
-        finally:
-            self._active = False
-
-        # Map to mobilerun.* and verify it exists
+        # Map to mobilerun.* and verify it exists.
         new_name = "mobilerun" + fullname[len("droidrun"):]
         self._active = True
         try:
@@ -87,21 +98,30 @@ class _DroidrunAliasFinder(importlib.abc.MetaPathFinder):
         if real_spec is None:
             return None
 
-        # Build alias spec with correct package metadata
+        # Build alias spec with correct package metadata. Module identity is
+        # preserved because our finder is inserted at the front of
+        # ``sys.meta_path``, so it intercepts every ``droidrun.X.Y.Z`` lookup
+        # before Python's PathFinder can discover the .py file via the
+        # parent's __path__ and create a duplicate module.
+        is_package = real_spec.submodule_search_locations is not None
         alias_spec = importlib.machinery.ModuleSpec(
             fullname,
             _DroidrunAliasLoader(new_name),
             origin=real_spec.origin,
-            is_package=real_spec.submodule_search_locations is not None,
+            is_package=is_package,
         )
-        if real_spec.submodule_search_locations is not None:
+        if is_package:
             alias_spec.submodule_search_locations = list(
                 real_spec.submodule_search_locations
             )
         return alias_spec
 
 
-sys.meta_path.append(_DroidrunAliasFinder())
+# Insert at the FRONT of sys.meta_path so we intercept droidrun.* lookups
+# before Python's PathFinder does — otherwise PathFinder would resolve
+# ``droidrun.X.Y.Z`` via parent.__path__ (which points at the mobilerun tree)
+# and load it as a duplicate module separate from ``mobilerun.X.Y.Z``.
+sys.meta_path.insert(0, _DroidrunAliasFinder())
 
 
 # Lazy top-level symbol forwarding — no `import mobilerun` at module scope.
