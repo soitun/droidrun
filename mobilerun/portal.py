@@ -18,7 +18,6 @@ from async_adbutils import AdbDevice, adb
 from rich.console import Console
 
 from mobilerun import __version__
-from mobilerun.tools.driver.android import AndroidDriver
 
 logger = logging.getLogger("mobilerun")
 
@@ -364,6 +363,8 @@ async def ping_portal_tcp(device: AdbDevice, debug: bool = False):
     Raises:
         Exception: If Portal is not reachable via TCP or port forwarding fails
     """
+    from mobilerun.tools.driver.android import AndroidDriver
+
     try:
         driver = AndroidDriver(serial=device.serial, use_tcp=True)
         await driver.connect()
