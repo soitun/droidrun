@@ -112,6 +112,7 @@ class AgentConfig:
     max_steps: int = 15
     reasoning: bool = False
     streaming: bool = True
+    vision_only: bool = False
     after_sleep_action: float = 1.0
     wait_for_stable_ui: float = 0.3
     use_normalized_coordinates: bool = False
@@ -139,6 +140,8 @@ class DeviceConfig:
     """Device-related configuration."""
 
     serial: Optional[str] = None
+    connection: Optional[str] = None
+    device_id: str = "auto"
     use_tcp: bool = False
     platform: str = "android"  # "android" or "ios"
     auto_setup: bool = True  # auto-install/fix portal before each run
@@ -299,6 +302,7 @@ class MobileConfig:
             max_steps=agent_data.get("max_steps", 15),
             reasoning=agent_data.get("reasoning", False),
             streaming=agent_data.get("streaming", False),
+            vision_only=agent_data.get("vision_only", False),
             after_sleep_action=agent_data.get("after_sleep_action", 1.0),
             wait_for_stable_ui=agent_data.get("wait_for_stable_ui", 0.3),
             use_normalized_coordinates=agent_data.get(

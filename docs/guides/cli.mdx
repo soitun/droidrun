@@ -47,6 +47,8 @@ mobilerun run "<command>" [OPTIONS]
 | `--steps` | Max execution steps | `15` |
 | `--reasoning` | Enable planning mode | `false` |
 | `--vision` | Enable vision for all agents | From config |
+| `--vision-only` | Use screenshots only, without an accessibility tree | `false` |
+| `--connection visual-remote` | Use a compatible visual remote server | Platform default |
 | `--tcp` | Use TCP instead of content provider | `false` |
 | `--debug` | Verbose logging | `false` |
 | `--save-trajectory` | Save execution (`none`, `step`, `action`) | `none` |
@@ -66,6 +68,24 @@ mobilerun run "Send WhatsApp to John: I'll be late"
 # Specific device
 mobilerun run "Check battery" --device emulator-5554
 ```
+  </Tab>
+
+  <Tab title="Vision Only">
+```bash
+# Use screenshot-only mode on the default device connection
+mobilerun run "Check Wi-Fi" --vision-only
+
+# Use screenshot-only mode on iOS
+mobilerun run "Check Wi-Fi" --ios --vision-only
+
+# Use a compatible visual remote server
+mobilerun run "Check Wi-Fi" \
+  --vision-only \
+  --connection visual-remote \
+  --device http://localhost:8090
+```
+
+In screenshot-only mode, Mobilerun does not read an accessibility tree. The agent uses coordinate actions, swipe, supported system buttons, and direct text typing based on screenshots. App launch support depends on the selected connection.
   </Tab>
 
   <Tab title="LLM Providers">
@@ -373,6 +393,13 @@ mobilerun run "Book ride to airport" \
   --reasoning \
   --vision \
   --save-trajectory action
+```
+
+```bash Screenshot Only
+mobilerun run "Check Wi-Fi" \
+  --vision-only \
+  --connection visual-remote \
+  --device http://localhost:8090
 ```
 
 ```bash Cost Optimization

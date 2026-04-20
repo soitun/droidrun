@@ -60,6 +60,7 @@ AgentConfig(
     max_steps=15,                    # Max execution steps
     reasoning=False,                 # Enable Manager/Executor workflow
     streaming=True,                  # Stream LLM responses
+    vision_only=False,               # Use screenshots without an accessibility tree
     after_sleep_action=1.0,          # Wait after actions (seconds)
     wait_for_stable_ui=0.3,          # Wait for UI to stabilize (seconds)
     use_normalized_coordinates=False, # Use normalized coordinates instead of absolute pixels
@@ -120,6 +121,8 @@ from mobilerun import DeviceConfig
 
 DeviceConfig(
     serial=None,          # Device serial/IP (None = auto-detect)
+    connection=None,      # None = platform default, "visual-remote" = screenshot/action server
+    device_id="auto",     # Device id for connections that expose multiple devices
     use_tcp=False,        # TCP vs content provider communication
     platform="android",   # "android" or "ios"
     auto_setup=True,      # Auto-install/fix Portal APK before each run

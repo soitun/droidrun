@@ -6,6 +6,7 @@ from mobilerun.tools.driver.cloud import CloudDriver
 from mobilerun.tools.driver.ios import IOSDriver
 from mobilerun.tools.driver.recording import RecordingDriver
 from mobilerun.tools.driver.stealth import StealthDriver
+from mobilerun.tools.driver.visual_remote import VisualRemoteDriver
 
 __all__ = [
     "DeviceDisconnectedError",
@@ -15,4 +16,5 @@ __all__ = [
     "IOSDriver",
     "RecordingDriver",
     "StealthDriver",
+    "VisualRemoteDriver",
 ]

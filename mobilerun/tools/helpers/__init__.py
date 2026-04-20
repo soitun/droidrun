@@ -7,6 +7,7 @@ from .coordinate import (
     to_normalized,
     bounds_to_normalized,
 )
+from .images import image_dimensions
 
 __all__ = [
     "find_clear_point",
@@ -15,4 +16,5 @@ __all__ = [
     "to_absolute",
     "to_normalized",
     "bounds_to_normalized",
+    "image_dimensions",
 ]

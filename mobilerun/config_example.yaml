@@ -11,6 +11,8 @@ agent:
   reasoning: false
   # Enable streaming LLM responses to console in real-time
   streaming: true
+  # Use screenshots only and do not read an accessibility tree
+  vision_only: false
   # Sleep duration after each action, waits for ui state to be updated (seconds)
   after_sleep_action: 1.0
   # Wait duration for UI to stabilize (seconds)
@@ -115,6 +117,10 @@ llm_profiles:
 device:
   # Default device serial (null = auto-detect)
   serial: null
+  # Optional connection override. null = platform default, visual-remote = compatible screenshot/action server
+  connection: null
+  # Device id for connections that expose multiple devices
+  device_id: auto
   # Use TCP communication instead of usb
   use_tcp: false
   # Platform: android or ios but currently only android is supported

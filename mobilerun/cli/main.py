@@ -3,31 +3,49 @@ Mobilerun CLI - Command line interface for controlling Android devices through L
 """
 
 import asyncio
+import importlib.metadata
 import logging
 import os
 import sys
+import tomllib
 import warnings
 from contextlib import nullcontext
 from functools import wraps
+from pathlib import Path
 
 import click
-import importlib.metadata
-import tomllib
-from pathlib import Path
 from async_adbutils import adb
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 
-from mobilerun import ResultEvent, MobileAgent
-from mobilerun.log_handlers import CLILogHandler, configure_logging
+from mobilerun import MobileAgent, ResultEvent
+from mobilerun.agent.external import list_agents
+from mobilerun.agent.utils.llm_picker import load_llm
+from mobilerun.agent.utils.oauth.openai_oauth_llm import (
+    DEFAULT_OPENAI_OAUTH_CALLBACK_HOST,
+    DEFAULT_OPENAI_OAUTH_CALLBACK_PATH,
+    DEFAULT_OPENAI_OAUTH_CALLBACK_PORT,
+    DEFAULT_OPENAI_OAUTH_CREDENTIAL_PATH,
+)
 from mobilerun.cli.configure_wizard import (
     ConfigureWizardCallbacks,
     run_configure_wizard,
 )
-from mobilerun.cli.event_handler import EventHandler
-from mobilerun.config_manager import ConfigLoader
 from mobilerun.cli.device_commands import device_cli
+from mobilerun.cli.event_handler import EventHandler
+from mobilerun.cli.oauth_actions import (
+    run_anthropic_setup_token_oauth,
+    run_gemini_oauth_login,
+    run_openai_oauth_login,
+    save_anthropic_setup_token,
+)
+from mobilerun.config_manager import ConfigLoader
+from mobilerun.config_manager.credential_paths import (
+    ANTHROPIC_OAUTH_CREDENTIAL_PATH,
+    GEMINI_OAUTH_CREDENTIAL_PATH,
+)
+from mobilerun.log_handlers import CLILogHandler, configure_logging
 from mobilerun.macro.cli import macro_cli
 from mobilerun.portal import (
     DOWNLOAD_BASE,
@@ -40,26 +58,9 @@ from mobilerun.portal import (
     ping_portal_tcp,
     setup_portal,
 )
-from mobilerun.agent.external import list_agents
-from mobilerun.agent.utils.llm_picker import load_llm
-from mobilerun.agent.utils.oauth.openai_oauth_llm import (
-    DEFAULT_OPENAI_OAUTH_CALLBACK_HOST,
-    DEFAULT_OPENAI_OAUTH_CALLBACK_PATH,
-    DEFAULT_OPENAI_OAUTH_CALLBACK_PORT,
-    DEFAULT_OPENAI_OAUTH_CREDENTIAL_PATH,
-)
-from mobilerun.cli.oauth_actions import (
-    run_openai_oauth_login,
-    run_gemini_oauth_login,
-    run_anthropic_setup_token_oauth,
-    save_anthropic_setup_token,
-)
-from mobilerun.config_manager.credential_paths import (
-    ANTHROPIC_OAUTH_CREDENTIAL_PATH,
-    GEMINI_OAUTH_CREDENTIAL_PATH,
-)
 from mobilerun.telemetry import print_telemetry_message
 from mobilerun.tools.driver.ios import discover_ios_portal, validate_ios_portal_url
+from mobilerun.tools.driver.visual_remote import VISUAL_REMOTE_CONNECTION
 
 # Suppress all warnings
 warnings.filterwarnings("ignore")
@@ -101,6 +102,7 @@ async def run_command(
     base_url: str | None = None,
     api_base: str | None = None,
     vision: bool | None = None,
+    vision_only: bool | None = None,
     manager_vision: bool | None = None,
     executor_vision: bool | None = None,
     fast_agent_vision: bool | None = None,
@@ -109,6 +111,8 @@ async def run_command(
     tracing: bool | None = None,
     debug: bool | None = None,
     tcp: bool | None = None,
+    connection: str | None = None,
+    device_id: str | None = None,
     save_trajectory: str | None = None,
     ios: bool = False,
     temperature: float | None = None,
@@ -151,7 +155,15 @@ async def run_command(
         # ================================================================
 
         # Vision overrides
-        if vision is not None:
+        if vision_only is not None:
+            config.agent.vision_only = vision_only
+
+        if config.agent.vision_only:
+            config.agent.manager.vision = True
+            config.agent.executor.vision = True
+            config.agent.fast_agent.vision = True
+            logger.debug("CLI override: vision_only=True")
+        elif vision is not None:
             # --vision flag overrides all agents
             config.agent.manager.vision = vision
             config.agent.executor.vision = vision
@@ -181,6 +193,10 @@ async def run_command(
             config.device.serial = device
         if tcp is not None:
             config.device.use_tcp = tcp
+        if connection is not None:
+            config.device.connection = connection
+        if device_id is not None:
+            config.device.device_id = device_id
 
         # Logging overrides
         if debug is not None:
@@ -195,7 +211,9 @@ async def run_command(
         # Platform overrides
         if ios:
             config.device.platform = "ios"
-            if config.device.serial:
+            if (config.device.connection or "").lower() == VISUAL_REMOTE_CONNECTION:
+                pass
+            elif config.device.serial:
                 config.device.serial = validate_ios_portal_url(config.device.serial)
             else:
                 logger.info("🔍 Searching for iOS portal...")
@@ -423,6 +441,11 @@ except Exception:
     help="Enable vision capabilites by using screenshots for all agents.",
 )
 @click.option(
+    "--vision-only/--no-vision-only",
+    default=None,
+    help="Use screenshots only without an accessibility tree.",
+)
+@click.option(
     "--reasoning/--no-reasoning", default=None, help="Enable planning with reasoning"
 )
 @click.option(
@@ -438,6 +461,17 @@ except Exception:
     "--tcp/--no-tcp",
     default=None,
     help="Use TCP communication for device control",
+)
+@click.option(
+    "--connection",
+    type=click.Choice([VISUAL_REMOTE_CONNECTION]),
+    default=None,
+    help="Use a compatible visual remote server instead of the platform default connection.",
+)
+@click.option(
+    "--device-id",
+    default=None,
+    help="Device id for connections that expose multiple devices.",
 )
 @click.option(
     "--save-trajectory",
@@ -459,15 +493,18 @@ async def run(
     api_base: str | None,
     temperature: float | None,
     vision: bool | None,
+    vision_only: bool | None,
     reasoning: bool | None,
     stream: bool | None,
     tracing: bool | None,
     debug: bool | None,
     tcp: bool | None,
+    connection: str | None,
+    device_id: str | None,
     save_trajectory: str | None,
     ios: bool,
 ):
-    """Run a command on your Android device using natural language."""
+    """Run a command on your mobile device using natural language."""
 
     try:
         success = await run_command(
@@ -481,11 +518,14 @@ async def run(
             base_url=base_url,
             api_base=api_base,
             vision=vision,
+            vision_only=vision_only,
             reasoning=reasoning,
             stream=stream,
             tracing=tracing,
             debug=debug,
             tcp=tcp,
+            connection=connection,
+            device_id=device_id,
             temperature=temperature,
             save_trajectory=save_trajectory,
             ios=ios,
@@ -494,7 +534,7 @@ async def run(
         # Disable Mobilerun keyboard after execution
         # Note: Port forwards are managed automatically and persist until device disconnect
         try:
-            if not ios:
+            if not ios and connection != VISUAL_REMOTE_CONNECTION:
                 device_obj = await adb.device(device)
                 if device_obj:
                     from mobilerun.portal import PORTAL_PACKAGE_NAME, portal_ime_id

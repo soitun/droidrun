@@ -21,8 +21,6 @@ from workflows.events import Event
 from workflows.handler import WorkflowHandler
 
 from mobilerun.agent.action_context import ActionContext
-from mobilerun.agent.fast_agent import FastAgent
-from mobilerun.agent.fast_agent.events import FastAgentOutputEvent
 from mobilerun.agent.common.events import RecordUIStateEvent, ScreenshotEvent
 from mobilerun.agent.droid.events import (
     ExecutorInputEvent,
@@ -38,6 +36,8 @@ from mobilerun.agent.droid.events import (
 from mobilerun.agent.droid.state import MobileAgentState, QueuedUserMessage
 from mobilerun.agent.executor import ExecutorAgent
 from mobilerun.agent.external import load_agent
+from mobilerun.agent.fast_agent import FastAgent
+from mobilerun.agent.fast_agent.events import FastAgentOutputEvent
 from mobilerun.agent.manager import ManagerAgent, StatelessManagerAgent
 from mobilerun.agent.oneflows.structured_output_agent import StructuredOutputAgent
 from mobilerun.agent.trajectory import TrajectoryWriter
@@ -57,8 +57,8 @@ from mobilerun.config_manager.config_manager import (
     AgentConfig,
     CredentialsConfig,
     DeviceConfig,
-    MobileConfig,
     LoggingConfig,
+    MobileConfig,
     TelemetryConfig,
     ToolsConfig,
     TracingConfig,
@@ -80,16 +80,37 @@ from mobilerun.tools.driver.base import DeviceDisconnectedError
 from mobilerun.tools.driver.ios import IOSDriver, discover_ios_portal
 from mobilerun.tools.driver.recording import RecordingDriver
 from mobilerun.tools.driver.stealth import StealthDriver
+from mobilerun.tools.driver.visual_remote import (
+    VISUAL_REMOTE_CONNECTION,
+    VISUAL_REMOTE_DEFAULT_URL,
+    VisualRemoteDriver,
+)
 from mobilerun.tools.filters import ConciseFilter, DetailedFilter
 from mobilerun.tools.formatters import IndexedFormatter
 from mobilerun.tools.ui.ios_provider import IOSStateProvider
 from mobilerun.tools.ui.provider import AndroidStateProvider
+from mobilerun.tools.ui.screenshot_provider import ScreenshotOnlyStateProvider
 
 if TYPE_CHECKING:
     from mobilerun.tools.driver.base import DeviceDriver
     from mobilerun.tools.ui.provider import StateProvider
 
 logger = logging.getLogger("mobilerun")
+
+_COORDINATE_TOOL_NAMES = {"click_at", "click_area", "long_press_at"}
+
+
+def _normalize_connection(connection: str | None) -> str | None:
+    if connection is None:
+        return None
+    normalized = connection.strip().lower()
+    return normalized or None
+
+
+def _effective_disabled_tools(disabled_tools: list[str], state_provider) -> list[str]:
+    if getattr(state_provider, "requires_coordinate_tools", False):
+        return [name for name in disabled_tools if name not in _COORDINATE_TOOL_NAMES]
+    return disabled_tools
 
 
 class MobileAgent(Workflow):
@@ -180,6 +201,10 @@ class MobileAgent(Workflow):
             external_agents=config.external_agents if config else {},
             mcp=config.mcp if config else MCPConfig(),
         )
+        if self.config.agent.vision_only:
+            self.config.agent.manager.vision = True
+            self.config.agent.executor.vision = True
+            self.config.agent.fast_agent.vision = True
 
         # These are populated in start_handler (unless injected via __init__)
         self._injected_driver = driver
@@ -384,14 +409,34 @@ class MobileAgent(Workflow):
 
         # ── 1. Create driver ──────────────────────────────────────────
         if self.config.agent.reasoning:
-            vision_enabled = self.config.agent.manager.vision
+            vision_enabled = (
+                self.config.agent.vision_only or self.config.agent.manager.vision
+            )
         else:
-            vision_enabled = self.config.agent.fast_agent.vision
+            vision_enabled = (
+                self.config.agent.vision_only or self.config.agent.fast_agent.vision
+            )
 
         is_ios = self.resolved_device_config.platform.lower() == "ios"
+        connection = _normalize_connection(self.resolved_device_config.connection)
+        if connection and connection != VISUAL_REMOTE_CONNECTION:
+            raise ValueError(
+                f"Unsupported device connection '{self.resolved_device_config.connection}'. "
+                f"Supported: {VISUAL_REMOTE_CONNECTION}. Omit connection for the platform default."
+            )
+        is_visual_remote = connection == VISUAL_REMOTE_CONNECTION
 
         if self._injected_driver is not None:
             driver = self._injected_driver
+        elif is_visual_remote:
+            visual_remote_url = (
+                self.resolved_device_config.serial or VISUAL_REMOTE_DEFAULT_URL
+            )
+            driver = VisualRemoteDriver(
+                url=visual_remote_url,
+                device_id=self.resolved_device_config.device_id,
+            )
+            await driver.connect()
         elif is_ios:
             ios_url = self.resolved_device_config.serial
             if not ios_url:
@@ -419,7 +464,7 @@ class MobileAgent(Workflow):
 
         # Wrap with StealthDriver if stealth mode enabled
         stealth_enabled = self.config.tools and self.config.tools.stealth
-        if stealth_enabled and not is_ios:
+        if stealth_enabled and not is_ios and not is_visual_remote:
             driver = StealthDriver(driver)
 
         # Wrap with RecordingDriver if trajectory saving enabled
@@ -433,6 +478,11 @@ class MobileAgent(Workflow):
         # ── 2. Create state provider ──────────────────────────────────
         if self._injected_state_provider is not None:
             self.state_provider = self._injected_state_provider
+        elif self.config.agent.vision_only or is_visual_remote:
+            self.state_provider = ScreenshotOnlyStateProvider(
+                driver,
+                use_normalized=True,
+            )
         elif is_ios:
             self.state_provider = IOSStateProvider(
                 driver,
@@ -453,7 +503,7 @@ class MobileAgent(Workflow):
         registry, standard_tool_names = await build_tool_registry(
             supported_buttons=driver.supported_buttons,
             credential_manager=self.credential_manager,
-            platform="ios" if is_ios else "android",
+            platform="ios" if driver.platform.lower() == "ios" else "android",
         )
 
         # User custom tools
@@ -478,6 +528,7 @@ class MobileAgent(Workflow):
             if self.config.tools and self.config.tools.disabled_tools
             else []
         )
+        disabled_tools = _effective_disabled_tools(disabled_tools, self.state_provider)
         if disabled_tools:
             registry.disable(disabled_tools)
 

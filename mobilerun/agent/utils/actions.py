@@ -122,6 +122,21 @@ async def type_text(
         return ActionResult(success=False, summary=f"Failed to type text: {e}")
 
 
+async def type_text_direct(
+    text: str, clear: bool = False, *, ctx: "ActionContext"
+) -> ActionResult:
+    """Type text into the currently focused input."""
+    try:
+        success = await ctx.driver.input_text(text, clear)
+        if success:
+            return ActionResult(
+                success=True, summary=f"Text typed successfully (clear={clear})"
+            )
+        return ActionResult(success=False, summary="Failed to type text: input failed")
+    except Exception as e:
+        return ActionResult(success=False, summary=f"Failed to type text: {e}")
+
+
 async def system_button(button: str, *, ctx: "ActionContext") -> ActionResult:
     """Press a system button (back, home, or enter)."""
     try:

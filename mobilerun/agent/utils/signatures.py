@@ -15,8 +15,9 @@ from mobilerun.agent.utils.actions import (
     remember,
     swipe,
     system_button,
-    type_text,
     type_secret,
+    type_text,
+    type_text_direct,
     wait,
 )
 
@@ -130,6 +131,22 @@ async def build_tool_registry(
             'Usage Example: {"action": "type", "text": "example.com", "index": element_index, "clear": true}'
         ),
         deps={"tap", "input_text", "element_index"},
+    )
+
+    registry.register(
+        "type_text",
+        fn=type_text_direct,
+        params={
+            "text": {"type": "string", "required": True},
+            "clear": {"type": "boolean", "required": False, "default": False},
+        },
+        description=(
+            "Type text into the currently focused input field. Use a coordinate "
+            "click first if the field is not focused. By default, text is "
+            "APPENDED to existing content. Set clear=True to clear the field first. "
+            'Usage Example: {"action": "type_text", "text": "example.com", "clear": true}'
+        ),
+        deps={"input_text", "direct_text_input"},
     )
 
     # -- system_button (dynamic description) ---------------------------------
