@@ -343,12 +343,12 @@ class ScreenshotOnlyCoordinateValidationTest(unittest.TestCase):
 
 
 class VisualRemoteConfigTest(unittest.TestCase):
-    def test_config_accepts_public_connection_fields(self):
+    def test_config_accepts_public_control_backend_fields(self):
         config = MobileConfig.from_dict(
             {
                 "agent": {"vision_only": True},
                 "device": {
-                    "connection": "visual-remote",
+                    "control_backend": "visual-remote",
                     "device_id": "phone-1",
                     "serial": "http://localhost:8090",
                 },
@@ -356,7 +356,7 @@ class VisualRemoteConfigTest(unittest.TestCase):
         )
 
         self.assertTrue(config.agent.vision_only)
-        self.assertEqual(config.device.connection, "visual-remote")
+        self.assertEqual(config.device.control_backend, "visual-remote")
         self.assertEqual(config.device.device_id, "phone-1")
 
 

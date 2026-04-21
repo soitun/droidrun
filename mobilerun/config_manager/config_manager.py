@@ -140,7 +140,7 @@ class DeviceConfig:
     """Device-related configuration."""
 
     serial: Optional[str] = None
-    connection: Optional[str] = None
+    control_backend: Optional[str] = None
     device_id: str = "auto"
     use_tcp: bool = False
     platform: str = "android"  # "android" or "ios"

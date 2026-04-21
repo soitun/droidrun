@@ -117,9 +117,9 @@ llm_profiles:
 device:
   # Default device serial (null = auto-detect)
   serial: null
-  # Optional connection override. null = platform default, visual-remote = compatible screenshot/action server
-  connection: null
-  # Device id for connections that expose multiple devices
+  # Optional backend override. null = platform default, visual-remote = compatible screenshot/action server
+  control_backend: null
+  # Device id for backends that expose multiple devices
   device_id: auto
   # Use TCP communication instead of usb
   use_tcp: false

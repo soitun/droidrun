@@ -111,7 +111,7 @@ async def run_command(
     tracing: bool | None = None,
     debug: bool | None = None,
     tcp: bool | None = None,
-    connection: str | None = None,
+    control_backend: str | None = None,
     device_id: str | None = None,
     save_trajectory: str | None = None,
     ios: bool = False,
@@ -193,8 +193,8 @@ async def run_command(
             config.device.serial = device
         if tcp is not None:
             config.device.use_tcp = tcp
-        if connection is not None:
-            config.device.connection = connection
+        if control_backend is not None:
+            config.device.control_backend = control_backend
         if device_id is not None:
             config.device.device_id = device_id
 
@@ -211,7 +211,7 @@ async def run_command(
         # Platform overrides
         if ios:
             config.device.platform = "ios"
-            if (config.device.connection or "").lower() == VISUAL_REMOTE_CONNECTION:
+            if (config.device.control_backend or "").lower() == VISUAL_REMOTE_CONNECTION:
                 pass
             elif config.device.serial:
                 config.device.serial = validate_ios_portal_url(config.device.serial)
@@ -463,15 +463,15 @@ except Exception:
     help="Use TCP communication for device control",
 )
 @click.option(
-    "--connection",
+    "--control-backend",
     type=click.Choice([VISUAL_REMOTE_CONNECTION]),
     default=None,
-    help="Use a compatible visual remote server instead of the platform default connection.",
+    help="Use a compatible visual remote backend instead of the platform default backend.",
 )
 @click.option(
     "--device-id",
     default=None,
-    help="Device id for connections that expose multiple devices.",
+    help="Device id for backends that expose multiple devices.",
 )
 @click.option(
     "--save-trajectory",
@@ -499,7 +499,7 @@ async def run(
     tracing: bool | None,
     debug: bool | None,
     tcp: bool | None,
-    connection: str | None,
+    control_backend: str | None,
     device_id: str | None,
     save_trajectory: str | None,
     ios: bool,
@@ -524,7 +524,7 @@ async def run(
             tracing=tracing,
             debug=debug,
             tcp=tcp,
-            connection=connection,
+            control_backend=control_backend,
             device_id=device_id,
             temperature=temperature,
             save_trajectory=save_trajectory,
@@ -534,7 +534,7 @@ async def run(
         # Disable Mobilerun keyboard after execution
         # Note: Port forwards are managed automatically and persist until device disconnect
         try:
-            if not ios and connection != VISUAL_REMOTE_CONNECTION:
+            if not ios and control_backend != VISUAL_REMOTE_CONNECTION:
                 device_obj = await adb.device(device)
                 if device_obj:
                     from mobilerun.portal import PORTAL_PACKAGE_NAME, portal_ime_id

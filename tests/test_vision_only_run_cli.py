@@ -22,7 +22,7 @@ class RunCliVisionOnlyTest(unittest.TestCase):
                     "Check Wi-Fi",
                     "--vision-only",
                     "--ios",
-                    "--connection",
+                    "--control-backend",
                     "visual-remote",
                     "--device",
                     "http://localhost:8090",
@@ -45,7 +45,7 @@ class RunCliVisionOnlyTest(unittest.TestCase):
         self.assertEqual(kwargs["command"], "Check Wi-Fi")
         self.assertTrue(kwargs["vision_only"])
         self.assertTrue(kwargs["ios"])
-        self.assertEqual(kwargs["connection"], "visual-remote")
+        self.assertEqual(kwargs["control_backend"], "visual-remote")
         self.assertEqual(kwargs["device"], "http://localhost:8090")
         self.assertEqual(kwargs["device_id"], "phone-1")
         self.assertEqual(kwargs["provider"], "OpenAIResponses")
@@ -54,7 +54,7 @@ class RunCliVisionOnlyTest(unittest.TestCase):
         self.assertFalse(kwargs["stream"])
         self.assertTrue(kwargs["debug"])
 
-    def test_omitted_connection_preserves_default_connection_behavior(self):
+    def test_omitted_control_backend_preserves_default_backend_behavior(self):
         async_run_command = AsyncMock(return_value=True)
         runner = CliRunner()
 
@@ -67,7 +67,7 @@ class RunCliVisionOnlyTest(unittest.TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
         kwargs = async_run_command.await_args.kwargs
         self.assertTrue(kwargs["vision_only"])
-        self.assertIsNone(kwargs["connection"])
+        self.assertIsNone(kwargs["control_backend"])
 
     def test_run_help_documents_public_flags_only(self):
         runner = CliRunner()
@@ -75,8 +75,9 @@ class RunCliVisionOnlyTest(unittest.TestCase):
 
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn("--vision-only", result.output)
-        self.assertIn("--connection", result.output)
+        self.assertIn("--control-backend", result.output)
         self.assertIn("visual-remote", result.output)
+        self.assertNotIn("--connection", result.output)
 
     def test_run_command_skips_ios_portal_discovery_for_visual_remote(self):
         created_agents = []
@@ -113,7 +114,7 @@ class RunCliVisionOnlyTest(unittest.TestCase):
                     "Check Wi-Fi",
                     ios=True,
                     vision_only=True,
-                    connection="visual-remote",
+                    control_backend="visual-remote",
                     device="http://localhost:8090",
                     device_id="phone-1",
                     debug=False,
@@ -125,7 +126,7 @@ class RunCliVisionOnlyTest(unittest.TestCase):
         validate.assert_not_called()
         config = created_agents[0]["config"]
         self.assertEqual(config.device.platform, "ios")
-        self.assertEqual(config.device.connection, "visual-remote")
+        self.assertEqual(config.device.control_backend, "visual-remote")
         self.assertEqual(config.device.serial, "http://localhost:8090")
         self.assertEqual(config.device.device_id, "phone-1")
         self.assertTrue(config.agent.vision_only)

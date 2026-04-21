@@ -100,10 +100,10 @@ logger = logging.getLogger("mobilerun")
 _COORDINATE_TOOL_NAMES = {"click_at", "click_area", "long_press_at"}
 
 
-def _normalize_connection(connection: str | None) -> str | None:
-    if connection is None:
+def _normalize_control_backend(control_backend: str | None) -> str | None:
+    if control_backend is None:
         return None
-    normalized = connection.strip().lower()
+    normalized = control_backend.strip().lower()
     return normalized or None
 
 
@@ -418,13 +418,17 @@ class MobileAgent(Workflow):
             )
 
         is_ios = self.resolved_device_config.platform.lower() == "ios"
-        connection = _normalize_connection(self.resolved_device_config.connection)
-        if connection and connection != VISUAL_REMOTE_CONNECTION:
+        control_backend = _normalize_control_backend(
+            self.resolved_device_config.control_backend
+        )
+        if control_backend and control_backend != VISUAL_REMOTE_CONNECTION:
             raise ValueError(
-                f"Unsupported device connection '{self.resolved_device_config.connection}'. "
-                f"Supported: {VISUAL_REMOTE_CONNECTION}. Omit connection for the platform default."
+                "Unsupported device control backend "
+                f"'{self.resolved_device_config.control_backend}'. Supported: "
+                f"{VISUAL_REMOTE_CONNECTION}. Omit control backend for the "
+                "platform default."
             )
-        is_visual_remote = connection == VISUAL_REMOTE_CONNECTION
+        is_visual_remote = control_backend == VISUAL_REMOTE_CONNECTION
 
         if self._injected_driver is not None:
             driver = self._injected_driver
