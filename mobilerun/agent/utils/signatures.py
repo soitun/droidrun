@@ -28,6 +28,7 @@ async def build_tool_registry(
     supported_buttons: set[str] | None = None,
     credential_manager=None,
     platform: str = "android",
+    exact_app_launch: bool = False,
 ) -> tuple[ToolRegistry, set[str]]:
     """Build a ToolRegistry with all standard mobilerun tools.
 
@@ -36,7 +37,9 @@ async def build_tool_registry(
             Defaults to ``{"back", "home", "enter"}`` if *None*.
         credential_manager: If provided and has keys, ``type_secret`` is registered.
         platform: ``"android"`` or ``"ios"``. Controls which ``open_app``
-            implementation is registered.
+            implementation is registered unless exact_app_launch is enabled.
+        exact_app_launch: Register ``open_app`` as an exact app identifier
+            launcher that only depends on ``start_app``.
 
     Returns:
         ``(registry, standard_tool_names)`` where *standard_tool_names* is the
@@ -80,11 +83,13 @@ async def build_tool_registry(
         },
         description=(
             "Click at screen position (x, y). In screenshot-only mode, use "
-            "screenshot pixel coordinates from the current screenshot: (0,0) is "
-            "top-left and the bottom-right coordinate is shown in the state. Do "
-            "not tap toggles or destructive controls unless explicitly asked. "
-            "Tap the actual target text or control, not section headers or "
-            "category labels. "
+            "the screenshot pixel coordinates shown to the model: (0,0) is "
+            "top-left and the bottom-right coordinate is shown in the state. In "
+            "dense lists, adjacent rows, and compact menus, prefer click_at on "
+            "the center of the visible target text or control. Do not tap rows "
+            "that are partially visible or close to the top or bottom edge; "
+            "scroll them toward the middle first. Do not tap toggles or "
+            "destructive controls unless explicitly asked. "
             'Usage: {"action": "click_at", "x": 500, "y": 300}'
         ),
         deps={"tap", "convert_point"},
@@ -101,11 +106,14 @@ async def build_tool_registry(
         },
         description=(
             "Click center of area (x1, y1, x2, y2). In screenshot-only mode, "
-            "use screenshot pixel coordinates from the current screenshot: "
-            "(0,0) is top-left and the bottom-right coordinate is shown in the "
-            "state. Do not tap toggles or destructive controls unless explicitly "
-            "asked. Use a tight area around the actual target text or control, "
-            'not a section header. Usage: {"action": "click_area", "x1": 100, "y1": 200, "x2": 300, "y2": 400}'
+            "use the screenshot pixel coordinates shown to the model: (0,0) is "
+            "top-left and the bottom-right coordinate is shown in the state. Use "
+            "click_area only for large, unambiguous targets; do not use it for "
+            "dense list rows, adjacent rows, or compact menus. Do not tap rows "
+            "that are partially visible or close to the top or bottom edge; "
+            "scroll them toward the middle first. Do not tap toggles or "
+            "destructive controls unless explicitly asked. "
+            'Usage: {"action": "click_area", "x1": 100, "y1": 200, "x2": 300, "y2": 400}'
         ),
         deps={"tap", "convert_point"},
     )
@@ -119,7 +127,7 @@ async def build_tool_registry(
         },
         description=(
             "Long press at screen position (x, y). In screenshot-only mode, use "
-            "screenshot pixel coordinates from the current screenshot: (0,0) is "
+            "the screenshot pixel coordinates shown to the model: (0,0) is "
             "top-left and the bottom-right coordinate is shown in the state. Do "
             "not long press toggles or destructive controls unless explicitly "
             "asked. "
@@ -189,8 +197,8 @@ async def build_tool_registry(
         },
         description=(
             "Scroll from the position with coordinate to the position with "
-            "coordinate2. In screenshot-only mode, use screenshot pixel "
-            "coordinates from the current screenshot: (0,0) is top-left and the "
+            "coordinate2. In screenshot-only mode, use the screenshot pixel "
+            "coordinates shown to the model: (0,0) is top-left and the "
             "bottom-right coordinate is shown in the state. Duration is in "
             "seconds (default: 1.0). "
             'Usage Example: {"action": "swipe", "coordinate": [x1, y1], "coordinate2": [x2, y2], "duration": 1.5}'
@@ -213,7 +221,19 @@ async def build_tool_registry(
 
     # -- App / state / flow control ------------------------------------------
 
-    if platform.lower() == "ios":
+    if exact_app_launch:
+        registry.register(
+            "open_app",
+            fn=open_bundle_id,
+            params={"app_id": {"type": "string", "required": True}},
+            description=(
+                "Open an app by exact app identifier. Use the package name or "
+                "bundle identifier required by the current device backend. "
+                'Usage: {"action": "open_app", "app_id": "com.example.app"}'
+            ),
+            deps={"start_app"},
+        )
+    elif platform.lower() == "ios":
         registry.register(
             "open_app",
             fn=open_bundle_id,

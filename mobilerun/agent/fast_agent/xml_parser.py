@@ -10,6 +10,7 @@ import logging
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
+from html import escape
 from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger("mobilerun")
@@ -100,7 +101,7 @@ def parse_tool_calls(
 
             calls.append(ToolCall(name=name, parameters=params, error=error))
 
-    return text_before, calls
+    return text_before, _drop_adjacent_duplicate_calls(calls)
 
 
 def format_tool_results(results: List[ToolResult]) -> str:
@@ -128,6 +129,53 @@ def format_tool_results(results: List[ToolResult]) -> str:
 
     lines.append("</function_results>")
     return "\n".join(lines)
+
+
+def format_tool_calls(calls: List[ToolCall]) -> str:
+    """Format parsed tool calls as XML for logging/trajectory output."""
+    lines = [OPEN_TAG]
+    for call in calls:
+        lines.append(f'<invoke name="{call.name}">')
+        for name, value in call.parameters.items():
+            lines.append(
+                f'<parameter name="{name}">{_format_param_value(value)}</parameter>'
+            )
+        lines.append("</invoke>")
+    lines.append(CLOSE_TAG)
+    return "\n".join(lines)
+
+
+def _drop_adjacent_duplicate_calls(calls: List[ToolCall]) -> List[ToolCall]:
+    """Drop exact adjacent duplicate calls emitted in the same LLM response."""
+    if not calls:
+        return calls
+
+    deduped = [calls[0]]
+    for call in calls[1:]:
+        previous = deduped[-1]
+        if (
+            call.name == previous.name
+            and call.parameters == previous.parameters
+            and call.error == previous.error
+        ):
+            logger.debug(
+                "Dropping duplicate adjacent tool call: %s(%s)",
+                call.name,
+                call.parameters,
+            )
+            continue
+        deduped.append(call)
+    return deduped
+
+
+def _format_param_value(value: Any) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (list, dict)):
+        return escape(json.dumps(value, separators=(",", ":")))
+    if value is None:
+        return ""
+    return escape(str(value))
 
 
 def _sanitize_param_content(block: str) -> str:
@@ -172,7 +220,9 @@ def _coerce_param(
             try:
                 return float(value)
             except ValueError:
-                raise ValueError(f"parameter '{name}' expected number, got '{value}'")
+                raise ValueError(
+                    f"parameter '{name}' expected number, got '{value}'"
+                ) from None
 
     if expected == "list":
         value = value.strip()
@@ -182,6 +232,8 @@ def _coerce_param(
                 return parsed
             return [parsed]  # Single element — wrap in list
         except (json.JSONDecodeError, ValueError):
-            raise ValueError(f"parameter '{name}' expected list, got '{value}'")
+            raise ValueError(
+                f"parameter '{name}' expected list, got '{value}'"
+            ) from None
 
     return value

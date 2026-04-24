@@ -263,25 +263,37 @@ async def open_app(text: str, *, ctx: "ActionContext") -> ActionResult:
     return ActionResult(success=True, summary=str(result))
 
 
-async def open_bundle_id(bundle_id: str, *, ctx: "ActionContext") -> ActionResult:
-    """Open an app by exact package name or iOS bundle identifier."""
+async def open_bundle_id(
+    bundle_id: str | None = None,
+    app_id: str | None = None,
+    *,
+    ctx: "ActionContext",
+) -> ActionResult:
+    """Open an app by exact package name, app id, or iOS bundle identifier."""
+    identifier = app_id or bundle_id
+    if not identifier:
+        return ActionResult(
+            success=False,
+            summary="Failed to open app: exact app identifier is required.",
+        )
+
     hint = (
-        "Maybe you got the wrong bundle ID. You could try using swipes and search "
-        "to find the app."
+        "Maybe you got the wrong app identifier. You could try using swipes and "
+        "search to find the app."
     )
     try:
-        result = await ctx.driver.start_app(bundle_id)
+        result = await ctx.driver.start_app(identifier)
         await asyncio.sleep(1)
         if isinstance(result, str) and result.lower().startswith("failed"):
             return ActionResult(
                 success=False,
-                summary=f"Failed to open app '{bundle_id}': {result}\n{hint}",
+                summary=f"Failed to open app '{identifier}': {result}\n{hint}",
             )
         return ActionResult(success=True, summary=str(result))
     except Exception as e:
         return ActionResult(
             success=False,
-            summary=f"Failed to open app '{bundle_id}': {e.__class__.__name__}: {e}\n{hint}",
+            summary=f"Failed to open app '{identifier}': {e.__class__.__name__}: {e}\n{hint}",
         )
 
 

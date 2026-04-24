@@ -121,8 +121,8 @@ from mobilerun import DeviceConfig
 
 DeviceConfig(
     serial=None,          # Device serial/IP (None = auto-detect)
-    connection=None,      # None = platform default, "visual-remote" = screenshot/action server
-    device_id="auto",     # Device id for connections that expose multiple devices
+    control_backend=None, # None = platform default, "visual-remote" = screenshot/action server
+    device_id="auto",     # Device id for backends that expose multiple devices
     use_tcp=False,        # TCP vs content provider communication
     platform="android",   # "android" or "ios"
     auto_setup=True,      # Auto-install/fix Portal APK before each run

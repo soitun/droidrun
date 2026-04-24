@@ -77,7 +77,7 @@ class RunCliVisionOnlyTest(unittest.TestCase):
         self.assertIn("--vision-only", result.output)
         self.assertIn("--control-backend", result.output)
         self.assertIn("visual-remote", result.output)
-        self.assertNotIn("--connection", result.output)
+        self.assertNotIn("--" + "connection", result.output)
 
     def test_run_command_skips_ios_portal_discovery_for_visual_remote(self):
         created_agents = []
@@ -133,6 +133,49 @@ class RunCliVisionOnlyTest(unittest.TestCase):
         self.assertTrue(config.agent.manager.vision)
         self.assertTrue(config.agent.executor.vision)
         self.assertTrue(config.agent.fast_agent.vision)
+
+    def test_run_command_skips_adb_cleanup_for_config_visual_remote(self):
+        created_agents = []
+
+        class FakeHandler:
+            async def stream_events(self):
+                if False:
+                    yield None
+
+            def __await__(self):
+                async def done():
+                    return SimpleNamespace(success=True)
+
+                return done().__await__()
+
+        class FakeAgent:
+            def __init__(self, **kwargs):
+                created_agents.append(kwargs)
+
+            def run(self):
+                return FakeHandler()
+
+        config = MobileConfig.from_dict(
+            {
+                "agent": {"vision_only": True},
+                "device": {
+                    "control_backend": "visual-remote",
+                    "serial": "http://localhost:8090",
+                    "platform": "android",
+                },
+            }
+        )
+
+        with (
+            patch("mobilerun.cli.main.ConfigLoader.load", return_value=config),
+            patch("mobilerun.cli.main.MobileAgent", FakeAgent),
+            patch("mobilerun.cli.main.adb.device", AsyncMock()) as adb_device,
+        ):
+            success = asyncio.run(run_command("Check Wi-Fi", debug=False))
+
+        self.assertTrue(success)
+        self.assertEqual(created_agents[0]["config"].device.control_backend, "visual-remote")
+        adb_device.assert_not_called()
 
 
 if __name__ == "__main__":

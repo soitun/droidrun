@@ -19,6 +19,8 @@ To call a tool, wrap it in <function_calls> tags:
 </function_calls>
 
 Multiple <invoke> blocks in one <function_calls> block are executed sequentially, in order.
+Emit exactly one <function_calls> block per response. If you need multiple actions, put multiple <invoke> blocks inside that single block.
+Do not repeat the same tool call in one response unless the user explicitly asks for repeated identical actions.
 {% if parallel_tools %}
 Prefer combining actions in one block when targets are visible and won't move â€” e.g. type into a field then tap a button on the same dialog. Use separate calls when an action may change the screen.
 {% endif %}
@@ -26,7 +28,11 @@ Prefer combining actions in one block when targets are visible and won't move â€
 ## Context
 
 The following context is given to you for analysis:
+{% if screenshot_only %}
+- **ui_state**: Screenshot-only device state and guidance. There is no accessibility tree, indexed UI element list, or element index action; inspect the screenshot and use coordinate tools.
+{% else %}
 - **ui_state**: A list of all currently visible UI elements with their indices. Use this to understand what interactive elements are available on the screen.
+{% endif %}
 {% if vision %}
 - **screenshots**: A visual screenshot of the current screen. Screenshots aren't saved in history, so note key details you'll need later.
 {%- endif %}

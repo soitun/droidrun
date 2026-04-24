@@ -40,7 +40,7 @@ from mobilerun.cli.oauth_actions import (
     run_openai_oauth_login,
     save_anthropic_setup_token,
 )
-from mobilerun.config_manager import ConfigLoader
+from mobilerun.config_manager import ConfigLoader, MobileConfig
 from mobilerun.config_manager.credential_paths import (
     ANTHROPIC_OAUTH_CREDENTIAL_PATH,
     GEMINI_OAUTH_CREDENTIAL_PATH,
@@ -305,6 +305,25 @@ async def run_command(
 
             logger.debug(traceback.format_exc())
         return False
+    finally:
+        await _cleanup_android_keyboard(config)
+
+
+async def _cleanup_android_keyboard(config: MobileConfig) -> None:
+    platform = (config.device.platform or "").lower()
+    control_backend = (config.device.control_backend or "").lower()
+    if platform == "ios" or control_backend == VISUAL_REMOTE_CONNECTION:
+        return
+
+    try:
+        device_obj = await adb.device(config.device.serial)
+        if device_obj:
+            from mobilerun.portal import PORTAL_PACKAGE_NAME, portal_ime_id
+
+            ime = portal_ime_id(PORTAL_PACKAGE_NAME)
+            await device_obj.shell(f"ime disable {ime}")
+    except Exception:
+        click.echo("Failed to disable Mobilerun keyboard")
 
 
 def _print_version(ctx, param, value):
@@ -506,42 +525,29 @@ async def run(
 ):
     """Run a command on your mobile device using natural language."""
 
-    try:
-        success = await run_command(
-            command=command,
-            config_path=config,
-            device=device,
-            agent=agent,
-            provider=provider,
-            model=model,
-            steps=steps,
-            base_url=base_url,
-            api_base=api_base,
-            vision=vision,
-            vision_only=vision_only,
-            reasoning=reasoning,
-            stream=stream,
-            tracing=tracing,
-            debug=debug,
-            tcp=tcp,
-            control_backend=control_backend,
-            device_id=device_id,
-            temperature=temperature,
-            save_trajectory=save_trajectory,
-            ios=ios,
-        )
-    finally:
-        # Disable Mobilerun keyboard after execution
-        # Note: Port forwards are managed automatically and persist until device disconnect
-        try:
-            if not ios and control_backend != VISUAL_REMOTE_CONNECTION:
-                device_obj = await adb.device(device)
-                if device_obj:
-                    from mobilerun.portal import PORTAL_PACKAGE_NAME, portal_ime_id
-                    ime = portal_ime_id(PORTAL_PACKAGE_NAME)
-                    await device_obj.shell(f"ime disable {ime}")
-        except Exception:
-            click.echo("Failed to disable Mobilerun keyboard")
+    success = await run_command(
+        command=command,
+        config_path=config,
+        device=device,
+        agent=agent,
+        provider=provider,
+        model=model,
+        steps=steps,
+        base_url=base_url,
+        api_base=api_base,
+        vision=vision,
+        vision_only=vision_only,
+        reasoning=reasoning,
+        stream=stream,
+        tracing=tracing,
+        debug=debug,
+        tcp=tcp,
+        control_backend=control_backend,
+        device_id=device_id,
+        temperature=temperature,
+        save_trajectory=save_trajectory,
+        ios=ios,
+    )
 
     # Exit with appropriate code
     sys.exit(0 if success else 1)

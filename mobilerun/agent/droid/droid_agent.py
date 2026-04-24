@@ -505,6 +505,7 @@ class MobileAgent(Workflow):
             supported_buttons=driver.supported_buttons,
             credential_manager=self.credential_manager,
             platform="ios" if driver.platform.lower() == "ios" else "android",
+            exact_app_launch=is_visual_remote,
         )
 
         # User custom tools

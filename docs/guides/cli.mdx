@@ -48,7 +48,7 @@ mobilerun run "<command>" [OPTIONS]
 | `--reasoning` | Enable planning mode | `false` |
 | `--vision` | Enable vision for all agents | From config |
 | `--vision-only` | Use screenshots only, without an accessibility tree | `false` |
-| `--connection visual-remote` | Use a compatible visual remote server | Platform default |
+| `--control-backend visual-remote` | Use a compatible visual remote backend | Platform default |
 | `--tcp` | Use TCP instead of content provider | `false` |
 | `--debug` | Verbose logging | `false` |
 | `--save-trajectory` | Save execution (`none`, `step`, `action`) | `none` |
@@ -81,11 +81,11 @@ mobilerun run "Check Wi-Fi" --ios --vision-only
 # Use a compatible visual remote server
 mobilerun run "Check Wi-Fi" \
   --vision-only \
-  --connection visual-remote \
+  --control-backend visual-remote \
   --device http://localhost:8090
 ```
 
-In screenshot-only mode, Mobilerun does not read an accessibility tree. The agent uses coordinate actions, swipe, supported system buttons, and direct text typing based on screenshots. App launch support depends on the selected connection.
+In screenshot-only mode, Mobilerun does not read an accessibility tree. The agent uses coordinate actions, swipe, supported system buttons, and direct text typing based on screenshots. App launch support depends on the selected backend.
   </Tab>
 
   <Tab title="LLM Providers">
@@ -398,7 +398,7 @@ mobilerun run "Book ride to airport" \
 ```bash Screenshot Only
 mobilerun run "Check Wi-Fi" \
   --vision-only \
-  --connection visual-remote \
+  --control-backend visual-remote \
   --device http://localhost:8090
 ```
 
