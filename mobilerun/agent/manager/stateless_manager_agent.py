@@ -26,7 +26,7 @@ from mobilerun.agent.utils.prompt_resolver import PromptResolver
 from mobilerun.agent.utils.tracing_setup import record_langfuse_screenshot
 from mobilerun.config_manager.prompt_loader import PromptLoader
 from mobilerun.tools.driver.base import DeviceDisconnectedError
-from mobilerun.tools.helpers.images import resize_image_to_max_side
+from mobilerun.tools.helpers.images import resize_image_to_max_side_with_grid
 
 if TYPE_CHECKING:
     from mobilerun.agent.action_context import ActionContext
@@ -231,7 +231,7 @@ class StatelessManagerAgent(Workflow):
 
         if self.vision and screenshot:
             if getattr(self.state_provider, "requires_coordinate_tools", False):
-                screenshot = resize_image_to_max_side(screenshot)
+                screenshot = resize_image_to_max_side_with_grid(screenshot)
             messages[0]["content"].append({"image": screenshot})
 
         chat_messages = to_chat_messages(messages)

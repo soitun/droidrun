@@ -1,8 +1,11 @@
 import asyncio
 import unittest
+from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
+
+from PIL import Image
 
 from mobilerun.agent.droid.droid_agent import _effective_disabled_tools
 from mobilerun.agent.utils.actions import click_area, click_at, long_press_at, swipe
@@ -10,6 +13,11 @@ from mobilerun.agent.utils.signatures import build_tool_registry
 from mobilerun.config_manager.config_manager import MobileConfig
 from mobilerun.config_manager.prompt_loader import PromptLoader
 from mobilerun.tools.driver.visual_remote import VisualRemoteDriver
+from mobilerun.tools.helpers.images import (
+    image_dimensions,
+    resize_image_to_max_side,
+    resize_image_to_max_side_with_grid,
+)
 from mobilerun.tools.ui.screenshot_provider import ScreenshotOnlyStateProvider
 from mobilerun.tools.ui.state import UIState
 
@@ -23,6 +31,12 @@ def _png(width: int = 1320, height: int = 2868) -> bytes:
         + height.to_bytes(4, "big")
         + b"\x08\x02\x00\x00\x00"
     )
+
+
+def _real_png(width: int = 1080, height: int = 2316) -> bytes:
+    output = BytesIO()
+    Image.new("RGB", (width, height), color=(16, 20, 24)).save(output, format="PNG")
+    return output.getvalue()
 
 
 class FakeResponse:
@@ -205,6 +219,17 @@ class VisualRemoteDriverTest(unittest.TestCase):
 
 
 class ScreenshotOnlyStateProviderTest(unittest.TestCase):
+    def test_coordinate_grid_preserves_model_dimensions_and_changes_image(self):
+        screenshot = _real_png()
+
+        plain = resize_image_to_max_side(screenshot)
+        gridded = resize_image_to_max_side_with_grid(screenshot)
+
+        self.assertEqual(image_dimensions(plain), (955, 2048))
+        self.assertEqual(image_dimensions(gridded), (955, 2048))
+        self.assertNotEqual(plain, gridded)
+        self.assertTrue(gridded.startswith(b"\x89PNG\r\n\x1a\n"))
+
     def _render_fast_agent_prompt(self, *, screenshot_only: bool) -> str:
         repo = Path(__file__).resolve().parents[1]
         template = (
@@ -258,6 +283,8 @@ class ScreenshotOnlyStateProviderTest(unittest.TestCase):
         self.assertEqual(state.convert_point(500, 500), (500, 500))
         self.assertFalse(state.phone_state["accessibilityTree"])
         self.assertIn("screenshot pixel coordinates", state.formatted_text)
+        self.assertIn("coordinate grid", state.formatted_text)
+        self.assertIn("not grid-cell numbers", state.formatted_text)
         self.assertIn("1000x2000", state.formatted_text)
         self.assertIn("(0,0) is top-left", state.formatted_text)
         self.assertIn("(999,1999) is bottom-right", state.formatted_text)
@@ -278,7 +305,10 @@ class ScreenshotOnlyStateProviderTest(unittest.TestCase):
         self.assertEqual(state.convert_point(67, 669), (76, 757))
         self.assertAlmostEqual(state.coordinate_scale_x, 1080 / 955)
         self.assertAlmostEqual(state.coordinate_scale_y, 2316 / 2048)
-        self.assertIn("screenshot shown to the model is 955x2048", state.formatted_text)
+        self.assertIn(
+            "screenshot shown to the model is 955x2048",
+            state.formatted_text,
+        )
         self.assertIn("(954,2047) is bottom-right", state.formatted_text)
 
     def test_tool_filter_keeps_coordinate_tools_and_direct_text(self):
@@ -330,11 +360,22 @@ class ScreenshotOnlyStateProviderTest(unittest.TestCase):
 
         registry = asyncio.run(run())
 
-        self.assertIn("screenshot pixel coordinates", registry.tools["click_at"].description)
+        self.assertIn(
+            "screenshot pixel coordinates",
+            registry.tools["click_at"].description,
+        )
         self.assertIn("(0,0) is top-left", registry.tools["click_area"].description)
         self.assertIn("prefer click_at", registry.tools["click_at"].description)
-        self.assertIn("large, unambiguous targets", registry.tools["click_area"].description)
-        self.assertIn("do not use it for dense list rows", registry.tools["click_area"].description)
+        self.assertIn("coordinate grid", registry.tools["click_at"].description)
+        self.assertIn("not grid-cell numbers", registry.tools["click_at"].description)
+        self.assertIn(
+            "large, unambiguous targets",
+            registry.tools["click_area"].description,
+        )
+        self.assertIn(
+            "do not use it for dense list rows",
+            registry.tools["click_area"].description,
+        )
         self.assertIn("scroll them toward the middle", registry.tools["click_at"].description)
         self.assertIn(
             "screenshot pixel coordinates",
@@ -356,7 +397,7 @@ class ScreenshotOnlyStateProviderTest(unittest.TestCase):
         ]
 
         for path in agent_files:
-            self.assertIn("resize_image_to_max_side", path.read_text())
+            self.assertIn("resize_image_to_max_side_with_grid", path.read_text())
 
     def test_visual_remote_exact_app_launch_tool_needs_only_start_app(self):
         async def run():

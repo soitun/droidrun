@@ -84,12 +84,14 @@ async def build_tool_registry(
         description=(
             "Click at screen position (x, y). In screenshot-only mode, use "
             "the screenshot pixel coordinates shown to the model: (0,0) is "
-            "top-left and the bottom-right coordinate is shown in the state. In "
-            "dense lists, adjacent rows, and compact menus, prefer click_at on "
-            "the center of the visible target text or control. Do not tap rows "
-            "that are partially visible or close to the top or bottom edge; "
-            "scroll them toward the middle first. Do not tap toggles or "
-            "destructive controls unless explicitly asked. "
+            "top-left and the bottom-right coordinate is shown in the state. "
+            "The screenshot may include a coordinate grid for reference; use "
+            "the underlying screenshot pixel coordinates, not grid-cell numbers. "
+            "In dense lists, adjacent rows, and compact menus, prefer click_at "
+            "on the center of the visible target text or control. Do not tap "
+            "rows that are partially visible or close to the top or bottom edge; "
+            "scroll them toward the middle first. Do not tap toggles or destructive "
+            "controls unless explicitly asked. "
             'Usage: {"action": "click_at", "x": 500, "y": 300}'
         ),
         deps={"tap", "convert_point"},
@@ -107,12 +109,14 @@ async def build_tool_registry(
         description=(
             "Click center of area (x1, y1, x2, y2). In screenshot-only mode, "
             "use the screenshot pixel coordinates shown to the model: (0,0) is "
-            "top-left and the bottom-right coordinate is shown in the state. Use "
-            "click_area only for large, unambiguous targets; do not use it for "
-            "dense list rows, adjacent rows, or compact menus. Do not tap rows "
-            "that are partially visible or close to the top or bottom edge; "
-            "scroll them toward the middle first. Do not tap toggles or "
-            "destructive controls unless explicitly asked. "
+            "top-left and the bottom-right coordinate is shown in the state. "
+            "The screenshot may include a coordinate grid for reference; use "
+            "the underlying screenshot pixel coordinates, not grid-cell numbers. "
+            "Use click_area only for large, unambiguous targets; do not use it "
+            "for dense list rows, adjacent rows, or compact menus. Do not tap "
+            "rows that are partially visible or close to the top or bottom edge; "
+            "scroll them toward the middle first. Do not tap toggles or destructive "
+            "controls unless explicitly asked. "
             'Usage: {"action": "click_area", "x1": 100, "y1": 200, "x2": 300, "y2": 400}'
         ),
         deps={"tap", "convert_point"},
@@ -129,8 +133,8 @@ async def build_tool_registry(
             "Long press at screen position (x, y). In screenshot-only mode, use "
             "the screenshot pixel coordinates shown to the model: (0,0) is "
             "top-left and the bottom-right coordinate is shown in the state. Do "
-            "not long press toggles or destructive controls unless explicitly "
-            "asked. "
+            "not use grid-cell numbers if a coordinate grid is visible. Do not "
+            "long press toggles or destructive controls unless explicitly asked. "
             'Usage: {"action": "long_press_at", "x": 500, "y": 300}'
         ),
         deps={"swipe", "convert_point"},
@@ -199,8 +203,9 @@ async def build_tool_registry(
             "Scroll from the position with coordinate to the position with "
             "coordinate2. In screenshot-only mode, use the screenshot pixel "
             "coordinates shown to the model: (0,0) is top-left and the "
-            "bottom-right coordinate is shown in the state. Duration is in "
-            "seconds (default: 1.0). "
+            "bottom-right coordinate is shown in the state. Do not use grid-cell "
+            "numbers if a coordinate grid is visible. Duration is in seconds "
+            "(default: 1.0). "
             'Usage Example: {"action": "swipe", "coordinate": [x1, y1], "coordinate2": [x2, y2], "duration": 1.5}'
         ),
         deps={"swipe", "convert_point"},

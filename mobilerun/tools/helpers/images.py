@@ -5,7 +5,7 @@ from __future__ import annotations
 import struct
 from io import BytesIO
 
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 MODEL_SCREENSHOT_MAX_SIDE = 2048
 
@@ -52,6 +52,93 @@ def resize_image_to_max_side(
         output = BytesIO()
         resized.save(output, format="PNG")
         return output.getvalue()
+
+
+def resize_image_to_max_side_with_grid(
+    image: bytes, max_side: int = MODEL_SCREENSHOT_MAX_SIDE, divisions: int = 10
+) -> bytes:
+    """Resize image and overlay a model-only coordinate grid."""
+    width, height = image_dimensions(image)
+    target_width, target_height = fit_dimensions_to_max_side(width, height, max_side)
+
+    with Image.open(BytesIO(image)) as source:
+        screenshot = source.convert("RGBA")
+        if (target_width, target_height) != (width, height):
+            screenshot = screenshot.resize(
+                (target_width, target_height),
+                Image.Resampling.LANCZOS,
+            )
+
+        _draw_coordinate_grid(screenshot, divisions=divisions)
+        output = BytesIO()
+        screenshot.save(output, format="PNG")
+        return output.getvalue()
+
+
+def _draw_coordinate_grid(image: Image.Image, divisions: int) -> None:
+    width, height = image.size
+    if divisions <= 0 or width <= 0 or height <= 0:
+        return
+
+    overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    font = ImageFont.load_default()
+
+    line_color = (255, 255, 255, 68)
+    major_line_color = (255, 230, 120, 110)
+    label_fill = (255, 255, 255, 230)
+    label_shadow = (0, 0, 0, 190)
+    label_bg = (0, 0, 0, 115)
+
+    for index in range(divisions + 1):
+        x = round(index * (width - 1) / divisions)
+        y = round(index * (height - 1) / divisions)
+        color = (
+            major_line_color
+            if index in {0, divisions // 2, divisions}
+            else line_color
+        )
+        draw.line([(x, 0), (x, height - 1)], fill=color, width=1)
+        draw.line([(0, y), (width - 1, y)], fill=color, width=1)
+        _draw_grid_label(
+            draw,
+            f"x={x}",
+            (min(x + 3, width - 38), 4),
+            font,
+            label_fill,
+            label_shadow,
+            label_bg,
+        )
+        _draw_grid_label(
+            draw,
+            f"y={y}",
+            (4, min(y + 3, height - 14)),
+            font,
+            label_fill,
+            label_shadow,
+            label_bg,
+        )
+
+    image.alpha_composite(overlay)
+
+
+def _draw_grid_label(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    position: tuple[int, int],
+    font: ImageFont.ImageFont,
+    fill: tuple[int, int, int, int],
+    shadow: tuple[int, int, int, int],
+    background: tuple[int, int, int, int],
+) -> None:
+    x, y = position
+    bbox = draw.textbbox((x, y), text, font=font)
+    draw.rectangle(
+        (bbox[0] - 2, bbox[1] - 1, bbox[2] + 2, bbox[3] + 1),
+        fill=background,
+    )
+    draw.text((x + 1, y + 1), text, font=font, fill=shadow)
+    draw.text((x, y), text, font=font, fill=fill)
 
 
 def _jpeg_dimensions(image: bytes) -> tuple[int, int]:
