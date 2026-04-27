@@ -24,6 +24,11 @@ class ScreenshotOnlyStateProvider(StateProvider):
     async def get_state(self) -> UIState:
         screenshot = await self.driver.screenshot()
         native_width, native_height = image_dimensions(screenshot)
+        input_size = getattr(self.driver, "input_coordinate_size", None)
+        if input_size is None:
+            input_width, input_height = native_width, native_height
+        else:
+            input_width, input_height = await input_size(native_width, native_height)
         screen_width, screen_height = fit_dimensions_to_max_side(
             native_width,
             native_height,
@@ -62,6 +67,6 @@ class ScreenshotOnlyStateProvider(StateProvider):
             screen_width=screen_width,
             screen_height=screen_height,
             use_normalized=False,
-            coordinate_scale_x=native_width / screen_width,
-            coordinate_scale_y=native_height / screen_height,
+            coordinate_scale_x=input_width / screen_width,
+            coordinate_scale_y=input_height / screen_height,
         )

@@ -3,7 +3,7 @@ import unittest
 from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from PIL import Image
 
@@ -12,6 +12,7 @@ from mobilerun.agent.utils.actions import click_area, click_at, long_press_at, s
 from mobilerun.agent.utils.signatures import build_tool_registry
 from mobilerun.config_manager.config_manager import MobileConfig
 from mobilerun.config_manager.prompt_loader import PromptLoader
+from mobilerun.tools.driver.ios import IOSDriver
 from mobilerun.tools.driver.visual_remote import VisualRemoteDriver
 from mobilerun.tools.helpers.images import (
     image_dimensions,
@@ -310,6 +311,48 @@ class ScreenshotOnlyStateProviderTest(unittest.TestCase):
             state.formatted_text,
         )
         self.assertIn("(954,2047) is bottom-right", state.formatted_text)
+
+    def test_state_can_convert_to_driver_input_coordinate_space(self):
+        class FakeDriver:
+            async def screenshot(self):
+                return _png(1320, 2868)
+
+            async def input_coordinate_size(self, screenshot_width, screenshot_height):
+                self.screenshot_size = (screenshot_width, screenshot_height)
+                return 440, 956
+
+        driver = FakeDriver()
+        provider = ScreenshotOnlyStateProvider(driver)
+        state = asyncio.run(provider.get_state())
+
+        self.assertEqual(driver.screenshot_size, (1320, 2868))
+        self.assertEqual(state.screen_width, 943)
+        self.assertEqual(state.screen_height, 2048)
+        self.assertEqual(state.convert_point(579, 1463), (270, 683))
+        self.assertAlmostEqual(state.coordinate_scale_x, 440 / 943)
+        self.assertAlmostEqual(state.coordinate_scale_y, 956 / 2048)
+
+    def test_ios_driver_uses_portal_point_bounds_for_input_coordinates(self):
+        state = {
+            "device_context": {
+                "screen_bounds": {
+                    "width": 440,
+                    "height": 956,
+                },
+            },
+        }
+        client = FakeAsyncClient()
+        client.get = AsyncMock(return_value=FakeResponse(json_data=state))
+        driver = IOSDriver("http://127.0.0.1:6643")
+        driver._client = client
+        driver._connected = True
+
+        size = asyncio.run(driver.input_coordinate_size(1320, 2868))
+        cached = asyncio.run(driver.input_coordinate_size(1320, 2868))
+
+        self.assertEqual(size, (440, 956))
+        self.assertEqual(cached, (440, 956))
+        client.get.assert_awaited_once()
 
     def test_tool_filter_keeps_coordinate_tools_and_direct_text(self):
         class FakeDriver:
