@@ -117,6 +117,20 @@ class DeviceDriver:
         """
         raise NotImplementedError
 
+    async def input_coordinate_size(
+        self,
+        screenshot_width: int,
+        screenshot_height: int,
+    ) -> tuple[int, int]:
+        """Return the coordinate size expected by input methods.
+
+        Most backends accept screenshot pixel coordinates, so the default input
+        coordinate size matches the captured screenshot. Backends whose input
+        layer uses a different coordinate system, such as XCTest points on iOS,
+        override this method.
+        """
+        return screenshot_width, screenshot_height
+
     async def get_ui_tree(self) -> Dict[str, Any]:
         """Return the raw UI / accessibility tree from the device."""
         raise NotImplementedError

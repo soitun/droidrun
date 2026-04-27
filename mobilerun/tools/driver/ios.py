@@ -125,6 +125,16 @@ def _humanize_bundle_identifier(bundle_id: str) -> str:
     return last_segment or bundle_id
 
 
+def _infer_ios_point_size(pixel_width: int, pixel_height: int) -> tuple[int, int]:
+    """Best-effort fallback when portal screen bounds are temporarily unavailable."""
+    for scale in (3, 2):
+        point_width = pixel_width / scale
+        point_height = pixel_height / scale
+        if 250 <= point_width <= 600 and 500 <= point_height <= 1300:
+            return int(round(point_width)), int(round(point_height))
+    return pixel_width, pixel_height
+
+
 class IOSDriver(DeviceDriver):
     """iOS device driver communicating via HTTP REST to the iOS portal app."""
 
@@ -154,6 +164,7 @@ class IOSDriver(DeviceDriver):
         self.bundle_identifiers = bundle_identifiers or []
         self._client: Optional[httpx.AsyncClient] = None
         self._connected = False
+        self._input_coordinate_sizes: dict[tuple[int, int], tuple[int, int]] = {}
 
     # -- lifecycle -----------------------------------------------------------
 
@@ -250,6 +261,39 @@ class IOSDriver(DeviceDriver):
         resp = await self._client.get("/vision/screenshot")
         resp.raise_for_status()
         return resp.content
+
+    async def input_coordinate_size(
+        self,
+        screenshot_width: int,
+        screenshot_height: int,
+    ) -> tuple[int, int]:
+        """Return XCTest point dimensions for portal input actions.
+
+        ``/vision/screenshot`` returns physical pixels, while the XCTest portal's
+        tap/swipe handlers use ``XCUICoordinate.withOffset`` in logical points.
+        Cache the mapping per screenshot orientation so screenshot-only mode can
+        convert model-visible screenshot coordinates into the portal's input
+        coordinate space.
+        """
+        key = (screenshot_width, screenshot_height)
+        cached = self._input_coordinate_sizes.get(key)
+        if cached is not None:
+            return cached
+
+        try:
+            state = await self.get_ui_tree()
+            bounds = (state.get("device_context") or {}).get("screen_bounds") or {}
+            width = int(round(float(bounds.get("width", 0))))
+            height = int(round(float(bounds.get("height", 0))))
+            if width > 0 and height > 0:
+                self._input_coordinate_sizes[key] = (width, height)
+                return width, height
+        except Exception as exc:
+            logger.debug("Could not read iOS input coordinate size from /state: %s", exc)
+
+        width, height = _infer_ios_point_size(screenshot_width, screenshot_height)
+        self._input_coordinate_sizes[key] = (width, height)
+        return width, height
 
     async def get_ui_tree(self) -> Dict[str, Any]:
         """Return unified state from the iOS portal.

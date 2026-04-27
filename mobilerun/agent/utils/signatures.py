@@ -15,8 +15,9 @@ from mobilerun.agent.utils.actions import (
     remember,
     swipe,
     system_button,
-    type_text,
     type_secret,
+    type_text,
+    type_text_direct,
     wait,
 )
 
@@ -27,6 +28,8 @@ async def build_tool_registry(
     supported_buttons: set[str] | None = None,
     credential_manager=None,
     platform: str = "android",
+    exact_app_launch: bool = False,
+    screenshot_only: bool = False,
 ) -> tuple[ToolRegistry, set[str]]:
     """Build a ToolRegistry with all standard mobilerun tools.
 
@@ -35,7 +38,11 @@ async def build_tool_registry(
             Defaults to ``{"back", "home", "enter"}`` if *None*.
         credential_manager: If provided and has keys, ``type_secret`` is registered.
         platform: ``"android"`` or ``"ios"``. Controls which ``open_app``
-            implementation is registered.
+            implementation is registered unless exact_app_launch is enabled.
+        exact_app_launch: Register ``open_app`` as an exact app identifier
+            launcher that only depends on ``start_app``.
+        screenshot_only: When true, coordinate tool descriptions refer to the
+            screenshot shown to the model. Normal mode keeps generic wording.
 
     Returns:
         ``(registry, standard_tool_names)`` where *standard_tool_names* is the
@@ -45,6 +52,56 @@ async def build_tool_registry(
         this set, so they correctly appear in ``<custom_actions>``.
     """
     registry = ToolRegistry()
+
+    if screenshot_only:
+        click_at_description = (
+            "Click at screenshot position (x, y). Use screenshot pixel "
+            "coordinates shown to the model. The coordinate grid is only a "
+            "reference; do not use grid-cell numbers. Prefer click_at for "
+            "dense lists, adjacent rows, compact menus, visible text, and "
+            "small controls. "
+            'Usage: {"action": "click_at", "x": 500, "y": 300}'
+        )
+        click_area_description = (
+            "Click the center of a screenshot area (x1, y1, x2, y2). Use "
+            "screenshot pixel coordinates shown to the model. The coordinate "
+            "grid is only a reference; do not use grid-cell numbers. Use "
+            "click_area only for large, unambiguous targets; prefer click_at "
+            "for dense rows or text labels. "
+            'Usage: {"action": "click_area", "x1": 100, "y1": 200, "x2": 300, "y2": 400}'
+        )
+        long_press_at_description = (
+            "Long press at screenshot position (x, y). Use screenshot pixel "
+            "coordinates shown to the model. The coordinate grid is only a "
+            "reference; do not use grid-cell numbers. "
+            'Usage: {"action": "long_press_at", "x": 500, "y": 300}'
+        )
+        swipe_description = (
+            "Swipe from screenshot coordinate to coordinate2. Use screenshot "
+            "pixel coordinates shown to the model. The coordinate grid is only "
+            "a reference; do not use grid-cell numbers. Duration is in seconds "
+            "(default: 1.0). "
+            'Usage Example: {"action": "swipe", "coordinate": [x1, y1], "coordinate2": [x2, y2], "duration": 1.5}'
+        )
+    else:
+        click_at_description = (
+            "Click at screen position (x, y). "
+            'Usage: {"action": "click_at", "x": 500, "y": 300}'
+        )
+        click_area_description = (
+            "Click the center of area (x1, y1, x2, y2). Use click_area only "
+            "for large, unambiguous targets. "
+            'Usage: {"action": "click_area", "x1": 100, "y1": 200, "x2": 300, "y2": 400}'
+        )
+        long_press_at_description = (
+            "Long press at screen position (x, y). "
+            'Usage: {"action": "long_press_at", "x": 500, "y": 300}'
+        )
+        swipe_description = (
+            "Swipe from the position with coordinate to the position with "
+            "coordinate2. Duration is in seconds (default: 1.0). "
+            'Usage Example: {"action": "swipe", "coordinate": [x1, y1], "coordinate2": [x2, y2], "duration": 1.5}'
+        )
 
     # -- Core UI actions -----------------------------------------------------
 
@@ -77,10 +134,7 @@ async def build_tool_registry(
             "x": {"type": "number", "required": True},
             "y": {"type": "number", "required": True},
         },
-        description=(
-            "Click at screen position (x, y). Use element bounds as reference "
-            'to determine where to click. Usage: {"action": "click_at", "x": 500, "y": 300}'
-        ),
+        description=click_at_description,
         deps={"tap", "convert_point"},
     )
 
@@ -93,10 +147,7 @@ async def build_tool_registry(
             "x2": {"type": "number", "required": True},
             "y2": {"type": "number", "required": True},
         },
-        description=(
-            "Click center of area (x1, y1, x2, y2). Useful when you want to click "
-            'a specific region. Usage: {"action": "click_area", "x1": 100, "y1": 200, "x2": 300, "y2": 400}'
-        ),
+        description=click_area_description,
         deps={"tap", "convert_point"},
     )
 
@@ -107,10 +158,7 @@ async def build_tool_registry(
             "x": {"type": "number", "required": True},
             "y": {"type": "number", "required": True},
         },
-        description=(
-            "Long press at screen position (x, y). Use element bounds as reference. "
-            'Usage: {"action": "long_press_at", "x": 500, "y": 300}'
-        ),
+        description=long_press_at_description,
         deps={"swipe", "convert_point"},
     )
 
@@ -130,6 +178,22 @@ async def build_tool_registry(
             'Usage Example: {"action": "type", "text": "example.com", "index": element_index, "clear": true}'
         ),
         deps={"tap", "input_text", "element_index"},
+    )
+
+    registry.register(
+        "type_text",
+        fn=type_text_direct,
+        params={
+            "text": {"type": "string", "required": True},
+            "clear": {"type": "boolean", "required": False, "default": False},
+        },
+        description=(
+            "Type text into the currently focused input field. Use a coordinate "
+            "click first if the field is not focused. By default, text is "
+            "APPENDED to existing content. Set clear=True to clear the field first. "
+            'Usage Example: {"action": "type_text", "text": "example.com", "clear": true}'
+        ),
+        deps={"input_text", "direct_text_input"},
     )
 
     # -- system_button (dynamic description) ---------------------------------
@@ -157,11 +221,7 @@ async def build_tool_registry(
             "coordinate2": {"type": "list", "required": True},
             "duration": {"type": "number", "required": False, "default": 1.0},
         },
-        description=(
-            "Scroll from the position with coordinate to the position with "
-            "coordinate2. Duration is in seconds (default: 1.0). "
-            'Usage Example: {"action": "swipe", "coordinate": [x1, y1], "coordinate2": [x2, y2], "duration": 1.5}'
-        ),
+        description=swipe_description,
         deps={"swipe", "convert_point"},
     )
 
@@ -180,7 +240,19 @@ async def build_tool_registry(
 
     # -- App / state / flow control ------------------------------------------
 
-    if platform.lower() == "ios":
+    if exact_app_launch:
+        registry.register(
+            "open_app",
+            fn=open_bundle_id,
+            params={"app_id": {"type": "string", "required": True}},
+            description=(
+                "Open an app by exact app identifier. Use the package name or "
+                "bundle identifier required by the current device backend. "
+                'Usage: {"action": "open_app", "app_id": "com.example.app"}'
+            ),
+            deps={"start_app"},
+        )
+    elif platform.lower() == "ios":
         registry.register(
             "open_app",
             fn=open_bundle_id,

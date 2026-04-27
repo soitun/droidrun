@@ -18,6 +18,12 @@ from opentelemetry import trace
 from pydantic import BaseModel
 
 from mobilerun.agent.action_result import ActionResult
+from mobilerun.agent.common.constants import LLM_HISTORY_LIMIT
+from mobilerun.agent.common.events import RecordUIStateEvent, ScreenshotEvent
+from mobilerun.agent.droid.events import (
+    ExternalUserMessageAppliedEvent,
+    ExternalUserMessageDroppedEvent,
+)
 from mobilerun.agent.fast_agent.events import (
     FastAgentEndEvent,
     FastAgentInputEvent,
@@ -26,17 +32,10 @@ from mobilerun.agent.fast_agent.events import (
     FastAgentToolCallEvent,
 )
 from mobilerun.agent.fast_agent.xml_parser import (
-    CLOSE_TAG,
-    OPEN_TAG,
     ToolResult,
+    format_tool_calls,
     format_tool_results,
     parse_tool_calls,
-)
-from mobilerun.agent.common.constants import LLM_HISTORY_LIMIT
-from mobilerun.agent.common.events import RecordUIStateEvent, ScreenshotEvent
-from mobilerun.agent.droid.events import (
-    ExternalUserMessageAppliedEvent,
-    ExternalUserMessageDroppedEvent,
 )
 from mobilerun.agent.usage import get_usage_from_response
 from mobilerun.agent.utils.chat_utils import limit_history
@@ -46,6 +45,7 @@ from mobilerun.agent.utils.tracing_setup import record_langfuse_screenshot
 from mobilerun.config_manager.config_manager import AgentConfig, TracingConfig
 from mobilerun.config_manager.prompt_loader import PromptLoader
 from mobilerun.tools.driver.base import DeviceDisconnectedError
+from mobilerun.tools.helpers.images import resize_image_to_max_side_with_grid
 
 if TYPE_CHECKING:
     from mobilerun.agent.action_context import ActionContext
@@ -130,6 +130,9 @@ class FastAgent(Workflow):
             "parallel_tools": self.config.parallel_tools,
             "vision": self.vision,
             "platform": self.shared_state.platform,
+            "screenshot_only": bool(
+                getattr(self.state_provider, "requires_coordinate_tools", False)
+            ),
         }
 
         custom_system_prompt = self.prompt_resolver.get_prompt("fast_agent_system")
@@ -327,6 +330,8 @@ class FastAgent(Workflow):
 
             # Screenshot → last user message
             if self.vision and screenshot:
+                if getattr(self.state_provider, "requires_coordinate_tools", False):
+                    screenshot = resize_image_to_max_side_with_grid(screenshot)
                 messages_to_send[last_user_idx].blocks.append(
                     ImageBlock(image=screenshot)
                 )
@@ -369,15 +374,10 @@ class FastAgent(Workflow):
         # Parse tool calls from response
         thought, tool_calls = parse_tool_calls(response_text, self.param_types)
 
-        # Extract just the <function_calls> blocks for the event
-        tool_calls_xml = None
-        if tool_calls:
-            blocks = []
-            for part in response_text.split(OPEN_TAG)[1:]:
-                close_idx = part.find(CLOSE_TAG)
-                if close_idx != -1:
-                    blocks.append(OPEN_TAG + part[: close_idx + len(CLOSE_TAG)])
-            tool_calls_xml = "\n".join(blocks) if blocks else None
+        # Store parsed calls for logging/trajectory output. This uses the
+        # executable representation so accidental duplicate XML blocks are not
+        # shown as pending work after deduplication.
+        tool_calls_xml = format_tool_calls(tool_calls) if tool_calls else None
 
         # Store tool calls in context for execute step (avoid re-parsing)
         if tool_calls:
