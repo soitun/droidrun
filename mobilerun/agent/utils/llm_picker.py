@@ -164,7 +164,6 @@ if __name__ == "__main__":
     # Install the specific LLM integrations you want to test:
     # pip install \
     #   llama-index-llms-anthropic \
-    #   llama-index-llms-deepseek \
     #   llama-index-llms-gemini \
     #   llama-index-llms-openai
 
