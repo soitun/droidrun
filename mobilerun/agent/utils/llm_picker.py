@@ -55,13 +55,15 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
             kwargs["api_base"] = kwargs.pop("base_url")
 
     if provider_name == "DeepSeek":
+        import os
         provider_name = "OpenAILike"
+        kwargs.setdefault("api_key", os.environ.get("DEEPSEEK_API_KEY"))
         kwargs.setdefault("is_chat_model", True)
         kwargs.setdefault("is_function_calling_model", kwargs.get("model") == "deepseek-chat")
         kwargs.setdefault("context_window", 64000)
-        kwargs.setdefault("api_base", "https://api.deepseek.com")
         if "base_url" in kwargs and "api_base" not in kwargs:
             kwargs["api_base"] = kwargs.pop("base_url")
+        kwargs.setdefault("api_base", "https://api.deepseek.com")
 
     # --- Standard providers (inline dispatch) ---
     if provider_name == "OpenAIResponses":
