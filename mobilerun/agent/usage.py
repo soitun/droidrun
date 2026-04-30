@@ -22,7 +22,6 @@ SUPPORTED_PROVIDERS = [
     "Anthropic_LLM",
     "AnthropicOAuthLLM",
     "Ollama",
-    "DeepSeek",
 ]
 
 
@@ -110,18 +109,6 @@ def get_usage_from_response(provider: str, chat_rsp: ChatResponse) -> UsageResul
             total_tokens=prompt_eval_count + eval_count,
             requests=1,
         )
-    elif provider == "DeepSeek":
-        # DeepSeek follows OpenAI-compatible format
-        usage = rsp.usage
-        if not usage:
-            usage = {}
-        return UsageResult(
-            request_tokens=usage.prompt_tokens or 0,
-            response_tokens=usage.completion_tokens or 0,
-            total_tokens=usage.total_tokens or 0,
-            requests=1,
-        )
-
     raise ValueError(f"Unsupported provider: {provider}")
 
 
