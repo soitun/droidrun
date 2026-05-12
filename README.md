@@ -113,7 +113,7 @@ mobilerun run "Open the settings app and tell me the Android version"
 Useful run options:
 
 ```bash
-mobilerun run "Check the battery level" --provider OpenAILike --model gpt-oss --api_base http://localhost:1234/v1
+mobilerun run "Open settings and turn on dark mode"
 mobilerun run "What app is currently open?" --vision
 mobilerun run "Find a contact named John and send him an email" --reasoning
 mobilerun run "Take a screenshot" --ios
@@ -144,7 +144,6 @@ Read the full [framework quickstart](https://docs.mobilerun.ai/framework/quickst
 | Best for | Running agents locally on your own machine and devices | Ready-to-go local phone control, hosted real or virtual devices, API workflows, and managed device operations |
 | Runtime | Your machine plus connected Android or iOS device | Mobilerun-managed infrastructure |
 | Interface | CLI, TUI, Docker, and Python API | Dashboard, REST API, SDKs, and hosted devices |
-| License | Open-source MIT framework | Hosted cloud product |
 
 Use the framework when you want full local control of the agent runtime. Use [Mobilerun Cloud](https://cloud.mobilerun.ai) when you want managed devices, fleet workflows, or cloud APIs without running the agent locally. Learn more in the [framework overview](https://docs.mobilerun.ai/framework/overview) and the [cloud docs](https://docs.mobilerun.ai).
 
