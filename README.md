@@ -50,6 +50,10 @@ Use the framework when you want to run the agent on your machine. Use [Mobilerun
 - 📸 Combine accessibility trees with screenshots for visual understanding
 - 🫆 Trace execution with Arize Phoenix or Langfuse
 
+<p align="center">
+  <img src="./static/mobilerun-demo.gif" alt="Mobilerun automating a phone with natural language" width="320">
+</p>
+
 ## 📦 Installation
 
 > **Note:** Python 3.14 is not currently supported. Please use Python `>=3.11,<3.14`.
@@ -120,34 +124,6 @@ Read the full [framework quickstart](https://docs.mobilerun.ai/framework/quickst
 
 [![Quickstart Video](https://img.youtube.com/vi/4WT7FXJah2I/0.jpg)](https://www.youtube.com/watch?v=4WT7FXJah2I)
 
-## 🐍 Python API
-
-Use `MobileAgent` directly when you want Mobilerun inside your own automation scripts or applications:
-
-```python
-import asyncio
-
-from mobilerun import MobileAgent, MobileConfig
-
-
-async def main() -> None:
-    agent = MobileAgent(
-        goal="Open Settings and check the battery level",
-        config=MobileConfig(),
-    )
-
-    result = await agent.run()
-    print(f"Success: {result.success}")
-    print(f"Reason: {result.reason}")
-    print(f"Steps: {result.steps}")
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
-```
-
-See the [SDK reference](https://docs.mobilerun.ai/framework/sdk/reference) and [configuration guide](https://docs.mobilerun.ai/framework/sdk/configuration) for advanced usage.
-
 ## ⚙️ Features
 
 - **CLI and TUI:** Run one-off natural language tasks, inspect devices, replay macros, and debug from the terminal.
@@ -205,7 +181,7 @@ Let Mobilerun save your streak on your favorite language learning app.
 - Mobile app QA and regression testing
 - Guided workflows for non-technical users
 - Repetitive task automation on mobile devices
-- Trigger based automations, do some actions, at this specific time interval or triggered by something (e.g. notification)
+- Event-driven automation from schedules, notifications, or custom triggers
 - Data extraction from native mobile apps
 - Running automations on multiple devices at once
 
@@ -213,6 +189,10 @@ Let Mobilerun save your streak on your favorite language learning app.
 
 - [Framework quickstart](https://docs.mobilerun.ai/framework/quickstart)
 - [Mobilerun cloud quickstart](https://docs.mobilerun.ai/quickstart)
+- [Device setup](https://docs.mobilerun.ai/framework/guides/device-setup)
+- [CLI guide](https://docs.mobilerun.ai/framework/guides/cli)
+- [SDK reference](https://docs.mobilerun.ai/framework/sdk/reference)
+- [Custom tools](https://docs.mobilerun.ai/framework/features/custom-tools)
 
 ## 👥 Contributing
 
