@@ -38,96 +38,195 @@
 </div>
 
 
-Mobilerun a powerful framework for controlling Android and iOS devices through LLM agents. It allows you to automate device interactions using natural language commands. [Checkout our benchmark results](https://mobilerun.ai/benchmark)
+Mobilerun is an open-source framework for controlling Android and iOS devices with LLM agents. It gives agents mobile-native tools to inspect UI state, understand screenshots, tap, swipe, type, plan multi-step workflows, and return results through a CLI or Python API.
 
+Use the framework when you want to run the agent on your machine. Use [Mobilerun Cloud](https://cloud.mobilerun.ai) when you want a ready-to-go solution for your local phones or cloud-hosted virtual/physical phones, managed infrastructure, and API-driven device workflows without running the agent on your local machine. [Check out our benchmark results](https://mobilerun.ai/benchmark).
 
 - 🤖 Control Android and iOS devices with natural language commands
-- 🔀 Supports multiple LLM providers (OpenAI, Anthropic, Gemini, Ollama, DeepSeek)
-- 🧠 Planning capabilities for complex multi-step tasks
-- 💻 Easy to use CLI with enhanced debugging features
-- 🐍 Extendable Python API for custom automations
-- 📸 Screenshot analysis for visual understanding of the device
-- 🫆 Execution tracing with Arize Phoenix
+- 🔀 Use OpenAI, Anthropic, Gemini, Ollama, DeepSeek, OpenRouter, and OpenAI-compatible models
+- 🧠 Run direct tasks or enable reasoning mode for complex multi-step automation
+- 💻 Automate from the CLI, a terminal UI, Docker, or Python code
+- 🐍 Extend agents with custom tools, structured output, app cards, and credentials
+- 📸 Combine accessibility trees with screenshots for visual understanding
+- 🫆 Trace execution with Arize Phoenix or Langfuse
 
 ## 📦 Installation
 
-> **Note:** Python 3.14 is not currently supported. Please use Python 3.11 – 3.13.
+> **Note:** Python 3.14 is not currently supported. Please use Python `>=3.11,<3.14`.
+
+Install Mobilerun with [`uv`](https://docs.astral.sh/uv/):
 
 ```bash
-pip install mobilerun
+# CLI usage
+uv tool install mobilerun
+```
+
+```bash
+# CLI + Python integration
+uv pip install mobilerun
+```
+
+Most LLM providers are included by default. For Anthropic support, install the optional extra:
+
+```bash
+uv tool install "mobilerun[anthropic]"
 ```
 
 ## 🚀 Quickstart
 
-### 1. Install the portal on your device
+Before starting, make sure you have [ADB](https://developer.android.com/studio/releases/platform-tools) installed and an Android device with Developer options and USB debugging enabled. iOS setup is supported separately through the iOS Portal flow.
+
+### 1. Install the Portal on your device
+
 ```bash
 mobilerun setup
 ```
 
-### 2. Configure your LLM provider
+This installs the Mobilerun Portal app, enables its accessibility service, and prepares the device for local control.
+
+### 2. Verify the connection
+
+```bash
+mobilerun ping
+```
+
+You should see confirmation that the Portal is installed and accessible.
+
+### 3. Configure your LLM provider
+
 ```bash
 mobilerun configure
 ```
-This walks you through choosing a provider (Gemini, OpenAI, Anthropic, etc.), auth method (API key or OAuth), and model.
 
-### 3. Run a command
+The wizard walks you through choosing a provider, auth method, and model. You can also use provider environment variables such as `GOOGLE_API_KEY`, `OPENAI_API_KEY`, or `ANTHROPIC_API_KEY`.
+
+### 4. Run your first command
+
 ```bash
-mobilerun run "open settings and turn on dark mode"
+mobilerun run "Open the settings app and tell me the Android version"
 ```
 
-Read the full guide in [our docs](https://docs.mobilerun.ai/v3/quickstart)!
+Useful run options:
+
+```bash
+mobilerun run "Check the battery level" --provider OpenAILike --model gpt-oss --api_base http://localhost:1234/v1
+mobilerun run "What app is currently open?" --vision
+mobilerun run "Find a contact named John and send him an email" --reasoning
+mobilerun run "Take a screenshot" --ios
+mobilerun run "Open Settings" --steps 30 --debug
+```
+
+Read the full [framework quickstart](https://docs.mobilerun.ai/framework/quickstart).
 
 [![Quickstart Video](https://img.youtube.com/vi/4WT7FXJah2I/0.jpg)](https://www.youtube.com/watch?v=4WT7FXJah2I)
 
+## 🐍 Python API
+
+Use `MobileAgent` directly when you want Mobilerun inside your own automation scripts or applications:
+
+```python
+import asyncio
+
+from mobilerun import MobileAgent, MobileConfig
+
+
+async def main() -> None:
+    agent = MobileAgent(
+        goal="Open Settings and check the battery level",
+        config=MobileConfig(),
+    )
+
+    result = await agent.run()
+    print(f"Success: {result.success}")
+    print(f"Reason: {result.reason}")
+    print(f"Steps: {result.steps}")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+See the [SDK reference](https://docs.mobilerun.ai/framework/sdk/reference) and [configuration guide](https://docs.mobilerun.ai/framework/sdk/configuration) for advanced usage.
+
+## ⚙️ Features
+
+- **CLI and TUI:** Run one-off natural language tasks, inspect devices, replay macros, and debug from the terminal.
+- **Python API:** Build custom mobile automation workflows with `MobileAgent`, `MobileConfig`, and custom tools.
+- **Android and iOS support:** Control Android through the Portal app and ADB, or target iOS through the iOS Portal flow.
+- **Portal-based control:** Use UI trees, screenshots, text input, gestures, app launching, and device state from the Portal runtime.
+- **Vision mode:** Send screenshots to the LLM with `--vision`, or use screenshot-only control with `--vision-only`.
+- **Reasoning mode:** Use `--reasoning` for manager-executor planning on longer or more ambiguous tasks.
+- **Tracing and telemetry:** Debug execution with Arize Phoenix, Langfuse, saved trajectories, and detailed logs.
+- **Structured output:** Return typed Pydantic objects from mobile workflows.
+- **App cards and custom tools:** Add app-specific guidance and Python functions for domain-specific behavior.
+- **Docker:** Run Mobilerun in a container for repeatable local environments.
+
+## ☁️ Framework vs Cloud
+
+| | Mobilerun Framework | Mobilerun Cloud |
+| --- | --- | --- |
+| Best for | Running agents locally on your own machine and devices | Ready-to-go local phone control, hosted real or virtual devices, API workflows, and managed device operations |
+| Runtime | Your machine plus connected Android or iOS device | Mobilerun-managed infrastructure |
+| Interface | CLI, TUI, Docker, and Python API | Dashboard, REST API, SDKs, and hosted devices |
+| License | Open-source MIT framework | Hosted cloud product |
+
+Use the framework when you want full local control of the agent runtime. Use [Mobilerun Cloud](https://cloud.mobilerun.ai) when you want managed devices, fleet workflows, or cloud APIs without running the agent locally. Learn more in the [framework overview](https://docs.mobilerun.ai/framework/overview) and the [cloud docs](https://docs.mobilerun.ai).
+
+### Cloud Device Types
+
+| Device type | What it is | Best for |
+| --- | --- | --- |
+| Personal | Your own hardware connected to Mobilerun Cloud | Quick automation on devices you own |
+| Cloud Phone (Hosted) | Instantly available cloud-hosted phone | Scalable hosted automation |
+| Physical Phone (Hosted) | Real hardware with stronger identity characteristics | Workflows that need high device authenticity and stealth |
+
 ## 🎬 Demo Videos
 
-1. **Accommodation booking**: Let Mobilerun search for an apartment for you
+### Accommodation Booking
 
-   [![Mobilerun Accommodation Booking Demo](https://img.youtube.com/vi/VUpCyq1PSXw/0.jpg)](https://youtu.be/VUpCyq1PSXw)
+Let Mobilerun search for an apartment for you.
 
-<br>
+[![Mobilerun Accommodation Booking Demo](https://img.youtube.com/vi/VUpCyq1PSXw/0.jpg)](https://youtu.be/VUpCyq1PSXw)
 
-2. **Trend Hunter**: Let Mobilerun hunt down trending posts
+### Trend Hunter
 
-   [![Mobilerun Trend Hunter Demo](https://img.youtube.com/vi/7V8S2f8PnkQ/0.jpg)](https://youtu.be/7V8S2f8PnkQ)
+Let Mobilerun hunt down trending posts.
 
-<br>
+[![Mobilerun Trend Hunter Demo](https://img.youtube.com/vi/7V8S2f8PnkQ/0.jpg)](https://youtu.be/7V8S2f8PnkQ)
 
-3. **Streak Saver**: Let Mobilerun save your streak on your favorite language learning app
+### Streak Saver
 
-   [![Mobilerun Streak Saver Demo](https://img.youtube.com/vi/B5q2B467HKw/0.jpg)](https://youtu.be/B5q2B467HKw)
+Let Mobilerun save your streak on your favorite language learning app.
 
+[![Mobilerun Streak Saver Demo](https://img.youtube.com/vi/B5q2B467HKw/0.jpg)](https://youtu.be/B5q2B467HKw)
 
 ## 💡 Example Use Cases
 
-- Automated UI testing of mobile applications
-- Creating guided workflows for non-technical users
-- Automating repetitive tasks on mobile devices
-- Remote assistance for less technical users
-- Exploring mobile UI with natural language commands
+- Mobile app QA and regression testing
+- Guided workflows for non-technical users
+- Repetitive task automation on mobile devices
+- Trigger based automations, do some actions, at this specific time interval or triggered by something (e.g. notification)
+- Data extraction from native mobile apps
+- Running automations on multiple devices at once
+
+## 📚 Documentation
+
+- [Framework quickstart](https://docs.mobilerun.ai/framework/quickstart)
+- [Mobilerun cloud quickstart](https://docs.mobilerun.ai/quickstart)
 
 ## 👥 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome. Please feel free to submit a pull request or open an issue.
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details. 
+This project is licensed under the MIT License. See [LICENSE](./LICENSE) for details.
 
 ## Security Checks
 
-To ensure the security of the codebase, we have integrated security checks using `bandit` and `safety`. These tools help identify potential security issues in the code and dependencies.
+To help catch security issues before submitting changes, run:
 
-### Running Security Checks
-
-Before submitting any code, please run the following security checks:
-
-1. **Bandit**: A tool to find common security issues in Python code.
-   ```bash
-   bandit -r mobilerun
-   ```
-
-2. **Safety**: A tool to check your installed dependencies for known security vulnerabilities.
-   ```bash
-   safety scan
-   ```
+```bash
+bandit -r mobilerun
+safety scan
+```
