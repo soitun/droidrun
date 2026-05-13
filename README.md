@@ -120,21 +120,21 @@ mobilerun run "Take a screenshot" --ios
 mobilerun run "Open Settings" --steps 30 --debug
 ```
 
-Read the full [framework quickstart](https://docs.mobilerun.ai/framework/quickstart).
+Read the full [framework documentation](https://docs.mobilerun.ai/framework/quickstart).
 
 [![Quickstart Video](https://img.youtube.com/vi/4WT7FXJah2I/0.jpg)](https://www.youtube.com/watch?v=4WT7FXJah2I)
 
 ## ⚙️ Features
 
 - **CLI and TUI:** Run one-off natural language tasks, inspect devices, replay macros, and debug from the terminal.
-- **Python API:** Build custom mobile automation workflows with `MobileAgent`, `MobileConfig`, and custom tools.
-- **Android and iOS support:** Control Android through the Portal app and ADB, or target iOS through the iOS Portal flow.
+- **Python API:** Build custom mobile automation workflows with Python and use custom tools.
+- **Android and iOS support:** Control Android through the Portal app or target iOS through the iOS Portal flow.
 - **Portal-based control:** Use UI trees, screenshots, text input, gestures, app launching, and device state from the Portal runtime.
-- **Vision mode:** Send screenshots to the LLM with `--vision`, or use screenshot-only control with `--vision-only`.
-- **Reasoning mode:** Use `--reasoning` for manager-executor planning on longer or more ambiguous tasks.
+- **Vision mode:** Send screenshots to the LLM with `--vision`, or use screenshot-only control with `--vision-only` (useful for the apps that do not have a11y tree information).
+- **Reasoning mode:** Use `--reasoning` for manager-executor planning on longer or more complex tasks.
 - **Tracing and telemetry:** Debug execution with Arize Phoenix, Langfuse, saved trajectories, and detailed logs.
-- **Structured output:** Return typed Pydantic objects from mobile workflows.
-- **App cards and custom tools:** Add app-specific guidance and Python functions for domain-specific behavior.
+- **Structured output:** Return structured data from mobile workflows.
+- **App cards and custom tools:** Add app-specific guidance to make agent perform better on your use-cases.
 - **Docker:** Run Mobilerun in a container for repeatable local environments.
 
 ## ☁️ Framework vs Cloud
@@ -142,7 +142,7 @@ Read the full [framework quickstart](https://docs.mobilerun.ai/framework/quickst
 | | Mobilerun Framework | Mobilerun Cloud |
 | --- | --- | --- |
 | Best for | Running agents locally on your own machine and devices | Ready-to-go local phone control, hosted real or virtual devices, API workflows, and managed device operations |
-| Runtime | Your machine plus connected Android or iOS device | Mobilerun-managed infrastructure |
+| Runtime | Your machine  | Mobilerun-managed infrastructure |
 | Interface | CLI, TUI, Docker, and Python API | Dashboard, REST API, SDKs, and hosted devices |
 
 Use the framework when you want full local control of the agent runtime. Use [Mobilerun Cloud](https://cloud.mobilerun.ai) when you want managed devices, fleet workflows, or cloud APIs without running the agent locally. Learn more in the [framework overview](https://docs.mobilerun.ai/framework/overview) and the [cloud docs](https://docs.mobilerun.ai).
