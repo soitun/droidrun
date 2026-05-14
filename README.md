@@ -11,9 +11,9 @@
 
 <div align="center">
 
-[![Docs](https://img.shields.io/badge/Docs-📕-0D9373?style=for-the-badge)](https://docs.mobilerun.ai)
-[![Cloud](https://img.shields.io/badge/Cloud-☁️-0D9373?style=for-the-badge)](https://cloud.mobilerun.ai/sign-in?waitlist=true)
-
+<a href="https://docs.mobilerun.ai">📕 Documentation</a>
+·
+<a href="https://cloud.mobilerun.ai">☁️ Mobilerun Cloud</a>
 
 [![GitHub stars](https://img.shields.io/github/stars/droidrun/mobilerun?style=social)](https://github.com/droidrun/mobilerun/stargazers)
 [![mobilerun.ai](https://img.shields.io/badge/mobilerun.ai-white)](https://mobilerun.ai)
