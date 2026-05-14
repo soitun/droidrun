@@ -175,19 +175,25 @@ Use the framework when you want full local control of the agent runtime. Use [Mo
 
 Shows multi-step navigation, text input, and app-state reasoning while Mobilerun searches for accommodation.
 
-[![Mobilerun Accommodation Booking Demo](https://img.youtube.com/vi/VUpCyq1PSXw/0.jpg)](https://youtu.be/VUpCyq1PSXw)
+<a href="https://youtu.be/VUpCyq1PSXw">
+  <img src="./static/demo-apartment-search.gif" alt="Mobilerun booking accommodation from a prompt" width="800">
+</a>
 
 ### Find trending content
 
 Shows browsing, app navigation, and result extraction from a natural-language task.
 
-[![Mobilerun Trend Hunter Demo](https://img.youtube.com/vi/7V8S2f8PnkQ/0.jpg)](https://youtu.be/7V8S2f8PnkQ)
+<a href="https://youtu.be/7V8S2f8PnkQ">
+  <img src="./static/demo-reddit-trends.gif" alt="Mobilerun finding trending content from a prompt" width="800">
+</a>
 
 ### Maintain an app streak
 
 Shows a short recurring mobile workflow that can be automated from a prompt.
 
-[![Mobilerun Streak Saver Demo](https://img.youtube.com/vi/B5q2B467HKw/0.jpg)](https://youtu.be/B5q2B467HKw)
+<a href="https://youtu.be/B5q2B467HKw">
+  <img src="./static/demo-duolingo-streak.gif" alt="Mobilerun maintaining an app streak from a prompt" width="800">
+</a>
 
 ## 💡 Example Use Cases
 
