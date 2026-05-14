@@ -4,6 +4,10 @@
   <img src="./static/mobilerun.png"  width="full">
 </picture>
 
+<p align="center">
+  <strong>Mobilerun is an open-source framework for controlling Android and iOS devices with LLM agents.</strong><br>
+  It gives agents mobile-native tools to inspect UI state, understand screenshots, tap, swipe, type, plan multi-step workflows, and return results through a CLI or Python API.
+</p>
 
 <div align="center">
 
@@ -38,9 +42,9 @@
 </div>
 
 
-Mobilerun is an open-source framework for controlling Android and iOS devices with LLM agents. It gives agents mobile-native tools to inspect UI state, understand screenshots, tap, swipe, type, plan multi-step workflows, and return results through a CLI or Python API.
-
-Use the framework when you want to run the agent on your machine. Use [Mobilerun Cloud](https://cloud.mobilerun.ai) when you want a ready-to-go solution for your local phones or cloud-hosted virtual/physical phones, managed infrastructure, and API-driven device workflows without running the agent on your local machine. [Check out our benchmark results](https://mobilerun.ai/benchmark).
+<p align="center">
+  <img src="./static/mobilerun-demo.gif" alt="Mobilerun automating a phone with natural language" width="320">
+</p>
 
 - 🤖 Control Android and iOS devices with natural language commands
 - 🔀 Use OpenAI, Anthropic, Gemini, Ollama, DeepSeek, OpenRouter, and OpenAI-compatible models
@@ -50,9 +54,7 @@ Use the framework when you want to run the agent on your machine. Use [Mobilerun
 - 📸 Combine accessibility trees with screenshots for visual understanding
 - 🫆 Trace execution with Arize Phoenix or Langfuse
 
-<p align="center">
-  <img src="./static/mobilerun-demo.gif" alt="Mobilerun automating a phone with natural language" width="320">
-</p>
+Use the framework when you want to run the agent on your machine. Use [Mobilerun Cloud](https://cloud.mobilerun.ai) when you want a ready-to-go solution for your local phones or cloud-hosted virtual/physical phones, managed infrastructure, and API-driven device workflows without running the agent on your local machine. [Check out our benchmark results](https://mobilerun.ai/benchmark).
 
 ## 📦 Installation
 
@@ -77,6 +79,13 @@ uv tool install "mobilerun[anthropic]"
 ```
 
 ## 🚀 Quickstart
+
+```bash
+uv tool install mobilerun
+mobilerun setup
+mobilerun configure
+mobilerun run "Open settings and turn on dark mode"
+```
 
 Before starting, make sure you have [ADB](https://developer.android.com/studio/releases/platform-tools) installed and an Android device with Developer options and USB debugging enabled. iOS setup is supported separately through the iOS Portal flow.
 
@@ -147,31 +156,36 @@ Read the full [framework documentation](https://docs.mobilerun.ai/framework/quic
 
 Use the framework when you want full local control of the agent runtime. Use [Mobilerun Cloud](https://cloud.mobilerun.ai) when you want managed devices, fleet workflows, or cloud APIs without running the agent locally. Learn more in the [framework overview](https://docs.mobilerun.ai/framework/overview) and the [cloud docs](https://docs.mobilerun.ai).
 
+### Which should I choose?
+
+- Choose **Mobilerun Framework** for local agent execution and code-level control.
+- Choose **Mobilerun Cloud** for managed phones, APIs, and scale without running agents locally.
+
 ### Cloud Device Types
 
 | Device type | What it is | Best for |
 | --- | --- | --- |
 | Personal | Your own hardware connected to Mobilerun Cloud | Quick automation on devices you own |
 | Cloud Phone (Hosted) | Instantly available cloud-hosted phone | Scalable hosted automation |
-| Physical Phone (Hosted) | Real hardware with stronger identity characteristics | Workflows that need high device authenticity and stealth |
+| Physical Phone (Hosted) | Real hardware with stronger identity characteristics | Workflows that need high device authenticity and trust |
 
 ## 🎬 Demo Videos
 
-### Accommodation Booking
+### Book accommodation from a prompt
 
-Let Mobilerun search for an apartment for you.
+Shows multi-step navigation, text input, and app-state reasoning while Mobilerun searches for accommodation.
 
 [![Mobilerun Accommodation Booking Demo](https://img.youtube.com/vi/VUpCyq1PSXw/0.jpg)](https://youtu.be/VUpCyq1PSXw)
 
-### Trend Hunter
+### Find trending content
 
-Let Mobilerun hunt down trending posts.
+Shows browsing, app navigation, and result extraction from a natural-language task.
 
 [![Mobilerun Trend Hunter Demo](https://img.youtube.com/vi/7V8S2f8PnkQ/0.jpg)](https://youtu.be/7V8S2f8PnkQ)
 
-### Streak Saver
+### Maintain an app streak
 
-Let Mobilerun save your streak on your favorite language learning app.
+Shows a short recurring mobile workflow that can be automated from a prompt.
 
 [![Mobilerun Streak Saver Demo](https://img.youtube.com/vi/B5q2B467HKw/0.jpg)](https://youtu.be/B5q2B467HKw)
 
@@ -192,6 +206,9 @@ Let Mobilerun save your streak on your favorite language learning app.
 - [CLI guide](https://docs.mobilerun.ai/framework/guides/cli)
 - [SDK reference](https://docs.mobilerun.ai/framework/sdk/reference)
 - [Custom tools](https://docs.mobilerun.ai/framework/features/custom-tools)
+- [Agent architecture](https://docs.mobilerun.ai/framework/concepts/architecture)
+- [Structured output](https://docs.mobilerun.ai/framework/features/structured-output)
+- [Tracing](https://docs.mobilerun.ai/framework/features/tracing)
 
 ## 👥 Contributing
 
