@@ -4,12 +4,16 @@
   <img src="./static/mobilerun.png"  width="full">
 </picture>
 
+<p align="center">
+  <strong>Mobilerun is an open-source framework for controlling Android and iOS devices with LLM agents.</strong><br>
+  It gives agents mobile-native tools to inspect UI state, understand screenshots, tap, swipe, type, plan multi-step workflows, and return results through a CLI or Python API.
+</p>
 
 <div align="center">
 
-[![Docs](https://img.shields.io/badge/Docs-📕-0D9373?style=for-the-badge)](https://docs.mobilerun.ai)
-[![Cloud](https://img.shields.io/badge/Cloud-☁️-0D9373?style=for-the-badge)](https://cloud.mobilerun.ai/sign-in?waitlist=true)
-
+<a href="https://docs.mobilerun.ai">📕 Documentation</a>
+·
+<a href="https://cloud.mobilerun.ai">☁️ Mobilerun Cloud</a>
 
 [![GitHub stars](https://img.shields.io/github/stars/droidrun/mobilerun?style=social)](https://github.com/droidrun/mobilerun/stargazers)
 [![mobilerun.ai](https://img.shields.io/badge/mobilerun.ai-white)](https://mobilerun.ai)
@@ -38,96 +42,193 @@
 </div>
 
 
-Mobilerun a powerful framework for controlling Android and iOS devices through LLM agents. It allows you to automate device interactions using natural language commands. [Checkout our benchmark results](https://mobilerun.ai/benchmark)
-
+<p align="center">
+  <img src="./static/mobilerun-demo.gif" alt="Mobilerun automating a phone with natural language" width="320">
+</p>
 
 - 🤖 Control Android and iOS devices with natural language commands
-- 🔀 Supports multiple LLM providers (OpenAI, Anthropic, Gemini, Ollama, DeepSeek)
-- 🧠 Planning capabilities for complex multi-step tasks
-- 💻 Easy to use CLI with enhanced debugging features
-- 🐍 Extendable Python API for custom automations
-- 📸 Screenshot analysis for visual understanding of the device
-- 🫆 Execution tracing with Arize Phoenix
+- 🔀 Use OpenAI, Anthropic, Gemini, Ollama, DeepSeek, OpenRouter, and OpenAI-compatible models
+- 🧠 Run direct tasks or enable reasoning mode for complex multi-step automation
+- 💻 Automate from the CLI, a terminal UI, Docker, or Python code
+- 🐍 Extend agents with custom tools, structured output, app cards, and credentials
+- 📸 Combine accessibility trees with screenshots for visual understanding
+- 🫆 Trace execution with Arize Phoenix or Langfuse
+
+Use the framework when you want to run the agent on your machine. Use [Mobilerun Cloud](https://cloud.mobilerun.ai) when you want a ready-to-go solution for your local phones or cloud-hosted virtual/physical phones, managed infrastructure, and API-driven device workflows without running the agent on your local machine. [Check out our benchmark results](https://mobilerun.ai/benchmark).
 
 ## 📦 Installation
 
-> **Note:** Python 3.14 is not currently supported. Please use Python 3.11 – 3.13.
+> **Note:** Python 3.14 is not currently supported. Please use Python `>=3.11,<3.14`.
+
+Install Mobilerun with [`uv`](https://docs.astral.sh/uv/):
 
 ```bash
-pip install mobilerun
+# CLI usage
+uv tool install mobilerun
+```
+
+```bash
+# CLI + Python integration
+uv pip install mobilerun
+```
+
+Most LLM providers are included by default. For Anthropic support, install the optional extra:
+
+```bash
+uv tool install "mobilerun[anthropic]"
 ```
 
 ## 🚀 Quickstart
 
-### 1. Install the portal on your device
+```bash
+uv tool install mobilerun
+mobilerun setup
+mobilerun configure
+mobilerun run "Open settings and turn on dark mode"
+```
+
+Before starting, make sure you have [ADB](https://developer.android.com/studio/releases/platform-tools) installed and an Android device with Developer options and USB debugging enabled. iOS setup is supported separately through the iOS Portal flow.
+
+### 1. Install the Portal on your device
+
 ```bash
 mobilerun setup
 ```
 
-### 2. Configure your LLM provider
+This installs the Mobilerun Portal app, enables its accessibility service, and prepares the device for local control.
+
+### 2. Verify the connection
+
+```bash
+mobilerun ping
+```
+
+You should see confirmation that the Portal is installed and accessible.
+
+### 3. Configure your LLM provider
+
 ```bash
 mobilerun configure
 ```
-This walks you through choosing a provider (Gemini, OpenAI, Anthropic, etc.), auth method (API key or OAuth), and model.
 
-### 3. Run a command
+The wizard walks you through choosing a provider, auth method, and model. You can also use provider environment variables such as `GOOGLE_API_KEY`, `OPENAI_API_KEY`, or `ANTHROPIC_API_KEY`.
+
+### 4. Run your first command
+
 ```bash
-mobilerun run "open settings and turn on dark mode"
+mobilerun run "Open the settings app and tell me the Android version"
 ```
 
-Read the full guide in [our docs](https://docs.mobilerun.ai/v3/quickstart)!
+Useful run options:
+
+```bash
+mobilerun run "Open settings and turn on dark mode"
+mobilerun run "What app is currently open?" --vision
+mobilerun run "Find a contact named John and send him an email" --reasoning
+mobilerun run "Take a screenshot" --ios
+mobilerun run "Open Settings" --steps 30 --debug
+```
+
+Read the full [framework documentation](https://docs.mobilerun.ai/framework/quickstart).
 
 [![Quickstart Video](https://img.youtube.com/vi/4WT7FXJah2I/0.jpg)](https://www.youtube.com/watch?v=4WT7FXJah2I)
 
+## ⚙️ Features
+
+- **CLI and TUI:** Run one-off natural language tasks, inspect devices, replay macros, and debug from the terminal.
+- **Python API:** Build custom mobile automation workflows with Python and use custom tools.
+- **Android and iOS support:** Control Android through the Portal app or target iOS through the iOS Portal flow.
+- **Portal-based control:** Use UI trees, screenshots, text input, gestures, app launching, and device state from the Portal runtime.
+- **Vision mode:** Send screenshots to the LLM with `--vision`, or use screenshot-only control with `--vision-only` (useful for the apps that do not have a11y tree information).
+- **Reasoning mode:** Use `--reasoning` for manager-executor planning on longer or more complex tasks.
+- **Tracing and telemetry:** Debug execution with Arize Phoenix, Langfuse, saved trajectories, and detailed logs.
+- **Structured output:** Return structured data from mobile workflows.
+- **App cards and custom tools:** Add app-specific guidance to make agent perform better on your use-cases.
+- **Docker:** Run Mobilerun in a container for repeatable local environments.
+
+## ☁️ Framework vs Cloud
+
+| | Mobilerun Framework | Mobilerun Cloud |
+| --- | --- | --- |
+| Best for | Running agents locally on your own machine and devices | Ready-to-go local phone control, hosted real or virtual devices, API workflows, and managed device operations |
+| Runtime | Your machine  | Mobilerun-managed infrastructure |
+| Interface | CLI, TUI, Docker, and Python API | Dashboard, REST API, SDKs, and hosted devices |
+
+Use the framework when you want full local control of the agent runtime. Use [Mobilerun Cloud](https://cloud.mobilerun.ai) when you want managed devices, fleet workflows, or cloud APIs without running the agent locally. Learn more in the [framework overview](https://docs.mobilerun.ai/framework/overview) and the [cloud docs](https://docs.mobilerun.ai).
+
+### Which should I choose?
+
+- Choose **Mobilerun Framework** for local agent execution and code-level control.
+- Choose **Mobilerun Cloud** for managed phones, APIs, and scale without running agents locally.
+
+### Cloud Device Types
+
+| Device type | What it is | Best for |
+| --- | --- | --- |
+| Personal | Your own hardware connected to Mobilerun Cloud | Quick automation on devices you own |
+| Cloud Phone (Hosted) | Instantly available cloud-hosted phone | Scalable hosted automation |
+| Physical Phone (Hosted) | Real hardware with stronger identity characteristics | Workflows that need high device authenticity and trust |
+
 ## 🎬 Demo Videos
 
-1. **Accommodation booking**: Let Mobilerun search for an apartment for you
+### Book accommodation from a prompt
 
-   [![Mobilerun Accommodation Booking Demo](https://img.youtube.com/vi/VUpCyq1PSXw/0.jpg)](https://youtu.be/VUpCyq1PSXw)
+Shows multi-step navigation, text input, and app-state reasoning while Mobilerun searches for accommodation.
 
-<br>
+<a href="https://youtu.be/VUpCyq1PSXw">
+  <img src="./static/demo-apartment-search.gif" alt="Mobilerun booking accommodation from a prompt" width="800">
+</a>
 
-2. **Trend Hunter**: Let Mobilerun hunt down trending posts
+### Find trending content
 
-   [![Mobilerun Trend Hunter Demo](https://img.youtube.com/vi/7V8S2f8PnkQ/0.jpg)](https://youtu.be/7V8S2f8PnkQ)
+Shows browsing, app navigation, and result extraction from a natural-language task.
 
-<br>
+<a href="https://youtu.be/7V8S2f8PnkQ">
+  <img src="./static/demo-reddit-trends.gif" alt="Mobilerun finding trending content from a prompt" width="800">
+</a>
 
-3. **Streak Saver**: Let Mobilerun save your streak on your favorite language learning app
+### Maintain an app streak
 
-   [![Mobilerun Streak Saver Demo](https://img.youtube.com/vi/B5q2B467HKw/0.jpg)](https://youtu.be/B5q2B467HKw)
+Shows a short recurring mobile workflow that can be automated from a prompt.
 
+<a href="https://youtu.be/B5q2B467HKw">
+  <img src="./static/demo-duolingo-streak.gif" alt="Mobilerun maintaining an app streak from a prompt" width="800">
+</a>
 
 ## 💡 Example Use Cases
 
-- Automated UI testing of mobile applications
-- Creating guided workflows for non-technical users
-- Automating repetitive tasks on mobile devices
-- Remote assistance for less technical users
-- Exploring mobile UI with natural language commands
+- Mobile app QA and regression testing
+- Guided workflows for non-technical users
+- Repetitive task automation on mobile devices
+- Event-driven automation from schedules, notifications, or custom triggers
+- Data extraction from native mobile apps
+- Running automations on multiple devices at once
+
+## 📚 Documentation
+
+- [Framework quickstart](https://docs.mobilerun.ai/framework/quickstart)
+- [Mobilerun cloud quickstart](https://docs.mobilerun.ai/quickstart)
+- [Device setup](https://docs.mobilerun.ai/framework/guides/device-setup)
+- [CLI guide](https://docs.mobilerun.ai/framework/guides/cli)
+- [SDK reference](https://docs.mobilerun.ai/framework/sdk/reference)
+- [Custom tools](https://docs.mobilerun.ai/framework/features/custom-tools)
+- [Agent architecture](https://docs.mobilerun.ai/framework/concepts/architecture)
+- [Structured output](https://docs.mobilerun.ai/framework/features/structured-output)
+- [Tracing](https://docs.mobilerun.ai/framework/features/tracing)
 
 ## 👥 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome. Please feel free to submit a pull request or open an issue.
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the LICENSE file for details. 
+This project is licensed under the MIT License. See [LICENSE](./LICENSE) for details.
 
 ## Security Checks
 
-To ensure the security of the codebase, we have integrated security checks using `bandit` and `safety`. These tools help identify potential security issues in the code and dependencies.
+To help catch security issues before submitting changes, run:
 
-### Running Security Checks
-
-Before submitting any code, please run the following security checks:
-
-1. **Bandit**: A tool to find common security issues in Python code.
-   ```bash
-   bandit -r mobilerun
-   ```
-
-2. **Safety**: A tool to check your installed dependencies for known security vulnerabilities.
-   ```bash
-   safety scan
-   ```
+```bash
+bandit -r mobilerun
+safety scan
+```
