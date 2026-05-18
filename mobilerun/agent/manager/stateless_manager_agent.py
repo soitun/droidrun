@@ -95,7 +95,7 @@ class StatelessManagerAgent(Workflow):
             "device_date": self.shared_state.device_date,
             "previous_plan": self.shared_state.previous_plan,
             "previous_state": self.shared_state.previous_formatted_device_state,
-            "memory": self.shared_state.manager_memory,
+            "memory": self.shared_state.agent_memory,
             "last_thought": self.shared_state.last_thought,
             "progress_summary": self.shared_state.progress_summary,
             "action_history": self._build_action_history(),
@@ -273,10 +273,7 @@ class StatelessManagerAgent(Workflow):
 
         memory_update = parsed.get("memory", "").strip()
         if memory_update:
-            if self.shared_state.manager_memory:
-                self.shared_state.manager_memory += "\n" + memory_update
-            else:
-                self.shared_state.manager_memory = memory_update
+            self.shared_state.append_memory(memory_update)
 
         self.shared_state.plan = parsed["plan"]
         self.shared_state.current_subgoal = parsed["current_subgoal"]

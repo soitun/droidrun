@@ -23,19 +23,18 @@ import json
 import logging
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, Future
+from concurrent.futures import Future, ThreadPoolExecutor
 from contextvars import ContextVar
 from datetime import datetime, timezone
-from typing import List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional
 
 import requests
-from opentelemetry.context import Context
-from opentelemetry.sdk.trace import ReadableSpan, Span
-from opentelemetry import trace
-
 from langfuse._client.span_processor import (
     LangfuseSpanProcessor as BaseLangfuseSpanProcessor,
 )
+from opentelemetry import trace
+from opentelemetry.context import Context
+from opentelemetry.sdk.trace import ReadableSpan, Span
 
 from mobilerun import __version__
 
@@ -448,8 +447,8 @@ class LangfuseSpanProcessor(BaseLangfuseSpanProcessor):
             ):
                 set_last_step_span_context(span)
                 memory_size = (
-                    len(self.agent.shared_state.manager_memory)
-                    if self.agent.shared_state.manager_memory
+                    len(self.agent.shared_state.agent_memory)
+                    if self.agent.shared_state.agent_memory
                     else 0
                 )
                 message_history_count = len(self.agent.shared_state.message_history) + 1
@@ -462,11 +461,6 @@ class LangfuseSpanProcessor(BaseLangfuseSpanProcessor):
                 if span.name == "ExecutorAgent.run":
                     input_data["subgoal"] = (
                         self.agent.shared_state.current_subgoal or "Unknown"
-                    )
-
-                if span.name == "FastAgent.run":
-                    input_data["fast_memory_count"] = len(
-                        self.agent.shared_state.fast_memory
                     )
 
                 span._attributes["langfuse.observation.input"] = json.dumps(input_data)
