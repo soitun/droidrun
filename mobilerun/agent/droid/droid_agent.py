@@ -677,7 +677,6 @@ class MobileAgent(Workflow):
 
             handler = agent.run(
                 input=ev.instruction,
-                remembered_info=self.shared_state.fast_memory,
             )
 
             async for nested_ev in handler.stream_events():

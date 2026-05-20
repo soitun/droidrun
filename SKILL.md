@@ -26,7 +26,7 @@ Key agents: ManagerAgent (planning), ExecutorAgent (actions), CodeActAgent (dire
 ScripterAgent (off-device computation), StructuredOutputAgent (typed data extraction).
 
 Atomic actions available to agents: `click`, `long_press`, `type`, `system_button`, `swipe`,
-`open_app`, `get_state`, `take_screenshot`, `remember`, `complete`.
+`open_app`, `get_state`, `take_screenshot`, `complete`.
 
 ## Repository Structure
 

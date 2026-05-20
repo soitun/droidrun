@@ -81,10 +81,9 @@ class MobileAgentState(BaseModel):
     last_summary: str = ""
 
     # ========================================================================
-    # Memory
+    # Memory (unified — used by both FastAgent and Manager via <add_memory> tags)
     # ========================================================================
-    manager_memory: str = ""  # Manager's planning notes (append-only string)
-    fast_memory: List[str] = Field(default_factory=list)  # FastAgent remember() items
+    agent_memory: str = ""
 
     # ========================================================================
     # Completion State (set by complete() tool, checked by FastAgent)
@@ -119,18 +118,15 @@ class MobileAgentState(BaseModel):
     # Methods for action functions
     # ========================================================================
 
-    async def remember(self, information: str) -> str:
-        """Store information in fast_memory for FastAgent context."""
-        if (
-            not information
-            or not isinstance(information, str)
-            or not information.strip()
-        ):
-            return "Failed to remember: please provide valid information."
-        self.fast_memory.append(information.strip())
-        if len(self.fast_memory) > 10:
-            self.fast_memory = self.fast_memory[-10:]
-        return f"Remembered: {information}"
+    def append_memory(self, text: str) -> None:
+        """Append text to agent_memory (shared by FastAgent and Manager)."""
+        text = text.strip()
+        if not text:
+            return
+        if self.agent_memory:
+            self.agent_memory += "\n" + text
+        else:
+            self.agent_memory = text
 
     async def complete(
         self, success: bool, reason: str = "", message: str = ""

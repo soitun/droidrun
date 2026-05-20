@@ -49,7 +49,7 @@ class ExecutorAgent(Workflow):
     """
 
     # Flow-control tools hidden from executor's LLM prompt
-    _EXCLUDE_TOOLS = {"remember", "complete"}
+    _EXCLUDE_TOOLS = {"complete"}
 
     def __init__(
         self,

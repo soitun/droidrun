@@ -33,6 +33,7 @@ from mobilerun.agent.fast_agent.events import (
 )
 from mobilerun.agent.fast_agent.xml_parser import (
     ToolResult,
+    extract_add_memory,
     format_tool_calls,
     format_tool_results,
     parse_tool_calls,
@@ -104,7 +105,6 @@ class FastAgent(Workflow):
 
         self.system_prompt: ChatMessage | None = None
         self.tool_call_counter = 0
-        self.remembered_info: list[str] | None = None
 
         # Build tool descriptions and param types from registry
         self.tool_descriptions = self.registry.get_tool_descriptions_xml()
@@ -200,17 +200,6 @@ class FastAgent(Workflow):
         user_message = await self._build_user_prompt(user_input)
         self.shared_state.message_history.clear()
         self.shared_state.message_history.append(user_message)
-
-        # Store remembered info if provided
-        remembered_info = ev.get("remembered_info", default=None)
-        if remembered_info:
-            self.remembered_info = remembered_info
-            memory_text = "\n### Remembered Information:\n"
-            for idx, item in enumerate(remembered_info, 1):
-                memory_text += f"{idx}. {item}\n"
-            self.shared_state.message_history[0].blocks.append(
-                TextBlock(text=memory_text)
-            )
 
         return FastAgentInputEvent()
 
@@ -319,6 +308,13 @@ class FastAgent(Workflow):
         if user_indices:
             last_user_idx = user_indices[-1]
 
+            # Accumulated agent memory → last user message
+            current_memory = (self.shared_state.agent_memory or "").strip()
+            if current_memory:
+                messages_to_send[last_user_idx].blocks.append(
+                    TextBlock(text=f"\n<memory>\n{current_memory}\n</memory>\n")
+                )
+
             # Current device state → last user message
             current_state = self.shared_state.formatted_device_state.strip()
             if current_state:
@@ -373,6 +369,11 @@ class FastAgent(Workflow):
 
         # Parse tool calls from response
         thought, tool_calls = parse_tool_calls(response_text, self.param_types)
+
+        # Extract <add_memory> from thought text and append to unified memory
+        memory_update = extract_add_memory(thought)
+        if memory_update:
+            self.shared_state.append_memory(memory_update)
 
         # Store parsed calls for logging/trajectory output. This uses the
         # executable representation so accidental duplicate XML blocks are not
@@ -515,9 +516,6 @@ class FastAgent(Workflow):
         logger.info("💡 Tool results:", extra={"color": "dim"})
         logger.info(f"{results_xml}")
         await asyncio.sleep(self.agent_config.after_sleep_action)
-
-        # Update remembered info
-        self.remembered_info = self.shared_state.fast_memory
 
         event = FastAgentOutputEvent(output=results_xml)
         ctx.write_event_to_stream(event)

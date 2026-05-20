@@ -34,8 +34,7 @@ class MobileAgentState(BaseModel):
     summary_history: List[str] = []            # Action summaries
 
     # Memory
-    manager_memory: str = ""                   # Manager's planning notes (append-only)
-    fast_memory: List[str] = []                # FastAgent remember() items (max 10)
+    agent_memory: str = ""                     # Shared memory via <add_memory> tags (append-only)
 
     # Planning (Manager)
     plan: str = ""                             # Current plan

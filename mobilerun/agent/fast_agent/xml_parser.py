@@ -121,6 +121,20 @@ def format_tool_calls(calls: List[ToolCall]) -> str:
     return "\n".join(lines)
 
 
+_ADD_MEMORY_RE = re.compile(
+    r"<add_memory(?:\s+[^>]*)?>(.+?)</add_memory>",
+    re.DOTALL,
+)
+
+
+def extract_add_memory(text: str) -> str:
+    """Extract and combine content from all ``<add_memory>`` tags in LLM response text."""
+    matches = _ADD_MEMORY_RE.findall(text)
+    if not matches:
+        return ""
+    return "\n".join(m.strip() for m in matches if m.strip())
+
+
 def _parse_tool_call_block(
     block: str, param_types: Optional[Dict[str, str]]
 ) -> List[ToolCall]:
