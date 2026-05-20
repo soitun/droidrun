@@ -166,15 +166,20 @@ async def build_tool_registry(
         fn=type_text,
         params={
             "text": {"type": "string", "required": True},
-            "index": {"type": "number", "required": True},
+            "index": {"type": "number", "required": False, "default": None},
             "clear": {"type": "boolean", "required": False, "default": False},
         },
         description=(
-            "Type text into an input box or text field. Specify the element with "
-            "index to focus the input field before typing. By default, text is "
-            "APPENDED to existing content. Set clear=True to clear the field first "
-            "(recommended for URL bars, search fields, or when replacing text). "
-            'Usage Example: {"action": "type", "text": "example.com", "index": element_index, "clear": true}'
+            "Type text into an input box or text field. If the target input is "
+            'already focused or the keyboard is open, call type without index, '
+            'for example {"action": "type", "text": "example.com", "clear": true}. '
+            "Specify index only when it is a real input/text-field element that "
+            "must be focused before typing. "
+            'Usage Example: {"action": "type", "text": "example.com", "index": element_index, "clear": true}. '
+            "If a visible input is missing from the accessibility tree, click it by coordinates, "
+            "observe that it is focused, then use type without index. By "
+            "default, text is APPENDED to existing content. Set clear=True to "
+            "clear the field first."
         ),
         deps={"tap", "input_text", "element_index"},
     )
