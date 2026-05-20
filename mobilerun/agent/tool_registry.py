@@ -89,7 +89,7 @@ class ToolRegistry:
 
         Args:
             exclude: Optional set of tool names to omit.  Used by
-                     ExecutorAgent to hide flow-control tools (remember,
+                     ExecutorAgent to hide flow-control tools (e.g.
                      complete) that only FastAgent should see.
         """
         exclude = exclude or set()

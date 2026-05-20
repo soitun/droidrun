@@ -42,8 +42,16 @@ def parse_manager_response(response: str) -> dict:
             return match.group(1).strip()
         return ""
 
+    def extract_all(tag: str) -> str:
+        """Extract and combine content from all occurrences of a tag."""
+        pattern = rf"<{tag}(?:\s+[^>]*)?>(.+?)</{tag}>"
+        matches = re.findall(pattern, response, re.DOTALL)
+        if not matches:
+            return ""
+        return "\n".join(m.strip() for m in matches if m.strip())
+
     thought = extract("thought")
-    memory_section = extract("add_memory")
+    memory_section = extract_all("add_memory")
     plan = extract("plan")
     progress_summary = extract("progress_summary")
     answer = extract("request_accomplished")

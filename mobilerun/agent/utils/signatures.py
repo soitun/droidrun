@@ -12,7 +12,6 @@ from mobilerun.agent.utils.actions import (
     long_press_at,
     open_app,
     open_bundle_id,
-    remember,
     swipe,
     system_button,
     type_secret,
@@ -280,13 +279,6 @@ async def build_tool_registry(
             ),
             deps={"start_app", "get_apps"},
         )
-
-    registry.register(
-        "remember",
-        fn=remember,
-        params={"information": {"type": "string", "required": True}},
-        description="Remember information for later use",
-    )
 
     registry.register(
         "complete",
