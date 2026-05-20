@@ -48,7 +48,7 @@ Action Related:
 - For some horizontally distributed tags, you can swipe horizontally to view more.
 Text Related Operations:
 - Activated input box: If an input box is activated, it may have a cursor inside it and the keyboard is visible. If there is no cursor on the screen but the keyboard is visible, it may be because the cursor is blinking. The color of the activated input box will be highlighted. If you are not sure whether the input box is activated, click it before typing.
-- To input some text: if the target input is already focused or the keyboard is visible for it, use the `type` action without `index` so it types into the focused field. Use `index` only when the index belongs to a real input/text field that must be focused before typing. Do not use generic full-screen containers such as `FrameLayout` as typing targets. If a visible input is missing from the accessibility tree, click it by coordinates, observe that it is focused, then use `type` without `index`.
+- To input some text: if the target input is already focused or the keyboard is visible for it, use the `type` action without `index` so it types into the focused field. Use `index` only when the index belongs to a real input/text field that must be focused before typing. If a visible input is missing from the accessibility tree, click it by coordinates, observe that it is focused, then use `type` without `index`.
 - To clear the text: long press the backspace button in the keyboard.
 - To copy some text: first long press the text you want to copy, then click the `copy` button in bar.
 - To paste text into a text box: first long press the text box, then click the `paste` button in bar.

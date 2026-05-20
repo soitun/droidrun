@@ -174,13 +174,12 @@ async def build_tool_registry(
             'already focused or the keyboard is open, call type without index, '
             'for example {"action": "type", "text": "example.com", "clear": true}. '
             "Specify index only when it is a real input/text-field element that "
-            "must be focused before typing. Do not use generic full-screen "
-            "containers like FrameLayout as typing targets. If a visible input "
-            "is missing from the accessibility tree, click it by coordinates, "
+            "must be focused before typing. "
+            'Usage Example: {"action": "type", "text": "example.com", "index": element_index, "clear": true}. '
+            "If a visible input is missing from the accessibility tree, click it by coordinates, "
             "observe that it is focused, then use type without index. By "
             "default, text is APPENDED to existing content. Set clear=True to "
-            "clear the field first. Typing does not submit; use a separate "
-            "button click when submission is required."
+            "clear the field first."
         ),
         deps={"tap", "input_text", "element_index"},
     )

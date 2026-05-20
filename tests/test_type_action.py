@@ -76,7 +76,12 @@ class TypeActionTest(unittest.TestCase):
         self.assertIsNone(tool.params["index"]["default"])
         self.assertIn("already focused", tool.description)
         self.assertIn("without index", tool.description)
-        self.assertIn("Do not use generic full-screen containers", tool.description)
+        self.assertIn(
+            'Usage Example: {"action": "type", "text": "example.com", "index": element_index, "clear": true}',
+            tool.description,
+        )
+        self.assertNotIn("generic full-screen containers", tool.description)
+        self.assertNotIn("Typing does not submit", tool.description)
 
 
 if __name__ == "__main__":
