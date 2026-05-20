@@ -151,12 +151,11 @@ async def click_area(
 
 
 async def type_text(
-    text: str, index: int, clear: bool = False, *, ctx: "ActionContext"
+    text: str, index: int | None = None, clear: bool = False, *, ctx: "ActionContext"
 ) -> ActionResult:
-    """Type text into the element with the given index."""
+    """Type text into an indexed element or the currently focused input."""
     try:
-        # Tap the element first if a specific index is given
-        if index != -1:
+        if index is not None and index != -1:
             x, y = ctx.ui.get_element_coords(index)
             await ctx.driver.tap(x, y)
 
