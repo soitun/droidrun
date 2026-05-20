@@ -124,15 +124,29 @@ def _effective_disabled_tools(
     requires_coords = getattr(state_provider, "requires_coordinate_tools", False)
     if requires_coords:
         # Screenshot-only / visual-remote modes cannot operate without coordinate
-        # tools — fail loudly rather than silently ignoring an explicit disable.
+        # tools. Treat lists that are supersets of the legacy v5 default coord
+        # set as a legacy-extension pattern (warn-and-strip) rather than
+        # genuine v6 intent (raise). Genuine v6 explicit lists fail loudly.
         if explicit:
-            blocked = sorted(set(disabled_tools) & _COORDINATE_TOOL_NAMES)
+            disabled_set = set(disabled_tools)
+            blocked = sorted(disabled_set & _COORDINATE_TOOL_NAMES)
             if blocked:
-                raise ValueError(
-                    f"Cannot disable coordinate tools {blocked} when the state "
-                    "provider requires them (vision_only=True or visual remote "
-                    "control_backend). Remove these from tools.disabled_tools."
-                )
+                if set(DEFAULT_DISABLED_TOOLS).issubset(disabled_set):
+                    logger.warning(
+                        "Legacy disabled_tools list %s contains coordinate tools "
+                        "that the active state provider requires; stripping them "
+                        "to allow startup. Consider setting tools.disabled_tools "
+                        "to null (framework default) and listing only the extras "
+                        "you actually want disabled.",
+                        disabled_tools,
+                    )
+                else:
+                    raise ValueError(
+                        f"Cannot disable coordinate tools {blocked} when the "
+                        "state provider requires them (vision_only=True or "
+                        "visual remote control_backend). Remove these from "
+                        "tools.disabled_tools."
+                    )
         return [name for name in disabled_tools if name not in _COORDINATE_TOOL_NAMES]
     # Auto-unmask click_at only when (a) the caller didn't supply an explicit
     # list, and (b) the provider's screenshot pixel space matches the driver's

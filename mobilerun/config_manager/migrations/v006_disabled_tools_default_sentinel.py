@@ -6,13 +6,12 @@ Older generated configs (v5) shipped the literal default list
 disables the vision auto-unmask for ``click_at`` (and raises in
 screenshot-only modes when coordinate tools are listed).
 
-Migration rules for ``tools.disabled_tools``:
-
-* Exact match for the old default list → convert to ``None`` (implicit default).
-* Superset of the old default (e.g. ``[click_at, click_area, long_press_at,
-  wait]``) → strip the three legacy coordinate entries and keep the user's
-  additions. If nothing remains, fall through to ``None``.
-* Anything else (custom list, missing entries, ``None``) → left untouched.
+This migration only converts the **exact** default list to ``None``. Supersets
+like ``[click_at, click_area, long_press_at, wait]`` are intentionally left
+untouched so non-vision runs continue disabling the coordinate tools the user
+expected. ``_effective_disabled_tools`` gives those legacy supersets a
+graceful path through screenshot-only modes (coord tools are stripped with a
+warning instead of raising ValueError).
 """
 
 from typing import Any, Dict
@@ -28,15 +27,7 @@ def migrate(config: Dict[str, Any]) -> Dict[str, Any]:
         return config
 
     disabled = tools.get("disabled_tools")
-    if not isinstance(disabled, list):
-        return config
-
-    if not _OLD_DEFAULT.issubset(set(disabled)):
-        # User removed entries from the old default — treat as explicit choice.
-        return config
-
-    # Drop legacy default entries while preserving user additions and order.
-    extras = [t for t in disabled if t not in _OLD_DEFAULT]
-    tools["disabled_tools"] = extras if extras else None
+    if isinstance(disabled, list) and set(disabled) == _OLD_DEFAULT:
+        tools["disabled_tools"] = None
 
     return config
