@@ -118,22 +118,42 @@ agent:
 ## Programmatic Usage
 
 ```python
-from mobilerun.config_manager import AppCardLoader, config
+import asyncio
 
-# Load app card for a package
-app_card = AppCardLoader.load_app_card(
-    package_name="com.google.android.gm",
-    app_cards_dir=config.agent.app_cards.app_cards_dir
+from mobilerun.app_cards.providers import (
+    CompositeAppCardProvider,
+    LocalAppCardProvider,
+    ServerAppCardProvider,
 )
+from mobilerun.config_manager import ConfigLoader
 
-# Check if enabled
-if config.agent.app_cards.enabled:
-    print("App cards are enabled")
 
-# Clear cache (useful for testing)
-AppCardLoader.clear_cache()
+async def main():
+    config = ConfigLoader.load()
 
-# Get cache statistics
-stats = AppCardLoader.get_cache_stats()
-print(f"Cached entries: {stats['content_entries']}")
+    # Check if enabled and load a local app card.
+    if not config.agent.app_cards.enabled:
+        return
+
+    provider = LocalAppCardProvider(app_cards_dir=config.agent.app_cards.app_cards_dir)
+    app_card = await provider.load_app_card(
+        package_name="com.google.android.gm",
+        instruction="Summarize unread email",
+    )
+    print(app_card)
+
+    # Server-backed and server-with-local-fallback modes use:
+    server_provider = ServerAppCardProvider(server_url="https://example.com")
+    composite_provider = CompositeAppCardProvider(
+        server_url="https://example.com",
+        app_cards_dir=config.agent.app_cards.app_cards_dir,
+    )
+
+    # Clear cache and get cache statistics.
+    provider.clear_cache()
+    stats = provider.get_cache_stats()
+    print(f"Cached entries: {stats['content_entries']}")
+
+
+asyncio.run(main())
 ```
