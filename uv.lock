@@ -1813,7 +1813,7 @@ wheels = [
 
 [[package]]
 name = "mobilerun"
-version = "0.6.0rc3"
+version = "0.6.0rc4"
 source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },
@@ -1890,7 +1890,7 @@ requires-dist = [
     { name = "llama-index-workflows", specifier = "==2.8.3" },
     { name = "mcp", specifier = ">=1.26.0" },
     { name = "mobilerun", extras = ["langfuse"], marker = "extra == 'dev'" },
-    { name = "mobilerun-sdk", specifier = ">=3.1.0" },
+    { name = "mobilerun-sdk", specifier = ">=3.2.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.0.0" },
     { name = "openinference-instrumentation-llama-index", marker = "extra == 'langfuse'", specifier = ">=3.0.0" },
     { name = "posthog", specifier = ">=6.7.6" },
@@ -1913,7 +1913,7 @@ dev = [
 
 [[package]]
 name = "mobilerun-sdk"
-version = "3.1.0"
+version = "3.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -1923,9 +1923,9 @@ dependencies = [
     { name = "sniffio" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/24/05/62fa287da8567adffbeeeac2ab462cafd71dcf62e4189c5907e4aa4651c8/mobilerun_sdk-3.1.0.tar.gz", hash = "sha256:f3a2f4e9ae82dee4f8ae63d5058b6577ee51376de9a2e07c7c3fd21cebfd2171", size = 173415, upload-time = "2026-04-16T12:42:27.268Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e5/ae/e694c01c99395a8ecd2e633b60d7c4188395d12fff8dc304d4caf11572f0/mobilerun_sdk-3.2.0.tar.gz", hash = "sha256:b159845ecaf7abe94d4c92f329ae40ffbc94e3362fd34c4156d3f5fc8f7d8ccb", size = 187159, upload-time = "2026-05-21T12:31:40.396Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/39/f8/7e3ff7225b41439d87f403c98adc063fb47b88929692ffbc089286a4e06e/mobilerun_sdk-3.1.0-py3-none-any.whl", hash = "sha256:9117fa6f604c6f143366f92979ce1a8450bac427a5307d123ca8b46e7385b6f2", size = 209988, upload-time = "2026-04-16T12:42:25.875Z" },
+    { url = "https://files.pythonhosted.org/packages/58/dc/7baeb50a6029b05f8a70f557cc03051de0b4bbaf7c49fb4fd4cbc40351c3/mobilerun_sdk-3.2.0-py3-none-any.whl", hash = "sha256:e29cd465b743f634fe37966bc30b0e1d7aa8cf1edfba5f08a0a4d4bc84f1d1db", size = 232016, upload-time = "2026-05-21T12:31:38.769Z" },
 ]
 
 [[package]]
