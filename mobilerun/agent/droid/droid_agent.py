@@ -124,14 +124,15 @@ def _effective_disabled_tools(
     requires_coords = getattr(state_provider, "requires_coordinate_tools", False)
     if requires_coords:
         # Screenshot-only / visual-remote modes cannot operate without coordinate
-        # tools. Treat lists that are supersets of the legacy v5 default coord
-        # set as a legacy-extension pattern (warn-and-strip) rather than
-        # genuine v6 intent (raise). Genuine v6 explicit lists fail loudly.
+        # tools. Strict supersets of the legacy v5 default (e.g. default +
+        # wait) get warn-and-strip — migration can't remove those because the
+        # extras are intentional. Everything else (exact default or custom
+        # list) raises: the exact default should have been migrated to None.
         if explicit:
             disabled_set = set(disabled_tools)
             blocked = sorted(disabled_set & _COORDINATE_TOOL_NAMES)
             if blocked:
-                if set(DEFAULT_DISABLED_TOOLS).issubset(disabled_set):
+                if set(DEFAULT_DISABLED_TOOLS) < disabled_set:
                     logger.warning(
                         "Legacy disabled_tools list %s contains coordinate tools "
                         "that the active state provider requires; stripping them "

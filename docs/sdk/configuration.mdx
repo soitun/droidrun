@@ -204,7 +204,7 @@ tools:
 
 **Explicit list:** If you pass any list (even empty), it is honored as-is — no defaults, no auto-unmask. You take full control of what is disabled.
 
-**Screenshot-only modes:** When `vision_only=True` or `control_backend: visual-remote`, coordinate tools are required to operate. Disabling any of them explicitly raises a `ValueError` at startup.
+**Screenshot-only modes:** When `vision_only=True` or `control_backend: visual-remote`, coordinate tools are required to operate. Explicitly disabling any of them raises a `ValueError` at startup. The one exception is legacy configs that are strict supersets of the old default list (e.g. `[click_at, click_area, long_press_at, wait]`) — these get a warning and the coordinate tools are stripped automatically. Migrate these configs by setting `disabled_tools` to `null` and listing only the extras you want disabled.
 
 ---
 
