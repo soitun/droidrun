@@ -126,6 +126,13 @@ class StateProvider:
     """Base class — subclass to support different platforms."""
 
     supported: set[str] = set()
+    # True when raw screenshot pixel coordinates can be sent directly to driver
+    # tap actions without scaling (e.g. Android, where screenshot and input
+    # coords are both device pixels). iOS in normal mode is False — the
+    # screenshot is physical pixels while taps use XCTest points, so a model
+    # picking from the screenshot would tap the wrong location. Screenshot-only
+    # providers handle scaling explicitly via ``coordinate_scale_x/y``.
+    screenshot_matches_input_coords: bool = False
 
     def __init__(self, driver: "DeviceDriver") -> None:
         self.driver = driver
@@ -158,6 +165,12 @@ class AndroidStateProvider(StateProvider):
         self.tree_formatter = tree_formatter
         self.use_normalized = use_normalized
         self._ui_cls = ui_cls or (StealthUIState if stealth else UIState)
+        # Android screenshots and input taps share device-pixel coordinates,
+        # but only when not in normalized mode. ``use_normalized=True`` makes
+        # ``UIState.convert_point`` treat inputs as [0-1000] normalized
+        # coordinates, which is incompatible with picking coordinates off the
+        # screenshot — keep click_at masked in that case.
+        self.screenshot_matches_input_coords = not use_normalized
 
     async def _recover_portal(self) -> None:
         """Restart Portal's accessibility service and TCP socket server."""

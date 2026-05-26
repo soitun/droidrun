@@ -181,15 +181,20 @@ class LoggingConfig:
     trajectory_gifs: bool = True
 
 
-def _default_disabled_tools() -> List[str]:
-    return ["click_at", "click_area", "long_press_at"]
+DEFAULT_DISABLED_TOOLS: tuple[str, ...] = ("click_at", "click_area", "long_press_at")
 
 
 @dataclass
 class ToolsConfig:
-    """Tools configuration."""
+    """Tools configuration.
 
-    disabled_tools: List[str] = field(default_factory=_default_disabled_tools)
+    ``disabled_tools=None`` means "use the framework default" — coordinate
+    tools are disabled, and ``click_at`` is auto-unmasked when the active
+    action agent has vision. Pass an explicit list (even an empty one) to
+    take full control: the list is then honored as-is with no auto-unmask.
+    """
+
+    disabled_tools: Optional[List[str]] = None
     stealth: bool = False
 
 
@@ -268,7 +273,21 @@ class MobileConfig:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "MobileConfig":
-        """Create config from dictionary."""
+        """Create config from dictionary.
+
+        If ``data`` carries a ``_version`` lower than the current schema
+        version, migrations are applied before parsing so SDK callers using
+        ``MobileConfig.from_yaml()`` / ``from_dict()`` get the same upgrade
+        path as ``ConfigLoader``. In-memory dicts without ``_version`` are
+        assumed to already match the current schema.
+        """
+        import copy as _copy
+
+        from mobilerun.config_manager.migrations import CURRENT_VERSION, migrate
+
+        if "_version" in data and data["_version"] < CURRENT_VERSION:
+            data = migrate(_copy.deepcopy(data))
+
         # Parse LLM profiles
         llm_profiles = {}
         for name, profile_data in data.get("llm_profiles", {}).items():
@@ -336,15 +355,17 @@ class MobileConfig:
             servers=mcp_servers,
         )
 
+        # ``data.get("X") or {}`` so a section present-but-null in YAML
+        # (e.g. ``tools:`` followed only by comments) is treated as empty.
         return cls(
             agent=agent_config,
             llm_profiles=llm_profiles,
-            device=DeviceConfig(**data.get("device", {})),
-            telemetry=TelemetryConfig(**data.get("telemetry", {})),
-            tracing=TracingConfig(**data.get("tracing", {})),
-            logging=LoggingConfig(**data.get("logging", {})),
-            tools=ToolsConfig(**data.get("tools", {})),
-            credentials=CredentialsConfig(**data.get("credentials", {})),
+            device=DeviceConfig(**(data.get("device") or {})),
+            telemetry=TelemetryConfig(**(data.get("telemetry") or {})),
+            tracing=TracingConfig(**(data.get("tracing") or {})),
+            logging=LoggingConfig(**(data.get("logging") or {})),
+            tools=ToolsConfig(**(data.get("tools") or {})),
+            credentials=CredentialsConfig(**(data.get("credentials") or {})),
             external_agents=external_agents,
             mcp=mcp_config,
         )

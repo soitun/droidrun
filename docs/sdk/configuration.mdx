@@ -186,8 +186,8 @@ TelemetryConfig(
 from mobilerun import ToolsConfig
 
 ToolsConfig(
-    disabled_tools=["click_at", "click_area", "long_press_at"],  # Tools to disable (default disables coordinate-based tools)
-    stealth=False,                                                # Enable stealth mode (human-like timing + randomized coordinates)
+    disabled_tools=None,  # None = use framework default (see below); pass a list to override
+    stealth=False,        # Enable stealth mode (human-like timing + randomized coordinates)
 )
 ```
 
@@ -199,7 +199,12 @@ tools:
     - wait
   stealth: false
 ```
-Disabled tools will not be available to agents during execution. The default `disabled_tools` list disables `click_at`, `click_area`, and `long_press_at`.
+
+**Default behavior (`disabled_tools=None` / key omitted):** `click_at`, `click_area`, and `long_press_at` are disabled. When the active action agent has vision enabled (`fast_agent.vision=True` in direct mode, or both `manager.vision=True` and `executor.vision=True` in reasoning mode, or `vision_only=True`), `click_at` is automatically re-enabled.
+
+**Explicit list:** If you pass any list (even empty), it is honored as-is — no defaults, no auto-unmask. You take full control of what is disabled.
+
+**Screenshot-only modes:** When `vision_only=True` or `control_backend: visual-remote`, coordinate tools are required to operate. Explicitly disabling any of them raises a `ValueError` at startup. The one exception is legacy configs that are strict supersets of the old default list (e.g. `[click_at, click_area, long_press_at, wait]`) — these get a warning and the coordinate tools are stripped automatically. Migrate these configs by setting `disabled_tools` to `null` and listing only the extras you want disabled.
 
 ---
 
@@ -536,10 +541,11 @@ device:
   auto_setup: true  # Auto-install/fix Portal APK before each run
 
 tools:
-  disabled_tools:
-    - click_at
-    - click_area
-    - long_press_at
+  # disabled_tools: null  # null/omit = framework default (coord tools off, click_at auto-unmasked when vision is on)
+  # disabled_tools:       # uncomment to take full control — list is honored verbatim (no auto-unmask)
+  #   - click_at
+  #   - click_area
+  #   - long_press_at
   stealth: false
 
 telemetry:

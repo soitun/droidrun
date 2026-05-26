@@ -54,6 +54,7 @@ from mobilerun.agent.utils.tracing_setup import (
 )
 from mobilerun.agent.utils.trajectory import Trajectory
 from mobilerun.config_manager.config_manager import (
+    DEFAULT_DISABLED_TOOLS,
     AgentConfig,
     CredentialsConfig,
     DeviceConfig,
@@ -114,9 +115,48 @@ def _force_screenshot_only_vision(agent_config: AgentConfig) -> None:
     agent_config.fast_agent.vision = True
 
 
-def _effective_disabled_tools(disabled_tools: list[str], state_provider) -> list[str]:
-    if getattr(state_provider, "requires_coordinate_tools", False):
+def _effective_disabled_tools(
+    disabled_tools: list[str],
+    state_provider,
+    vision_enabled: bool = False,
+    explicit: bool = False,
+) -> list[str]:
+    requires_coords = getattr(state_provider, "requires_coordinate_tools", False)
+    if requires_coords:
+        # Screenshot-only / visual-remote modes cannot operate without coordinate
+        # tools. Strict supersets of the legacy v5 default (e.g. default +
+        # wait) get warn-and-strip — migration can't remove those because the
+        # extras are intentional. Everything else (exact default or custom
+        # list) raises: the exact default should have been migrated to None.
+        if explicit:
+            disabled_set = set(disabled_tools)
+            blocked = sorted(disabled_set & _COORDINATE_TOOL_NAMES)
+            if blocked:
+                if set(DEFAULT_DISABLED_TOOLS) < disabled_set:
+                    logger.warning(
+                        "Legacy disabled_tools list %s contains coordinate tools "
+                        "that the active state provider requires; stripping them "
+                        "to allow startup. Consider setting tools.disabled_tools "
+                        "to null (framework default) and listing only the extras "
+                        "you actually want disabled.",
+                        disabled_tools,
+                    )
+                else:
+                    raise ValueError(
+                        f"Cannot disable coordinate tools {blocked} when the "
+                        "state provider requires them (vision_only=True or "
+                        "visual remote control_backend). Remove these from "
+                        "tools.disabled_tools."
+                    )
         return [name for name in disabled_tools if name not in _COORDINATE_TOOL_NAMES]
+    # Auto-unmask click_at only when (a) the caller didn't supply an explicit
+    # list, and (b) the provider's screenshot pixel space matches the driver's
+    # tap input space. iOS in normal mode is excluded — the screenshot is
+    # physical pixels while taps use XCTest points, so screenshot coords would
+    # tap the wrong location.
+    coords_align = getattr(state_provider, "screenshot_matches_input_coords", False)
+    if vision_enabled and not explicit and coords_align:
+        return [name for name in disabled_tools if name != "click_at"]
     return disabled_tools
 
 
@@ -541,13 +581,28 @@ class MobileAgent(Workflow):
         capabilities = driver.supported | self.state_provider.supported
         registry.disable_unsupported(capabilities)
 
-        # Config-level filtering
-        disabled_tools = (
-            self.config.tools.disabled_tools
-            if self.config.tools and self.config.tools.disabled_tools
-            else []
+        # Config-level filtering. ``disabled_tools=None`` means "framework
+        # default"; an explicit list (even empty) is honored verbatim.
+        user_disabled = self.config.tools.disabled_tools if self.config.tools else None
+        explicit_disabled = user_disabled is not None
+        disabled_tools = list(user_disabled if explicit_disabled else DEFAULT_DISABLED_TOOLS)
+        # In reasoning mode the Executor only sees a screenshot when the Manager
+        # also captured one (manager.vision=True), so require both before
+        # exposing coordinate clicks.
+        if self.config.agent.reasoning:
+            active_action_vision = (
+                self.config.agent.manager.vision
+                and self.config.agent.executor.vision
+            )
+        else:
+            active_action_vision = self.config.agent.fast_agent.vision
+        action_agent_has_vision = self.config.agent.vision_only or active_action_vision
+        disabled_tools = _effective_disabled_tools(
+            disabled_tools,
+            self.state_provider,
+            vision_enabled=action_agent_has_vision,
+            explicit=explicit_disabled,
         )
-        disabled_tools = _effective_disabled_tools(disabled_tools, self.state_provider)
         if disabled_tools:
             registry.disable(disabled_tools)
 
