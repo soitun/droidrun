@@ -15,6 +15,7 @@ from typing import Any, Dict, List
 from llama_index.core.workflow import Event
 
 from mobilerun.agent.trajectory.writer import make_serializable
+from mobilerun.macro.state import MACRO_SCHEMA_VERSION, UNSUPPORTED_SCHEMA_MESSAGE
 
 logger = logging.getLogger("mobilerun")
 
@@ -48,8 +49,6 @@ class Trajectory:
 
     def _create_trajectory_folder(self):
         """Create unique trajectory folder with timestamp and UUID."""
-        from pathlib import Path
-
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         unique_id = str(uuid.uuid4())[:8]
         folder = self.base_path / f"{timestamp}_{unique_id}"
@@ -144,6 +143,9 @@ class Trajectory:
             with open(macro_file_path, "r") as f:
                 macro_data = json.load(f)
 
+            if macro_data.get("macro_schema_version") != MACRO_SCHEMA_VERSION:
+                raise ValueError(UNSUPPORTED_SCHEMA_MESSAGE)
+
             logger.debug(
                 f"📖 Loaded macro sequence with {macro_data.get('total_actions', 0)} actions from {macro_file_path}"
             )
@@ -184,7 +186,9 @@ class Trajectory:
         duration = max(timestamps) - min(timestamps) if len(timestamps) > 1 else 0
 
         return {
-            "version": macro_data.get("version", "unknown"),
+            "version": macro_data.get(
+                "macro_schema_version", macro_data.get("version", "unknown")
+            ),
             "description": macro_data.get("description", "No description"),
             "total_actions": len(actions),
             "action_types": action_types,

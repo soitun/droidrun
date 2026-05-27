@@ -17,6 +17,8 @@ from mobilerun.agent.oneflows.app_starter_workflow import AppStarter
 
 logger = logging.getLogger("mobilerun")
 
+_MACRO_FOCUS_SETTLE_SECONDS = 0.5
+
 
 # ---------------------------------------------------------------------------
 # Core UI actions
@@ -72,11 +74,74 @@ def _convert_action_point(
     return int(round(abs_x)), int(round(abs_y))
 
 
+def _macro_recorder(ctx: "ActionContext"):
+    return getattr(ctx, "macro_recorder", None)
+
+
+def _record_macro_action(
+    ctx: "ActionContext",
+    action: dict,
+    *,
+    pre_ui=None,
+) -> None:
+    recorder = _macro_recorder(ctx)
+    if recorder is None:
+        return
+    recorder.record_action(
+        action,
+        pre_ui=pre_ui if pre_ui is not None else getattr(ctx, "ui", None),
+    )
+
+
+async def _macro_pre_ui(ctx: "ActionContext"):
+    if _macro_recorder(ctx) is None:
+        return getattr(ctx, "ui", None)
+    state_provider = getattr(ctx, "state_provider", None)
+    if state_provider is None or not hasattr(state_provider, "get_state"):
+        return getattr(ctx, "ui", None)
+    try:
+        return await state_provider.get_state()
+    except Exception as e:
+        logger.debug(f"Failed to refresh macro pre-state: {e}")
+        return getattr(ctx, "ui", None)
+
+
+async def _macro_pre_ui_after_focus_tap(ctx: "ActionContext"):
+    if _macro_recorder(ctx) is not None:
+        await asyncio.sleep(_MACRO_FOCUS_SETTLE_SECONDS)
+    return await _macro_pre_ui(ctx)
+
+
+def _driver_log_length(ctx: "ActionContext") -> int | None:
+    log = getattr(getattr(ctx, "driver", None), "log", None)
+    if isinstance(log, list):
+        return len(log)
+    return None
+
+
+def _record_driver_log_delta(
+    ctx: "ActionContext", before: int | None, *, pre_ui=None
+) -> None:
+    if before is None:
+        return
+    log = getattr(getattr(ctx, "driver", None), "log", None)
+    if not isinstance(log, list):
+        return
+    for raw_action in log[before:]:
+        _record_macro_action(ctx, dict(raw_action), pre_ui=pre_ui)
+
+
 async def click(index: int, *, ctx: "ActionContext") -> ActionResult:
     """Click the element with the given index."""
     try:
+        pre_ui = await _macro_pre_ui(ctx)
         x, y = ctx.ui.get_element_coords(index)
         await ctx.driver.tap(x, y)
+        _record_macro_action(
+            ctx,
+            {"action_type": "tap", "x": x, "y": y},
+            pre_ui=pre_ui,
+        )
 
         info = ctx.ui.get_element_info(index)
         detail_parts = [
@@ -100,8 +165,21 @@ async def click(index: int, *, ctx: "ActionContext") -> ActionResult:
 async def long_press(index: int, *, ctx: "ActionContext") -> ActionResult:
     """Long press the element with the given index."""
     try:
+        pre_ui = await _macro_pre_ui(ctx)
         x, y = ctx.ui.get_element_coords(index)
         await ctx.driver.swipe(x, y, x, y, 1000)
+        _record_macro_action(
+            ctx,
+            {
+                "action_type": "swipe",
+                "start_x": x,
+                "start_y": y,
+                "end_x": x,
+                "end_y": y,
+                "duration_ms": 1000,
+            },
+            pre_ui=pre_ui,
+        )
         return ActionResult(
             success=True, summary=f"Long pressed element at index {index} at ({x}, {y})"
         )
@@ -114,8 +192,21 @@ async def long_press(index: int, *, ctx: "ActionContext") -> ActionResult:
 async def long_press_at(x: int, y: int, *, ctx: "ActionContext") -> ActionResult:
     """Long press at screen coordinates."""
     try:
+        pre_ui = await _macro_pre_ui(ctx)
         abs_x, abs_y = _convert_action_point(x, y, ctx=ctx)
         await ctx.driver.swipe(abs_x, abs_y, abs_x, abs_y, 1000)
+        _record_macro_action(
+            ctx,
+            {
+                "action_type": "swipe",
+                "start_x": abs_x,
+                "start_y": abs_y,
+                "end_x": abs_x,
+                "end_y": abs_y,
+                "duration_ms": 1000,
+            },
+            pre_ui=pre_ui,
+        )
         return ActionResult(success=True, summary=f"Long pressed at ({abs_x}, {abs_y})")
     except Exception as e:
         return ActionResult(
@@ -126,8 +217,14 @@ async def long_press_at(x: int, y: int, *, ctx: "ActionContext") -> ActionResult
 async def click_at(x: int, y: int, *, ctx: "ActionContext") -> ActionResult:
     """Click at screen coordinates."""
     try:
+        pre_ui = await _macro_pre_ui(ctx)
         abs_x, abs_y = _convert_action_point(x, y, ctx=ctx)
         await ctx.driver.tap(abs_x, abs_y)
+        _record_macro_action(
+            ctx,
+            {"action_type": "tap", "x": abs_x, "y": abs_y},
+            pre_ui=pre_ui,
+        )
         return ActionResult(success=True, summary=f"Tapped at ({abs_x}, {abs_y})")
     except Exception as e:
         return ActionResult(success=False, summary=f"Failed to tap at ({x}, {y}): {e}")
@@ -138,11 +235,17 @@ async def click_area(
 ) -> ActionResult:
     """Click center of area."""
     try:
+        pre_ui = await _macro_pre_ui(ctx)
         _validate_screenshot_only_point(x1, y1, ctx=ctx)
         _validate_screenshot_only_point(x2, y2, ctx=ctx)
         cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
         abs_x, abs_y = _convert_action_point(cx, cy, ctx=ctx)
         await ctx.driver.tap(abs_x, abs_y)
+        _record_macro_action(
+            ctx,
+            {"action_type": "tap", "x": abs_x, "y": abs_y},
+            pre_ui=pre_ui,
+        )
         return ActionResult(
             success=True, summary=f"Tapped center of area at ({abs_x}, {abs_y})"
         )
@@ -155,12 +258,24 @@ async def type_text(
 ) -> ActionResult:
     """Type text into an indexed element or the currently focused input."""
     try:
+        pre_ui = await _macro_pre_ui(ctx)
         if index is not None and index != -1:
             x, y = ctx.ui.get_element_coords(index)
             await ctx.driver.tap(x, y)
+            _record_macro_action(
+                ctx,
+                {"action_type": "tap", "x": x, "y": y},
+                pre_ui=pre_ui,
+            )
+            pre_ui = await _macro_pre_ui_after_focus_tap(ctx)
 
         success = await ctx.driver.input_text(text, clear)
         if success:
+            _record_macro_action(
+                ctx,
+                {"action_type": "input_text", "text": text, "clear": clear},
+                pre_ui=pre_ui,
+            )
             return ActionResult(
                 success=True, summary=f"Text typed successfully (clear={clear})"
             )
@@ -177,8 +292,14 @@ async def type_text_direct(
 ) -> ActionResult:
     """Type text into the currently focused input."""
     try:
+        pre_ui = await _macro_pre_ui(ctx)
         success = await ctx.driver.input_text(text, clear)
         if success:
+            _record_macro_action(
+                ctx,
+                {"action_type": "input_text", "text": text, "clear": clear},
+                pre_ui=pre_ui,
+            )
             return ActionResult(
                 success=True, summary=f"Text typed successfully (clear={clear})"
             )
@@ -190,7 +311,13 @@ async def type_text_direct(
 async def system_button(button: str, *, ctx: "ActionContext") -> ActionResult:
     """Press a system button (back, home, or enter)."""
     try:
+        pre_ui = await _macro_pre_ui(ctx)
         await ctx.driver.press_button(button)
+        _record_macro_action(
+            ctx,
+            {"action_type": "button_press", "button": button},
+            pre_ui=pre_ui,
+        )
         return ActionResult(success=True, summary=f"Pressed {button.upper()} button")
     except ValueError as e:
         return ActionResult(success=False, summary=str(e))
@@ -221,10 +348,23 @@ async def swipe(
         )
 
     try:
+        pre_ui = await _macro_pre_ui(ctx)
         start_x, start_y = _convert_action_point(*coordinate, ctx=ctx)
         end_x, end_y = _convert_action_point(*coordinate2, ctx=ctx)
         duration_ms = int(duration * 1000)
         await ctx.driver.swipe(start_x, start_y, end_x, end_y, duration_ms=duration_ms)
+        _record_macro_action(
+            ctx,
+            {
+                "action_type": "swipe",
+                "start_x": start_x,
+                "start_y": start_y,
+                "end_x": end_x,
+                "end_y": end_y,
+                "duration_ms": duration_ms,
+            },
+            pre_ui=pre_ui,
+        )
         return ActionResult(
             success=True,
             summary=f"Swiped from ({start_x}, {start_y}) to ({end_x}, {end_y})",
@@ -249,11 +389,14 @@ async def open_app(text: str, *, ctx: "ActionContext") -> ActionResult:
         verbose=False,
     )
 
+    pre_ui = await _macro_pre_ui(ctx)
+    driver_log_before = _driver_log_length(ctx)
     result = await workflow.run(app_description=text)
     await asyncio.sleep(1)
 
     if isinstance(result, str) and "could not open app" in result.lower():
         return ActionResult(success=False, summary=result)
+    _record_driver_log_delta(ctx, driver_log_before, pre_ui=pre_ui)
     return ActionResult(success=True, summary=str(result))
 
 
@@ -276,6 +419,7 @@ async def open_bundle_id(
         "search to find the app."
     )
     try:
+        pre_ui = await _macro_pre_ui(ctx)
         result = await ctx.driver.start_app(identifier)
         await asyncio.sleep(1)
         if isinstance(result, str) and result.lower().startswith("failed"):
@@ -283,6 +427,11 @@ async def open_bundle_id(
                 success=False,
                 summary=f"Failed to open app '{identifier}': {result}\n{hint}",
             )
+        _record_macro_action(
+            ctx,
+            {"action_type": "start_app", "package": identifier, "activity": None},
+            pre_ui=pre_ui,
+        )
         return ActionResult(success=True, summary=str(result))
     except Exception as e:
         return ActionResult(
@@ -293,7 +442,11 @@ async def open_bundle_id(
 
 async def wait(duration: float = 1.0, *, ctx: "ActionContext") -> ActionResult:
     """Wait for a specified duration in seconds."""
+    pre_ui = await _macro_pre_ui(ctx)
     await asyncio.sleep(duration)
+    recorder = _macro_recorder(ctx)
+    if recorder is not None:
+        recorder.record_wait(duration, pre_ui=pre_ui)
     return ActionResult(success=True, summary=f"Waited for {duration} seconds")
 
 
@@ -326,14 +479,30 @@ async def type_secret(
 
     try:
         secret_value = await ctx.credential_manager.resolve_key(secret_id)
+        pre_ui = await _macro_pre_ui(ctx)
 
         # Tap the element first if a specific index is given
         if index != -1:
             x, y = ctx.ui.get_element_coords(index)
             await ctx.driver.tap(x, y)
+            _record_macro_action(
+                ctx,
+                {"action_type": "tap", "x": x, "y": y},
+                pre_ui=pre_ui,
+            )
+            pre_ui = await _macro_pre_ui_after_focus_tap(ctx)
 
         ok = await ctx.driver.input_text(secret_value)
         if ok:
+            _record_macro_action(
+                ctx,
+                {
+                    "action_type": "type_secret",
+                    "secret_id": secret_id,
+                    "clear": False,
+                },
+                pre_ui=pre_ui,
+            )
             return ActionResult(
                 success=True,
                 summary=f"Successfully typed secret '{secret_id}' into element {index}",
