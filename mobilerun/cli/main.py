@@ -565,15 +565,26 @@ async def run(
     sys.exit(0 if success else 1)
 
 
-async def _list_cloud_devices(base_url: str | None) -> None:
-    """List Mobilerun cloud devices via the SDK."""
+async def _list_cloud_devices(
+    base_url: str | None,
+    *,
+    silent_if_no_key: bool = False,
+) -> int:
+    """List Mobilerun cloud devices via the SDK.
+
+    Returns the number of devices printed. With ``silent_if_no_key=True``
+    a missing credential is treated as "no cloud section" rather than an
+    error — useful for the unified ``mobilerun devices`` output.
+    """
     api_key = resolve_cloud_api_key()
     if not api_key:
+        if silent_if_no_key:
+            return 0
         console.print(
             f"[red]No cloud API key found. Set {CLOUD_API_KEY_ENV} or run "
             "`mobilerun login`.[/]"
         )
-        return
+        return 0
 
     from mobilerun_sdk import AsyncMobilerun
 
@@ -586,12 +597,12 @@ async def _list_cloud_devices(base_url: str | None) -> None:
         resp = await client.devices.list()
     except Exception as e:
         console.print(f"[red]Error listing cloud devices: {e}[/]")
-        return
+        return 0
 
     items = getattr(resp, "items", None) or []
     if not items:
         console.print("[yellow]No cloud devices found.[/]")
-        return
+        return 0
 
     console.print(f"[green]Found {len(items)} cloud device(s):[/]")
     for item in items:
@@ -605,6 +616,7 @@ async def _list_cloud_devices(base_url: str | None) -> None:
             f"  • [bold]{device_id}[/]  {name}  "
             f"\\[[{state_color}]{state}[/]]  [dim]{dtype}[/]"
         )
+    return len(items)
 
 
 @cli.command()
@@ -612,7 +624,7 @@ async def _list_cloud_devices(base_url: str | None) -> None:
     "--cloud",
     is_flag=True,
     default=False,
-    help="List Mobilerun cloud devices instead of local ones",
+    help="Only list Mobilerun cloud devices",
 )
 @click.option(
     "--base-url",
@@ -622,21 +634,31 @@ async def _list_cloud_devices(base_url: str | None) -> None:
 )
 @coro
 async def devices(cloud: bool, base_url: str | None):
-    """List connected Android devices (use --cloud for cloud devices)."""
+    """List connected devices.
+
+    Without flags: shows local Android devices, plus cloud devices when
+    a Mobilerun credential is available. ``--cloud`` shows only cloud.
+    """
     if cloud:
         await _list_cloud_devices(base_url)
         return
-    try:
-        devices = await adb.list()
-        if not devices:
-            console.print("[yellow]No devices connected.[/]")
-            return
 
-        console.print(f"[green]Found {len(devices)} connected device(s):[/]")
-        for device in devices:
-            console.print(f"  • [bold]{device.serial}[/]")
+    # Local section
+    try:
+        local = await adb.list()
+        if not local:
+            console.print("[yellow]No local devices connected.[/]")
+        else:
+            console.print(f"[green]Found {len(local)} local device(s):[/]")
+            for device in local:
+                console.print(f"  • [bold]{device.serial}[/]")
     except Exception as e:
-        console.print(f"[red]Error listing devices: {e}[/]")
+        console.print(f"[red]Error listing local devices: {e}[/]")
+
+    # Cloud section (only when authenticated — silent otherwise).
+    if resolve_cloud_api_key():
+        console.print()
+        await _list_cloud_devices(base_url, silent_if_no_key=True)
 
 
 @cli.command()
