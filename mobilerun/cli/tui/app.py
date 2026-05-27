@@ -4,24 +4,24 @@ from __future__ import annotations
 
 import time
 
+from textual import events
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Vertical
 from textual.widgets import Static
 from textual.worker import Worker, WorkerState
-from textual import events
 
-from mobilerun.cli.tui.commands import match_commands, resolve_command
 from mobilerun.cli.event_handler import EventHandler
-from mobilerun.log_handlers import TUILogHandler, configure_logging
+from mobilerun.cli.tui.commands import match_commands, resolve_command
 from mobilerun.cli.tui.settings import SettingsData, SettingsScreen
 from mobilerun.cli.tui.widgets import (
-    InputBar,
     CommandDropdown,
     DevicePicker,
+    InputBar,
     LogView,
     StatusBar,
 )
+from mobilerun.log_handlers import TUILogHandler, configure_logging
 
 # Map basic color names (from EventHandler) to TUI hex palette
 COLOR_HEX = {
@@ -566,6 +566,7 @@ class MobileTUI(App):
     async def _verify_portal(self, serial: str) -> None:
         """Check portal connectivity. Raises on failure."""
         from async_adbutils import adb
+
         from mobilerun.tools.android.portal_client import PortalClient
 
         device_obj = await adb.device(serial)
@@ -629,6 +630,7 @@ class MobileTUI(App):
 
             import requests
             from async_adbutils import adb
+
             from mobilerun.portal import (
                 _resolve_latest_portal_apk_asset,
                 _resolve_versioned_portal_apk_asset,

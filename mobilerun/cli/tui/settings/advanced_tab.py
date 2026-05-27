@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from textual import on
 from textual.app import ComposeResult
 from textual.containers import HorizontalGroup, VerticalGroup
 from textual.widgets import Input, Label, Select
-from textual import on
 
 from mobilerun.cli.tui.settings.data import SettingsData
 from mobilerun.cli.tui.settings.section import BoolToggle, Section

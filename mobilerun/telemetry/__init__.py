@@ -1,8 +1,8 @@
 from mobilerun.telemetry.events import (
-    MobileAgentFinalizeEvent,
-    MobileAgentInitEvent,
     DroidAgentFinalizeEvent,  # Legacy alias
     DroidAgentInitEvent,  # Legacy alias
+    MobileAgentFinalizeEvent,
+    MobileAgentInitEvent,
     PackageVisitEvent,
 )
 from mobilerun.telemetry.tracker import capture, flush, print_telemetry_message

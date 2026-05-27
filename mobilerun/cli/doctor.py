@@ -8,16 +8,15 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+import httpx
 import requests
 from async_adbutils import AdbDevice, adb
 from rich.console import Console
-import httpx
-from mobilerun.tools.android.portal_client import PortalClient
 
 from mobilerun import __version__
 from mobilerun.portal import (
-    PORTAL_PACKAGE_NAME,
     GITHUB_API_HOSTS,
+    PORTAL_PACKAGE_NAME,
     REPO,
     check_portal_accessibility,
     enable_portal_accessibility,
@@ -25,6 +24,7 @@ from mobilerun.portal import (
     portal_content_uri,
     portal_ime_id,
 )
+from mobilerun.tools.android.portal_client import PortalClient
 
 console = Console()
 
@@ -348,7 +348,7 @@ async def check_portal_version(
                     "Portal Version",
                     Status.WARN,
                     msg,
-                    detail=f"pip install --upgrade mobilerun, then mobilerun setup",
+                    detail="pip install --upgrade mobilerun, then mobilerun setup",
                 ),
                 installed,
                 expected,

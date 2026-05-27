@@ -82,7 +82,9 @@ class AppCardsTest(unittest.TestCase):
         self.assertIn("compose", app_card)
 
     def test_app_card_readme_uses_current_provider_api(self):
-        readme = Path("mobilerun/config/app_cards/README.md").read_text(encoding="utf-8")
+        readme = Path("mobilerun/config/app_cards/README.md").read_text(
+            encoding="utf-8"
+        )
 
         self.assertNotIn("AppCardLoader", readme)
         self.assertIn("LocalAppCardProvider", readme)

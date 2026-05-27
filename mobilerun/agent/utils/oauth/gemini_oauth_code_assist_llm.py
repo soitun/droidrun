@@ -10,7 +10,7 @@ import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from typing import Any, Dict, Optional, Sequence, ClassVar
+from typing import Any, ClassVar, Dict, Optional, Sequence
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import requests
@@ -28,6 +28,7 @@ from llama_index.core.callbacks import CallbackManager
 from llama_index.core.constants import DEFAULT_TEMPERATURE
 from llama_index.core.llms.callbacks import llm_chat_callback, llm_completion_callback
 from llama_index.core.llms.custom import CustomLLM
+
 from mobilerun.config_manager.credential_paths import GEMINI_OAUTH_CREDENTIAL_PATH
 
 DEFAULT_MODEL = "gemini-3.1-pro-preview"
@@ -697,14 +698,14 @@ class GeminiOAuthCodeAssistLLM(CustomLLM):
                     if attempt == 0:
                         print("No code entered. Try again.")
                         continue
-                    raise RuntimeError("Login failed.")
+                    raise RuntimeError("Login failed.") from None
                 try:
                     code = _normalize_manual_code(raw, expected_state)
                 except Exception:  # noqa: BLE001
                     if attempt == 0:
                         print("Invalid code. Try again.")
                         continue
-                    raise RuntimeError("Login failed.")
+                    raise RuntimeError("Login failed.") from None
                 if code:
                     return self._exchange_authorization_code(
                         code, redirect_uri, code_verifier=code_verifier

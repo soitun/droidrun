@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from textual.widgets import Input
-from textual.message import Message
 from textual import events
+from textual.message import Message
+from textual.widgets import Input
 
 
 class InputBar(Input):

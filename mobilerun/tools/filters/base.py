@@ -1,7 +1,7 @@
 """Base interface for accessibility tree filters."""
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 
 class TreeFilter(ABC):

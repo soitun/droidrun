@@ -12,7 +12,7 @@ from mobilerun.agent.providers import (
     list_provider_families,
     resolve_provider_variant,
 )
-from mobilerun.config_manager.config_manager import MobileConfig, LLMProfile
+from mobilerun.config_manager.config_manager import LLMProfile, MobileConfig
 from mobilerun.config_manager.env_keys import load_env_keys, save_env_keys
 
 DEFAULT_KWARGS_BY_VARIANT: dict[str, dict[str, int]] = {

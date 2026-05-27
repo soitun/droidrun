@@ -1,8 +1,9 @@
 """Indexed formatter - Standard Mobilerun format."""
 
-from typing import Dict, Any, List, Optional, Tuple
-from .base import TreeFormatter
+from typing import Any, Dict, List, Optional, Tuple
+
 from ..helpers.coordinate import bounds_to_normalized
+from .base import TreeFormatter
 
 
 class IndexedFormatter(TreeFormatter):

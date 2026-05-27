@@ -61,5 +61,7 @@ def _phone_score(saved_state: Dict[str, Any], current_state: Dict[str, Any]) -> 
     ]
     if not fields:
         return 1.0
-    matches = sum(1 for field in fields if saved_phone.get(field) == current_phone.get(field))
+    matches = sum(
+        1 for field in fields if saved_phone.get(field) == current_phone.get(field)
+    )
     return matches / len(fields)

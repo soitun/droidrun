@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from textual.widget import Widget
-from textual.message import Message
-from textual.app import RenderResult
-from textual.reactive import reactive
-from textual import events
 from rich.text import Text
+from textual import events
+from textual.app import RenderResult
+from textual.message import Message
+from textual.reactive import reactive
+from textual.widget import Widget
 
 
 class DevicePicker(Widget):

@@ -172,7 +172,7 @@ class SettingsData:
 
         # Save env-based API keys for all cloud providers that have a key set
         env_keys: dict[str, str] = {}
-        for role, profile in self.profiles.items():
+        for _role, profile in self.profiles.items():
             env_slot = VARIANT_ENV_KEY_SLOT.get(profile.provider)
             if env_slot and profile.api_key and profile.api_key_source != "env":
                 env_keys[env_slot] = profile.api_key

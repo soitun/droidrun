@@ -1,6 +1,6 @@
 """Geometry utilities for UI element bounds and tap point calculation."""
 
-from typing import List, Tuple, Optional
+from typing import List, Optional, Tuple
 
 Bounds = Tuple[int, int, int, int]
 

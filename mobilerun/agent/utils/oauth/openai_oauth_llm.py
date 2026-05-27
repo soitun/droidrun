@@ -22,12 +22,12 @@ import secrets
 import sys
 import threading
 import time
+import webbrowser
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any, Dict, Optional
 from urllib.parse import parse_qs, urlencode, urlparse
-import webbrowser
 
 import httpx
 from llama_index.core.base.llms.types import (
@@ -39,6 +39,7 @@ from llama_index.core.base.llms.types import (
 from llama_index.llms.openai import OpenAI
 from llama_index.llms.openai.base import llm_retry_decorator
 from llama_index.llms.openai.utils import to_openai_message_dicts
+
 from mobilerun.config_manager.credential_paths import OPENAI_OAUTH_CREDENTIAL_PATH
 
 DEFAULT_OPENAI_OAUTH_ISSUER = "https://auth.openai.com"

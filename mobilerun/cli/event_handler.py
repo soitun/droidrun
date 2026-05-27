@@ -8,13 +8,6 @@ whichever ``logging.Handler`` is attached (CLILogHandler, TUILogHandler, …).
 
 import logging
 
-from mobilerun.agent.fast_agent.events import (
-    FastAgentEndEvent,
-    FastAgentInputEvent,
-    FastAgentOutputEvent,
-    FastAgentResponseEvent,
-    FastAgentToolCallEvent,
-)
 from mobilerun.agent.common.events import (
     RecordUIStateEvent,
     ScreenshotEvent,
@@ -28,6 +21,13 @@ from mobilerun.agent.droid.events import (
 from mobilerun.agent.executor.events import (
     ExecutorActionEvent,
     ExecutorActionResultEvent,
+)
+from mobilerun.agent.fast_agent.events import (
+    FastAgentEndEvent,
+    FastAgentInputEvent,
+    FastAgentOutputEvent,
+    FastAgentResponseEvent,
+    FastAgentToolCallEvent,
 )
 from mobilerun.agent.manager.events import (
     ManagerContextEvent,
