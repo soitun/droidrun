@@ -1,6 +1,6 @@
 [project]
 name = "mobilerun"
-version = "0.6.0rc5"
+version = "0.6.0"
 description = "A framework for controlling mobile devices through LLM agents"
 authors = [{ name = "Niels Schmidt", email = "niels@droidrun.ai" }]
 dependencies = [
@@ -173,6 +173,7 @@ dev = [
     "arize-phoenix>=11.32.1",
     "bandit>=1.8.6",
     "llama-index-callbacks-arize-phoenix>=0.6.1",
+    "pytest>=8.0.0",
     "ruff>=0.13.0",
     "safety>=3.2.11",
 ]

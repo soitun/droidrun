@@ -1822,7 +1822,7 @@ wheels = [
 
 [[package]]
 name = "mobilerun"
-version = "0.6.0rc4"
+version = "0.6.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },
@@ -1873,6 +1873,7 @@ dev = [
     { name = "arize-phoenix" },
     { name = "bandit" },
     { name = "llama-index-callbacks-arize-phoenix" },
+    { name = "pytest" },
     { name = "ruff" },
     { name = "safety" },
 ]
@@ -1918,6 +1919,7 @@ dev = [
     { name = "arize-phoenix", specifier = ">=11.32.1" },
     { name = "bandit", specifier = ">=1.8.6" },
     { name = "llama-index-callbacks-arize-phoenix", specifier = ">=0.6.1" },
+    { name = "pytest", specifier = ">=8.0.0" },
     { name = "ruff", specifier = ">=0.13.0" },
     { name = "safety", specifier = ">=3.2.11" },
 ]
