@@ -43,7 +43,12 @@ from mobilerun.cli.configure_wizard import (
     ConfigureWizardCallbacks,
     run_configure_wizard,
 )
-from mobilerun.cli.device_commands import device_cli
+from mobilerun.cli.device_commands import (
+    CLOUD_API_KEY_ENV,
+    DEFAULT_CLOUD_BASE_URL,
+    device_cli,
+    resolve_cloud_api_key,
+)
 from mobilerun.cli.event_handler import EventHandler
 from mobilerun.cli.oauth_actions import (
     run_anthropic_setup_token_oauth,
@@ -560,10 +565,67 @@ async def run(
     sys.exit(0 if success else 1)
 
 
+async def _list_cloud_devices(base_url: str | None) -> None:
+    """List Mobilerun cloud devices via the SDK."""
+    api_key = resolve_cloud_api_key()
+    if not api_key:
+        console.print(
+            f"[red]No cloud API key found. Set {CLOUD_API_KEY_ENV} or run "
+            "`mobilerun login`.[/]"
+        )
+        return
+
+    from mobilerun_sdk import AsyncMobilerun
+
+    client = AsyncMobilerun(
+        api_key=api_key,
+        base_url=base_url or DEFAULT_CLOUD_BASE_URL,
+        timeout=30.0,
+    )
+    try:
+        resp = await client.devices.list()
+    except Exception as e:
+        console.print(f"[red]Error listing cloud devices: {e}[/]")
+        return
+
+    items = getattr(resp, "items", None) or []
+    if not items:
+        console.print("[yellow]No cloud devices found.[/]")
+        return
+
+    console.print(f"[green]Found {len(items)} cloud device(s):[/]")
+    for item in items:
+        data = item.model_dump() if hasattr(item, "model_dump") else dict(item)
+        device_id = data.get("id", "")
+        name = data.get("name", "")
+        state = data.get("state", "")
+        dtype = data.get("type", "")
+        state_color = "green" if state == "ready" else "yellow"
+        console.print(
+            f"  • [bold]{device_id}[/]  {name}  "
+            f"\\[[{state_color}]{state}[/]]  [dim]{dtype}[/]"
+        )
+
+
 @cli.command()
+@click.option(
+    "--cloud",
+    is_flag=True,
+    default=False,
+    help="List Mobilerun cloud devices instead of local ones",
+)
+@click.option(
+    "--base-url",
+    "base_url",
+    default=None,
+    help=f"Cloud API base URL (default {DEFAULT_CLOUD_BASE_URL})",
+)
 @coro
-async def devices():
-    """List connected Android devices."""
+async def devices(cloud: bool, base_url: str | None):
+    """List connected Android devices (use --cloud for cloud devices)."""
+    if cloud:
+        await _list_cloud_devices(base_url)
+        return
     try:
         devices = await adb.list()
         if not devices:
