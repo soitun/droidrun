@@ -5,6 +5,7 @@ and talk directly to the device driver.
 """
 
 import asyncio
+import json
 import os
 import tempfile
 from functools import wraps
@@ -29,6 +30,31 @@ from mobilerun.tools.ui.provider import AndroidStateProvider
 
 console = Console()
 
+DEFAULT_CLOUD_BASE_URL = "https://api.mobilerun.ai/v1"
+CLOUD_API_KEY_ENV = "MOBILERUN_API_KEY"
+
+
+def resolve_cloud_api_key() -> Optional[str]:
+    """Resolve the Mobilerun cloud API key for ``--cloud`` commands.
+
+    Order: the ``MOBILERUN_API_KEY`` env var, then the credential persisted by
+    ``mobilerun login`` (``<config dir>/credentials/mobilerun-cloud.json``).
+    """
+    env_key = os.environ.get(CLOUD_API_KEY_ENV)
+    if env_key:
+        return env_key
+    try:
+        from mobilerun.config_manager.credential_paths import OAUTH_CREDENTIAL_DIR
+
+        cred_path = OAUTH_CREDENTIAL_DIR / "mobilerun-cloud.json"
+        if cred_path.exists():
+            key = json.loads(cred_path.read_text()).get("api_key")
+            if key:
+                return key
+    except Exception:
+        pass
+    return None
+
 
 def coro(f):
     @wraps(f)
@@ -41,13 +67,34 @@ def coro(f):
 def device_options(f):
     """Common device options for all action commands."""
     f = click.option(
-        "--device", "-d", help="Device serial number or IP address", default=None
+        "--device",
+        "-d",
+        help="Device serial/IP (local), or cloud device id when --cloud is set",
+        default=None,
     )(f)
     f = click.option(
         "--config", "-c", "config_path", help="Path to config file", default=None
     )(f)
     f = click.option("--tcp/--no-tcp", default=None, help="Use TCP communication")(f)
     f = click.option("--ios", is_flag=True, default=False, help="Target iOS device")(f)
+    f = click.option(
+        "--cloud",
+        is_flag=True,
+        default=False,
+        help="Target a Mobilerun cloud device instead of a local one",
+    )(f)
+    f = click.option(
+        "--device-id",
+        "device_id",
+        default=None,
+        help="Cloud device id (with --cloud; -d also works as a shorthand)",
+    )(f)
+    f = click.option(
+        "--base-url",
+        "base_url",
+        default=None,
+        help=f"Cloud API base URL (default {DEFAULT_CLOUD_BASE_URL})",
+    )(f)
     return f
 
 
@@ -56,8 +103,37 @@ async def _create_driver(
     config_path: Optional[str],
     tcp: Optional[bool],
     ios: bool,
+    cloud: bool = False,
+    device_id: Optional[str] = None,
+    base_url: Optional[str] = None,
 ):
     """Create and connect a device driver based on CLI options."""
+    if cloud:
+        if ios:
+            raise click.ClickException(
+                "--cloud and --ios are mutually exclusive."
+            )
+        cloud_device_id = device_id or device
+        if not cloud_device_id:
+            raise click.ClickException(
+                "Cloud device id required: pass -d <id> or --device-id <id>."
+            )
+        api_key = resolve_cloud_api_key()
+        if not api_key:
+            raise click.ClickException(
+                f"No cloud API key found. Set {CLOUD_API_KEY_ENV} or run "
+                "`mobilerun login`."
+            )
+        from mobilerun.tools.driver.cloud import CloudDriver
+
+        driver = CloudDriver(
+            device_id=cloud_device_id,
+            api_key=api_key,
+            base_url=base_url or DEFAULT_CLOUD_BASE_URL,
+        )
+        await driver.connect()
+        return driver, False
+
     config = ConfigLoader.load(config_path)
 
     if device is not None:
@@ -125,9 +201,9 @@ def device_cli():
 @device_cli.command()
 @device_options
 @coro
-async def screenshot(device, config_path, tcp, ios):
+async def screenshot(device, config_path, tcp, ios, cloud, device_id, base_url):
     """Take a screenshot and print the saved file path to stdout."""
-    driver, _ = await _create_driver(device, config_path, tcp, ios)
+    driver, _ = await _create_driver(device, config_path, tcp, ios, cloud, device_id, base_url)
     try:
         png_bytes = await driver.screenshot()
         fd, path = tempfile.mkstemp(prefix="mobilerun_", suffix=".png")
@@ -143,9 +219,9 @@ async def screenshot(device, config_path, tcp, ios):
 @device_cli.command()
 @device_options
 @coro
-async def ui(device, config_path, tcp, ios):
+async def ui(device, config_path, tcp, ios, cloud, device_id, base_url):
     """Print the UI accessibility tree with element bounds for targeting."""
-    driver, is_ios = await _create_driver(device, config_path, tcp, ios)
+    driver, is_ios = await _create_driver(device, config_path, tcp, ios, cloud, device_id, base_url)
     try:
         if is_ios:
             provider = IOSStateProvider(driver)
@@ -168,9 +244,9 @@ async def ui(device, config_path, tcp, ios):
 @click.argument("y", type=int)
 @device_options
 @coro
-async def tap(x, y, device, config_path, tcp, ios):
+async def tap(x, y, device, config_path, tcp, ios, cloud, device_id, base_url):
     """Tap at screen coordinates."""
-    driver, _ = await _create_driver(device, config_path, tcp, ios)
+    driver, _ = await _create_driver(device, config_path, tcp, ios, cloud, device_id, base_url)
     try:
         await driver.tap(x, y)
         click.echo(f"Tapped ({x}, {y})")
@@ -188,11 +264,11 @@ async def tap(x, y, device, config_path, tcp, ios):
 )
 @device_options
 @coro
-async def swipe_cmd(x1, y1, x2, y2, duration, device, config_path, tcp, ios):
+async def swipe_cmd(x1, y1, x2, y2, duration, device, config_path, tcp, ios, cloud, device_id, base_url):
     """Swipe from (x1, y1) to (x2, y2)."""
-    driver, _ = await _create_driver(device, config_path, tcp, ios)
+    driver, _ = await _create_driver(device, config_path, tcp, ios, cloud, device_id, base_url)
     try:
-        await driver.swipe(x1, y1, x2, y2, duration_ms=duration * 1000)
+        await driver.swipe(x1, y1, x2, y2, duration_ms=int(duration * 1000))
         click.echo(f"Swiped ({x1}, {y1}) -> ({x2}, {y2})")
     finally:
         await _teardown_android(driver)
@@ -203,11 +279,11 @@ async def swipe_cmd(x1, y1, x2, y2, duration, device, config_path, tcp, ios):
 @click.argument("y", type=int)
 @device_options
 @coro
-async def long_press(x, y, device, config_path, tcp, ios):
+async def long_press(x, y, device, config_path, tcp, ios, cloud, device_id, base_url):
     """Long press at screen coordinates."""
     if ios:
         raise click.ClickException("long-press is not supported on iOS")
-    driver, _ = await _create_driver(device, config_path, tcp, ios)
+    driver, _ = await _create_driver(device, config_path, tcp, ios, cloud, device_id, base_url)
     try:
         await driver.swipe(x, y, x, y, 1000)
         click.echo(f"Long pressed ({x}, {y})")
@@ -220,9 +296,9 @@ async def long_press(x, y, device, config_path, tcp, ios):
 @click.option("--clear", is_flag=True, default=False, help="Clear field before typing")
 @device_options
 @coro
-async def type_text(text, clear, device, config_path, tcp, ios):
+async def type_text(text, clear, device, config_path, tcp, ios, cloud, device_id, base_url):
     """Type text into the currently focused field. Use 'tap' first to focus."""
-    driver, _ = await _create_driver(device, config_path, tcp, ios)
+    driver, _ = await _create_driver(device, config_path, tcp, ios, cloud, device_id, base_url)
     try:
         success = await driver.input_text(text, clear)
         if success:
@@ -239,9 +315,9 @@ async def type_text(text, clear, device, config_path, tcp, ios):
 )
 @device_options
 @coro
-async def press(button, device, config_path, tcp, ios):
+async def press(button, device, config_path, tcp, ios, cloud, device_id, base_url):
     """Press a system button."""
-    driver, _ = await _create_driver(device, config_path, tcp, ios)
+    driver, _ = await _create_driver(device, config_path, tcp, ios, cloud, device_id, base_url)
     try:
         await driver.press_button(button)
         click.echo(f"Pressed {button}")
@@ -253,14 +329,19 @@ async def press(button, device, config_path, tcp, ios):
 @click.option("--system/--no-system", default=False, help="Include system apps")
 @device_options
 @coro
-async def apps(system, device, config_path, tcp, ios):
+async def apps(system, device, config_path, tcp, ios, cloud, device_id, base_url):
     """List installed apps."""
-    driver, _ = await _create_driver(device, config_path, tcp, ios)
+    driver, _ = await _create_driver(device, config_path, tcp, ios, cloud, device_id, base_url)
     try:
         app_list = await driver.get_apps(include_system=system)
         for app in app_list:
-            label = app.get("label", "")
-            package = app.get("package", "")
+            label = app.get("label") or ""
+            package = (
+                app.get("package")
+                or app.get("package_name")
+                or app.get("packageName")
+                or ""
+            )
             if label and label != package:
                 click.echo(f"{package}  ({label})")
             else:
@@ -273,9 +354,9 @@ async def apps(system, device, config_path, tcp, ios):
 @click.argument("package")
 @device_options
 @coro
-async def start(package, device, config_path, tcp, ios):
+async def start(package, device, config_path, tcp, ios, cloud, device_id, base_url):
     """Launch an app by package name."""
-    driver, _ = await _create_driver(device, config_path, tcp, ios)
+    driver, _ = await _create_driver(device, config_path, tcp, ios, cloud, device_id, base_url)
     try:
         result = await driver.start_app(package)
         click.echo(result)
