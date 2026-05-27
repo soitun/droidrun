@@ -66,6 +66,7 @@ from mobilerun.config_manager.config_manager import (
 )
 from mobilerun.credential_manager import CredentialManager, FileCredentialManager
 from mobilerun.log_handlers import CLILogHandler, configure_logging
+from mobilerun.macro.recorder import MacroRecorder
 from mobilerun.mcp.adapter import mcp_to_mobilerun_tools
 from mobilerun.mcp.client import MCPClientManager
 from mobilerun.mcp.config import MCPConfig
@@ -344,9 +345,11 @@ class MobileAgent(Workflow):
                 base_path=self.config.logging.trajectory_path,
             )
             self.trajectory_writer = TrajectoryWriter(queue_size=300)
+            self.macro_recorder = MacroRecorder()
         else:
             self.trajectory = None
             self.trajectory_writer = None
+            self.macro_recorder = None
 
         # Sub-agents are created in __init__ but wired up in start_handler
         if self._using_external_agent:
@@ -618,6 +621,7 @@ class MobileAgent(Workflow):
             app_opener_llm=self.app_opener_llm,
             credential_manager=self.credential_manager,
             streaming=self.config.agent.streaming,
+            macro_recorder=self.macro_recorder,
         )
 
         # ── 5. Wire up sub-agents ─────────────────────────────────────
@@ -1010,8 +1014,10 @@ class MobileAgent(Workflow):
 
         # Save trajectory to disk
         if self.config.logging.save_trajectory != "none":
-            # Populate macro data from RecordingDriver log
-            if isinstance(self.driver, RecordingDriver):
+            # Prefer rich action-level macro entries; fall back to raw driver logs.
+            if self.macro_recorder and self.macro_recorder.actions:
+                self.trajectory.macro = list(self.macro_recorder.actions)
+            elif isinstance(self.driver, RecordingDriver):
                 self.trajectory.macro = list(self.driver.log)
 
             self.trajectory_writer.write_final(

@@ -62,6 +62,30 @@ def macro_cli():
 @click.option(
     "--dry-run", is_flag=True, help="Show actions without executing", default=False
 )
+@click.option(
+    "--on-mismatch",
+    type=click.Choice(["stop", "agent"]),
+    default="stop",
+    show_default=True,
+    help="What to do when the current UI does not match the recorded pre-action state.",
+)
+@click.option(
+    "--state-timeout",
+    default=5.0,
+    show_default=True,
+    type=float,
+    help="Seconds to wait for the recorded pre-action state before declaring divergence.",
+)
+@click.option(
+    "--state-threshold",
+    default=0.85,
+    show_default=True,
+    type=float,
+    help="Minimum normalized state similarity required before replaying an action.",
+)
+@click.option("--config", "config_path", default=None, help="Config file for agent handoff.")
+@click.option("--provider", default=None, help="LLM provider override for agent handoff.")
+@click.option("--model", default=None, help="LLM model override for agent handoff.")
 def replay(
     path: str,
     device: Optional[str],
@@ -70,6 +94,12 @@ def replay(
     max_steps: Optional[int],
     debug: bool,
     dry_run: bool,
+    on_mismatch: str,
+    state_timeout: float,
+    state_threshold: float,
+    config_path: Optional[str],
+    provider: Optional[str],
+    model: Optional[str],
 ):
     """Replay a macro from a file or trajectory folder."""
     logger = configure_logging(debug)
@@ -94,7 +124,20 @@ def replay(
 
     asyncio.run(
         _replay_with_device(
-            path, device, delay, start_from_zero, max_steps, dry_run, logger, get_device
+            path,
+            device,
+            delay,
+            start_from_zero,
+            max_steps,
+            dry_run,
+            logger,
+            get_device,
+            on_mismatch,
+            state_timeout,
+            state_threshold,
+            config_path,
+            provider,
+            model,
         )
     )
 
@@ -108,9 +151,29 @@ async def _replay_with_device(
     dry_run: bool,
     logger: logging.Logger,
     get_device,
+    on_mismatch: str,
+    state_timeout: float,
+    state_threshold: float,
+    config_path: Optional[str],
+    provider: Optional[str],
+    model: Optional[str],
 ):
     device = await get_device()
-    await _replay_async(path, device, delay, start_from, max_steps, dry_run, logger)
+    await _replay_async(
+        path,
+        device,
+        delay,
+        start_from,
+        max_steps,
+        dry_run,
+        logger,
+        on_mismatch,
+        state_timeout,
+        state_threshold,
+        config_path,
+        provider,
+        model,
+    )
 
 
 async def _replay_async(
@@ -121,6 +184,12 @@ async def _replay_async(
     max_steps: Optional[int],
     dry_run: bool,
     logger: logging.Logger,
+    on_mismatch: str,
+    state_timeout: float,
+    state_threshold: float,
+    config_path: Optional[str],
+    provider: Optional[str],
+    model: Optional[str],
 ):
     """Async function to handle macro replay."""
     try:
@@ -129,11 +198,29 @@ async def _replay_async(
 
         if resolved_path.is_file():
             logger.info(f"📄 Loading macro from file: {resolved_path}")
-            player = MacroPlayer(device_serial=device, delay_between_actions=delay)
+            player = MacroPlayer(
+                device_serial=device,
+                delay_between_actions=delay,
+                on_mismatch=on_mismatch,
+                state_timeout=state_timeout,
+                state_threshold=state_threshold,
+                config_path=config_path,
+                provider=provider,
+                model=model,
+            )
             macro_data = player.load_macro_from_file(str(resolved_path))
         elif resolved_path.is_dir():
             logger.info(f"📁 Loading macro from folder: {resolved_path}")
-            player = MacroPlayer(device_serial=device, delay_between_actions=delay)
+            player = MacroPlayer(
+                device_serial=device,
+                delay_between_actions=delay,
+                on_mismatch=on_mismatch,
+                state_timeout=state_timeout,
+                state_threshold=state_threshold,
+                config_path=config_path,
+                provider=provider,
+                model=model,
+            )
             macro_data = player.load_macro_from_folder(str(resolved_path))
         else:
             logger.error(f"❌ Invalid path: {resolved_path}")
@@ -146,7 +233,7 @@ async def _replay_async(
         # Show macro information
         description = macro_data.get("description", "No description")
         total_actions = macro_data.get("total_actions", 0)
-        version = macro_data.get("version", "unknown")
+        version = macro_data.get("macro_schema_version", macro_data.get("version", "unknown"))
 
         logger.info("📋 Macro Information:")
         logger.info(f"   Description: {description}")
@@ -154,6 +241,9 @@ async def _replay_async(
         logger.info(f"   Total actions: {total_actions}")
         logger.info(f"   Device: {device}")
         logger.info(f"   Delay between actions: {delay}s")
+        logger.info(f"   State threshold: {state_threshold}")
+        logger.info(f"   State timeout: {state_timeout}s")
+        logger.info(f"   On mismatch: {on_mismatch}")
 
         if start_from > 0:
             logger.info(f"   Starting from step: {start_from + 1}")

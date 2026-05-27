@@ -7,10 +7,21 @@ that were generated during MobileAgent trajectory recording.
 
 import asyncio
 import logging
+import time
 from typing import Any, Dict, Optional
 
 from mobilerun.agent.utils.trajectory import Trajectory
+from mobilerun.macro.handoff import run_agent_handoff
+from mobilerun.macro.matcher import StateMatchResult, compare_states
+from mobilerun.macro.state import (
+    MACRO_SCHEMA_VERSION,
+    UNSUPPORTED_SCHEMA_MESSAGE,
+    normalize_ui_state,
+)
 from mobilerun.tools.driver.android import AndroidDriver
+from mobilerun.tools.filters import DetailedFilter
+from mobilerun.tools.formatters import IndexedFormatter
+from mobilerun.tools.ui.provider import AndroidStateProvider
 
 logger = logging.getLogger("mobilerun-macro")
 
@@ -26,7 +37,19 @@ class MacroPlayer:
     on Android devices using AndroidDriver.
     """
 
-    def __init__(self, device_serial: str = None, delay_between_actions: float = 1.0):
+    def __init__(
+        self,
+        device_serial: str = None,
+        delay_between_actions: float = 1.0,
+        on_mismatch: str = "stop",
+        state_timeout: float = 5.0,
+        state_threshold: float = 0.85,
+        state_poll_interval: float = 0.5,
+        handoff_runner=None,
+        provider: Optional[str] = None,
+        model: Optional[str] = None,
+        config_path: Optional[str] = None,
+    ):
         """
         Initialize the MacroPlayer.
 
@@ -36,7 +59,19 @@ class MacroPlayer:
         """
         self.device_serial = device_serial
         self.delay_between_actions = delay_between_actions
+        self.on_mismatch = on_mismatch
+        self.state_timeout = state_timeout
+        self.state_threshold = state_threshold
+        self.state_poll_interval = state_poll_interval
+        self.handoff_runner = handoff_runner or run_agent_handoff
+        self.provider = provider
+        self.model = model
+        self.config_path = config_path
+        self.last_divergence: Optional[Dict[str, Any]] = None
+        self.state_provider = None
         self.driver: AndroidDriver | None = None
+        self.credential_manager = None
+        self._credential_load_error: Optional[str] = None
 
     async def _initialize_driver(self) -> AndroidDriver:
         """Initialize AndroidDriver for the target device."""
@@ -70,7 +105,83 @@ class MacroPlayer:
         """
         return Trajectory.load_macro_sequence(trajectory_folder)
 
-    async def replay_action(self, action: Dict[str, Any]) -> bool:
+    def _load_credential_manager(self):
+        if self.credential_manager is not None:
+            return self.credential_manager
+
+        from mobilerun.config_manager.loader import ConfigLoader
+        from mobilerun.credential_manager import FileCredentialManager
+
+        config_path = self.config_path
+        if config_path is None:
+            user_config_path = ConfigLoader.get_user_config_path()
+            if not user_config_path.exists():
+                self._credential_load_error = "no Mobilerun config file was found"
+                return None
+            config_path = str(user_config_path)
+
+        try:
+            config = ConfigLoader.load(config_path)
+            credential_manager = FileCredentialManager(config.credentials)
+        except Exception as e:
+            self._credential_load_error = str(e)
+            logger.debug("Failed to load credentials for macro replay: %s", e)
+            return None
+
+        if not credential_manager.secrets:
+            self._credential_load_error = "credentials are disabled or empty"
+            return None
+
+        self.credential_manager = credential_manager
+        self._credential_load_error = None
+        return self.credential_manager
+
+    async def get_current_state_snapshot(self) -> Dict[str, Any]:
+        driver = await self._initialize_driver()
+        if self.state_provider is None and isinstance(driver, AndroidDriver):
+            self.state_provider = AndroidStateProvider(
+                driver,
+                tree_filter=DetailedFilter(),
+                tree_formatter=IndexedFormatter(),
+                use_normalized=False,
+            )
+        if self.state_provider is not None:
+            try:
+                return normalize_ui_state(await self.state_provider.get_state())
+            except Exception as e:
+                logger.debug("Falling back to raw driver state: %s", e)
+        raw_state = await driver.get_ui_tree()
+        return normalize_ui_state(raw_state)
+
+    async def wait_for_pre_state(
+        self, pre_state: Optional[Dict[str, Any]], step_number: int
+    ) -> tuple[bool, Optional[Dict[str, Any]], Optional[StateMatchResult]]:
+        if not pre_state:
+            return True, None, None
+
+        deadline = time.monotonic() + self.state_timeout
+        last_state = None
+        last_result = None
+
+        while True:
+            current_state = await self.get_current_state_snapshot()
+            result = compare_states(pre_state, current_state, self.state_threshold)
+            if result.matches:
+                return True, current_state, result
+
+            last_state = current_state
+            last_result = result
+            if time.monotonic() >= deadline:
+                logger.error(
+                    "State mismatch before step %s: %s", step_number, result.reason
+                )
+                return False, last_state, last_result
+
+            await asyncio.sleep(self.state_poll_interval)
+
+    async def replay_action(
+        self, action: Dict[str, Any], current_state: Optional[Dict[str, Any]] = None
+    ) -> bool:
         """
         Replay a single action.
 
@@ -134,6 +245,37 @@ class MacroPlayer:
                 await driver.input_text(text, clear)
                 return True
 
+            elif action_type == "type_secret":
+                secret_id = action.get("secret_id")
+                clear = action.get("clear", False)
+                if not secret_id:
+                    logger.error("❌ Secret macro action is missing secret_id")
+                    return False
+
+                credential_manager = self._load_credential_manager()
+                if credential_manager is None:
+                    detail = (
+                        f": {self._credential_load_error}"
+                        if self._credential_load_error
+                        else ""
+                    )
+                    logger.error(
+                        "❌ Cannot replay secret '%s'; no credentials are available%s",
+                        secret_id,
+                        detail,
+                    )
+                    return False
+
+                try:
+                    secret_value = await credential_manager.resolve_key(secret_id)
+                except Exception as e:
+                    logger.error("❌ Secret '%s' is not available: %s", secret_id, e)
+                    return False
+
+                logger.info("⌨️  Inputting secret: '%s'", secret_id)
+                await driver.input_text(secret_value, clear)
+                return True
+
             elif action_type == "key_press":
                 keycode = action.get("keycode", 0)
                 button = _KEYCODE_TO_BUTTON.get(keycode)
@@ -189,6 +331,8 @@ class MacroPlayer:
         if not macro_data or "actions" not in macro_data:
             logger.error("❌ Invalid macro data - no actions found")
             return False
+        if macro_data.get("macro_schema_version") != MACRO_SCHEMA_VERSION:
+            raise ValueError(UNSUPPORTED_SCHEMA_MESSAGE)
 
         actions = macro_data["actions"]
         description = macro_data.get("description", "Unknown macro")
@@ -217,8 +361,32 @@ class MacroPlayer:
             if description_text:
                 logger.info(f"   Description: {description_text}")
 
+            state_matched, current_state, match_result = await self.wait_for_pre_state(
+                action.get("pre_state"), i
+            )
+            if not state_matched:
+                self.last_divergence = {
+                    "step": i,
+                    "action_type": action_type,
+                    "reason": match_result.reason if match_result else "state mismatch",
+                    "score": match_result.score if match_result else None,
+                }
+                if self.on_mismatch == "agent":
+                    logger.warning("🤖 Handing off to agent after macro divergence")
+                    return await self.handoff_runner(
+                        goal=description,
+                        device_serial=self.device_serial,
+                        provider=self.provider,
+                        model=self.model,
+                        config_path=self.config_path,
+                        divergence=self.last_divergence,
+                        current_state=current_state or {},
+                        remaining_actions=macro_data["actions"][i - 1 :],
+                    )
+                return False
+
             # Execute the action
-            success = await self.replay_action(action)
+            success = await self.replay_action(action, current_state=current_state)
 
             if success:
                 success_count += 1
@@ -228,7 +396,7 @@ class MacroPlayer:
                 logger.error("   ❌ Action failed")
 
             # Wait between actions (except for the last one)
-            if i < len(actions):
+            if i < start_from_step + len(actions):
                 logger.debug(f"   ⏳ Waiting {self.delay_between_actions}s...")
                 await asyncio.sleep(self.delay_between_actions)
 
@@ -258,6 +426,9 @@ async def replay_macro_file(
     delay_between_actions: float = 1.0,
     start_from_step: int = 0,
     max_steps: Optional[int] = None,
+    on_mismatch: str = "stop",
+    state_timeout: float = 5.0,
+    state_threshold: float = 0.85,
 ) -> bool:
     """
     Convenience function to replay a macro from a file.
@@ -273,7 +444,11 @@ async def replay_macro_file(
         True if replay was successful, False otherwise
     """
     player = MacroPlayer(
-        device_serial=device_serial, delay_between_actions=delay_between_actions
+        device_serial=device_serial,
+        delay_between_actions=delay_between_actions,
+        on_mismatch=on_mismatch,
+        state_timeout=state_timeout,
+        state_threshold=state_threshold,
     )
 
     try:
@@ -292,6 +467,9 @@ async def replay_macro_folder(
     delay_between_actions: float = 1.0,
     start_from_step: int = 0,
     max_steps: Optional[int] = None,
+    on_mismatch: str = "stop",
+    state_timeout: float = 5.0,
+    state_threshold: float = 0.85,
 ) -> bool:
     """
     Convenience function to replay a macro from a trajectory folder.
@@ -307,7 +485,11 @@ async def replay_macro_folder(
         True if replay was successful, False otherwise
     """
     player = MacroPlayer(
-        device_serial=device_serial, delay_between_actions=delay_between_actions
+        device_serial=device_serial,
+        delay_between_actions=delay_between_actions,
+        on_mismatch=on_mismatch,
+        state_timeout=state_timeout,
+        state_threshold=state_threshold,
     )
 
     try:

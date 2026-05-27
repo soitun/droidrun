@@ -8,9 +8,10 @@ from pathlib import Path
 from typing import List, Optional
 
 import aiofiles
+from aiofiles import ospath
 from PIL import Image
 
-from aiofiles import ospath
+from mobilerun.macro.state import MACRO_SCHEMA_VERSION
 
 logger = logging.getLogger("mobilerun")
 
@@ -372,12 +373,17 @@ class TrajectoryWriter:
         if not macro_snapshot:
             return None
 
+        macro_actions = [
+            {key: value for key, value in action.items() if key != "target_hint"}
+            for action in macro_snapshot
+        ]
         macro_data = {
-            "version": "1.0",
+            "macro_schema_version": MACRO_SCHEMA_VERSION,
+            "version": MACRO_SCHEMA_VERSION,
             "description": trajectory.goal,
             "timestamp": time.strftime("%Y%m%d_%H%M%S"),
-            "total_actions": len(macro_snapshot),
-            "actions": macro_snapshot,  # already list[dict] from RecordingDriver.log
+            "total_actions": len(macro_actions),
+            "actions": macro_actions,
         }
 
         return MacroWriteJob(
