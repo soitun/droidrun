@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from textual.widget import Widget
-from textual.message import Message
-from textual.app import RenderResult
-from textual.reactive import reactive
 from rich.text import Text
+from textual.app import RenderResult
+from textual.message import Message
+from textual.reactive import reactive
+from textual.widget import Widget
 
 from mobilerun.cli.tui.commands import Command
 

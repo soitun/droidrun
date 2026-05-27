@@ -8,17 +8,10 @@ import click
 from rich.console import Console
 from rich.panel import Panel
 
-from mobilerun.cli.configure_prompts import (
-    SelectChoice,
-    select_prompt,
-    text_prompt,
-)
 from mobilerun.agent.providers.registry import (
     VARIANT_ENV_KEY_SLOT,
     resolve_provider_variant,
 )
-from mobilerun.config_manager.env_keys import load_env_key_sources, resolve_env_key
-from mobilerun.config_manager import ConfigLoader
 from mobilerun.agent.providers.setup_service import (
     SetupSelection,
     apply_selection_to_roles,
@@ -26,6 +19,13 @@ from mobilerun.agent.providers.setup_service import (
     family_choices,
     variant_models,
 )
+from mobilerun.cli.configure_prompts import (
+    SelectChoice,
+    select_prompt,
+    text_prompt,
+)
+from mobilerun.config_manager import ConfigLoader
+from mobilerun.config_manager.env_keys import load_env_key_sources, resolve_env_key
 
 _BACK = "__back__"
 

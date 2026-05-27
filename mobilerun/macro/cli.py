@@ -83,8 +83,12 @@ def macro_cli():
     type=float,
     help="Minimum normalized state similarity required before replaying an action.",
 )
-@click.option("--config", "config_path", default=None, help="Config file for agent handoff.")
-@click.option("--provider", default=None, help="LLM provider override for agent handoff.")
+@click.option(
+    "--config", "config_path", default=None, help="Config file for agent handoff."
+)
+@click.option(
+    "--provider", default=None, help="LLM provider override for agent handoff."
+)
 @click.option("--model", default=None, help="LLM model override for agent handoff.")
 def replay(
     path: str,
@@ -233,7 +237,9 @@ async def _replay_async(
         # Show macro information
         description = macro_data.get("description", "No description")
         total_actions = macro_data.get("total_actions", 0)
-        version = macro_data.get("macro_schema_version", macro_data.get("version", "unknown"))
+        version = macro_data.get(
+            "macro_schema_version", macro_data.get("version", "unknown")
+        )
 
         logger.info("📋 Macro Information:")
         logger.info(f"   Description: {description}")

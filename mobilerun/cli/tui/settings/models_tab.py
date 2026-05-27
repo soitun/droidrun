@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from textual import on
 from textual.app import ComposeResult
 from textual.containers import HorizontalGroup, VerticalGroup
 from textual.widgets import Button, Input, Label, Select, Static
-from textual import on
 
 from mobilerun.cli.tui.settings.data import (
     AGENT_ROLES,
@@ -15,7 +15,6 @@ from mobilerun.cli.tui.settings.data import (
     SettingsData,
 )
 from mobilerun.cli.tui.settings.section import Section
-
 
 PROVIDER_OPTIONS = [(p, p) for p in PROVIDERS]
 API_KEY_SOURCE_OPTIONS = [

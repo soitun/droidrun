@@ -10,7 +10,6 @@ from mobilerun.config_manager.credential_paths import (
     OPENAI_OAUTH_CREDENTIAL_PATH,
 )
 
-
 # Canonical mapping from variant ID to env-key slot name.
 # Imported by setup_service, configure_wizard, config_manager, and TUI.
 VARIANT_ENV_KEY_SLOT: dict[str, str] = {

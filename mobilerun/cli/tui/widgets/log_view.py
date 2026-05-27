@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from collections import deque
 
-from textual.widgets import RichLog
 from rich.text import Text
+from textual.widgets import RichLog
 
 MAX_LOG_LINES = 10_000
 

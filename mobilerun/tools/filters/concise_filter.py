@@ -1,6 +1,7 @@
 """Concise filtering - all logic self-contained."""
 
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
 from .base import TreeFilter
 
 

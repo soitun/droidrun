@@ -6,7 +6,6 @@ This module provides automatic TCP/Content Provider fallback for Portal communic
 
 import asyncio
 import base64
-import io
 import json
 import logging
 import re

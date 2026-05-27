@@ -162,7 +162,11 @@ def test_agent_mode_hands_off_at_mismatch_and_does_not_resume_macro_replay():
         "description": "finish task",
         "actions": [
             _macro_action(saved_state),
-            {"action_type": "input_text", "text": "must-not-run", "pre_state": saved_state},
+            {
+                "action_type": "input_text",
+                "text": "must-not-run",
+                "pre_state": saved_state,
+            },
         ],
     }
 

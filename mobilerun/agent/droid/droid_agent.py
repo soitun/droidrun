@@ -588,14 +588,15 @@ class MobileAgent(Workflow):
         # default"; an explicit list (even empty) is honored verbatim.
         user_disabled = self.config.tools.disabled_tools if self.config.tools else None
         explicit_disabled = user_disabled is not None
-        disabled_tools = list(user_disabled if explicit_disabled else DEFAULT_DISABLED_TOOLS)
+        disabled_tools = list(
+            user_disabled if explicit_disabled else DEFAULT_DISABLED_TOOLS
+        )
         # In reasoning mode the Executor only sees a screenshot when the Manager
         # also captured one (manager.vision=True), so require both before
         # exposing coordinate clicks.
         if self.config.agent.reasoning:
             active_action_vision = (
-                self.config.agent.manager.vision
-                and self.config.agent.executor.vision
+                self.config.agent.manager.vision and self.config.agent.executor.vision
             )
         else:
             active_action_vision = self.config.agent.fast_agent.vision

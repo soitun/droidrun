@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from rich.text import Text
+from textual.app import RenderResult
 from textual.reactive import reactive
 from textual.widget import Widget
-from textual.app import RenderResult
-from rich.text import Text
 
 
 class StatusBar(Widget):

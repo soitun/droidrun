@@ -13,8 +13,8 @@ from mobilerun.agent.manager.events import (
     ManagerResponseEvent,
 )
 from mobilerun.agent.manager.manager_agent import ManagerAgent
-from mobilerun.agent.manager.stateless_manager_agent import StatelessManagerAgent
 from mobilerun.agent.manager.prompts import parse_manager_response
+from mobilerun.agent.manager.stateless_manager_agent import StatelessManagerAgent
 
 __all__ = [
     "ManagerAgent",

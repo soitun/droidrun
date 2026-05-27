@@ -5,8 +5,8 @@ import os
 from pathlib import Path
 
 from mobilerun.agent.utils.oauth.anthropic_oauth_llm import (
-    AnthropicOAuthLLM,
     DEFAULT_SETUP_TOKEN_SCOPE,
+    AnthropicOAuthLLM,
 )
 from mobilerun.agent.utils.oauth.gemini_oauth_code_assist_llm import (
     GeminiOAuthCodeAssistLLM,

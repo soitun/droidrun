@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 import os
-from pathlib import Path
+from dataclasses import dataclass
 
 from mobilerun.config_manager.credential_paths import AUTH_PROFILES_PATH
 

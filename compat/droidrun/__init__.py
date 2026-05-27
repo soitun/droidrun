@@ -8,7 +8,6 @@ import importlib
 import importlib.abc
 import importlib.machinery
 import importlib.util
-import os
 import sys
 import warnings
 

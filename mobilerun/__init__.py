@@ -18,32 +18,36 @@ _logger.setLevel(logging.INFO)
 _logger.propagate = False
 
 # Import main classes for easier access
-from mobilerun.agent import ResultEvent
-from mobilerun.agent.droid import MobileAgent
-from mobilerun.agent.utils.llm_picker import load_llm
+from mobilerun.agent import ResultEvent  # noqa: E402
+from mobilerun.agent.droid import MobileAgent  # noqa: E402
+from mobilerun.agent.utils.llm_picker import load_llm  # noqa: E402
 
 # Import configuration classes
-from mobilerun.config_manager import (
+from mobilerun.config_manager import (  # noqa: E402
     # Agent configs
     AgentConfig,
     AppCardConfig,
-    FastAgentConfig,
     CredentialsConfig,
     # Feature configs
     DeviceConfig,
-    MobileConfig,
     ExecutorConfig,
+    FastAgentConfig,
     LLMProfile,
     LoggingConfig,
     ManagerConfig,
+    MobileConfig,
     TelemetryConfig,
     ToolsConfig,
     TracingConfig,
 )
 
 # Import macro functionality
-from mobilerun.macro import MacroPlayer, replay_macro_file, replay_macro_folder
-from mobilerun.tools import AndroidDriver, DeviceDriver, RecordingDriver
+from mobilerun.macro import (  # noqa: E402
+    MacroPlayer,
+    replay_macro_file,
+    replay_macro_folder,
+)
+from mobilerun.tools import AndroidDriver, DeviceDriver, RecordingDriver  # noqa: E402
 
 # Make main components available at package level
 __all__ = [

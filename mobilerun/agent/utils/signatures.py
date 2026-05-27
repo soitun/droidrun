@@ -171,7 +171,7 @@ async def build_tool_registry(
         },
         description=(
             "Type text into an input box or text field. If the target input is "
-            'already focused or the keyboard is open, call type without index, '
+            "already focused or the keyboard is open, call type without index, "
             'for example {"action": "type", "text": "example.com", "clear": true}. '
             "Specify index only when it is a real input/text-field element that "
             "must be focused before typing. "

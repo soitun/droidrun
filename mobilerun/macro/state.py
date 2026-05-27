@@ -24,7 +24,9 @@ def normalize_ui_state(ui_state: Any) -> Dict[str, Any]:
 
     return {
         "phone_state": {
-            "package": _first_present(phone_state, "package", "appPackage", "bundle_id"),
+            "package": _first_present(
+                phone_state, "package", "appPackage", "bundle_id"
+            ),
             "activity": _first_present(phone_state, "activity", "appActivity"),
         },
         "screen": screen,
@@ -121,7 +123,9 @@ def _normalize_element(element: Dict[str, Any]) -> Optional[Dict[str, Any]]:
                 "description",
             )
         ),
-        "clickable": _normalize_bool(_first_present(element, "clickable", "isClickable")),
+        "clickable": _normalize_bool(
+            _first_present(element, "clickable", "isClickable")
+        ),
         "enabled": _normalize_bool(_first_present(element, "enabled", "isEnabled")),
         "focused": _normalize_bool(_first_present(element, "focused", "isFocused")),
         "bounds": bounds,

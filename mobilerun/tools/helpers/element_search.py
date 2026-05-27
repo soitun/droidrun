@@ -5,8 +5,8 @@ Provides composable filters to search elements by text, ID, spatial relationship
 Works with raw a11y tree data from Portal before index assignment.
 """
 
-from typing import List, Dict, Any, Callable, Tuple
 import re
+from typing import Any, Callable, Dict, List, Tuple
 
 ElementFilter = Callable[[List[Dict[str, Any]]], List[Dict[str, Any]]]
 

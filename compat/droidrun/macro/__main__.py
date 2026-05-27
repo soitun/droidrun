@@ -7,6 +7,6 @@ warnings.warn(
     DeprecationWarning,
     stacklevel=2,
 )
-from mobilerun.macro.cli import macro_cli
+from mobilerun.macro.cli import macro_cli  # noqa: E402
 
 macro_cli()

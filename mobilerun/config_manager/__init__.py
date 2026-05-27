@@ -1,15 +1,15 @@
 from mobilerun.config_manager.config_manager import (
     AgentConfig,
     AppCardConfig,
-    FastAgentConfig,
     CredentialsConfig,
     DeviceConfig,
-    MobileConfig,
     DroidConfig,  # Legacy alias
     ExecutorConfig,
+    FastAgentConfig,
     LLMProfile,
     LoggingConfig,
     ManagerConfig,
+    MobileConfig,
     TelemetryConfig,
     ToolsConfig,
     TracingConfig,

@@ -7,6 +7,6 @@ warnings.warn(
     DeprecationWarning,
     stacklevel=2,
 )
-from mobilerun.cli.main import cli
+from mobilerun.cli.main import cli  # noqa: E402
 
 cli()
