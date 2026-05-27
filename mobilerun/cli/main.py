@@ -661,6 +661,101 @@ async def devices(cloud: bool, base_url: str | None):
         await _list_cloud_devices(base_url, silent_if_no_key=True)
 
 
+DEFAULT_AUTH_URL = "https://cloud.mobilerun.ai/api/auth"
+DEFAULT_DEVICE_CLIENT_ID = "mobilerun-cli"
+
+
+@cli.command()
+@click.option(
+    "--auth-url",
+    "auth_url",
+    default=None,
+    help=f"Better-auth base URL (default {DEFAULT_AUTH_URL}; or set MOBILERUN_AUTH_URL)",
+)
+@click.option(
+    "--client-id",
+    "client_id",
+    default=DEFAULT_DEVICE_CLIENT_ID,
+    show_default=True,
+    help="OAuth device client id",
+)
+def login(auth_url: str | None, client_id: str):
+    """Authenticate via OAuth 2.0 device authorization and save the session token."""
+    import webbrowser
+
+    from mobilerun.cli import deviceauth
+
+    auth_url = auth_url or os.getenv("MOBILERUN_AUTH_URL") or DEFAULT_AUTH_URL
+
+    try:
+        code = deviceauth.request_code(auth_url, client_id)
+    except Exception as e:
+        raise click.ClickException(f"request device code: {e}")
+
+    console.print(f"Visit: [bold]{code.verification_uri}[/]")
+    console.print(f"Code:  [bold cyan]{code.user_code}[/]")
+    if code.verification_uri_complete:
+        console.print(f"[dim](Opening {code.verification_uri_complete} ...)[/]")
+        try:
+            webbrowser.open(code.verification_uri_complete)
+        except Exception:
+            pass
+    console.print(
+        f"[dim]Waiting for authorization (expires in {code.expires_in}s)...[/]"
+    )
+
+    try:
+        token = deviceauth.poll_token(auth_url, client_id, code)
+    except deviceauth.DeviceAuthError as e:
+        raise click.ClickException(f"authorization failed: {e}")
+    except KeyboardInterrupt:
+        raise click.ClickException("login cancelled")
+
+    path = deviceauth.save_token(token, auth_url)
+    email = None
+    try:
+        info = deviceauth.fetch_session(auth_url, token)
+        if info:
+            email = info.get("user", {}).get("email")
+    except Exception:
+        pass
+    who = f" as {email}" if email else ""
+    console.print(f"[green]Logged in{who}.[/] Token saved to {path}")
+
+
+@cli.command()
+def logout():
+    """Remove the saved Mobilerun cloud login."""
+    from mobilerun.cli import deviceauth
+
+    if deviceauth.clear_credentials():
+        console.print("[green]Logged out.[/]")
+    else:
+        console.print("[yellow]Not logged in.[/]")
+
+
+@cli.command()
+def whoami():
+    """Show the currently logged-in Mobilerun cloud user."""
+    from mobilerun.cli import deviceauth
+
+    creds = deviceauth.load_credentials()
+    token = (creds or {}).get("access_token")
+    auth_url = (creds or {}).get("auth_url") or DEFAULT_AUTH_URL
+    if not token:
+        raise click.ClickException("Not logged in (run `mobilerun login`).")
+    try:
+        info = deviceauth.fetch_session(auth_url, token)
+    except Exception as e:
+        raise click.ClickException(f"session check failed: {e}")
+    if info is None:
+        raise click.ClickException(
+            "Session not recognized (run `mobilerun login` again)."
+        )
+    user = info.get("user", {})
+    console.print(f"{user.get('email', '?')}  (id: {user.get('id', '?')})")
+
+
 @cli.command()
 @click.argument("serial")
 @coro
