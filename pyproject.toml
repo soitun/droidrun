@@ -1,6 +1,6 @@
 [project]
 name = "mobilerun"
-version = "0.6.0rc4"
+version = "0.6.0rc5"
 description = "A framework for controlling mobile devices through LLM agents"
 authors = [{ name = "Niels Schmidt", email = "niels@droidrun.ai" }]
 dependencies = [
