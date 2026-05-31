@@ -104,8 +104,9 @@ PROVIDER_FAMILIES: tuple[ProviderFamilySpec, ...] = (
                 id="anthropic_oauth",
                 runtime_provider_name="anthropic_oauth",
                 auth_mode="oauth",
-                default_model="claude-sonnet-4-6",
+                default_model="claude-opus-4-7",
                 models=(
+                    "claude-opus-4-7",
                     "claude-sonnet-4-6",
                     "claude-opus-4-6",
                     "claude-haiku-4-5",
