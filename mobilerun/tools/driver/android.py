@@ -1,6 +1,6 @@
 """AndroidDriver — ADB-based device driver.
 
-Wraps ``adbutils.Device`` + ``PortalClient`` to provide clean device I/O
+Wraps ``async_adbutils.AdbDevice`` + ``PortalClient`` to provide clean device I/O
 without event emission, formatting, or element lookup.
 """
 
