@@ -32,7 +32,7 @@ from llama_index.core.llms.custom import CustomLLM
 from mobilerun.config_manager.credential_paths import ANTHROPIC_OAUTH_CREDENTIAL_PATH
 
 DEFAULT_MODEL = "claude-opus-4-7"
-DEFAULT_MAX_TOKENS = 4096
+DEFAULT_MAX_TOKENS = 8192
 DEFAULT_API_BASE = "https://api.anthropic.com"
 DEFAULT_TOKEN_URL = "https://platform.claude.com/v1/oauth/token"
 DEFAULT_AUTHORIZE_URL = "https://platform.claude.com/oauth/authorize"
