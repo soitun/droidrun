@@ -566,8 +566,7 @@ class MobileTUI(App):
     async def _verify_portal(self, serial: str) -> None:
         """Check portal connectivity. Raises on failure."""
         from async_adbutils import adb
-
-        from mobilerun.tools.android.portal_client import PortalClient
+        from mobilerun_core_cli.transport.portal_client import PortalClient
 
         device_obj = await adb.device(serial)
         portal = PortalClient(device_obj, prefer_tcp=self.settings.use_tcp)
@@ -630,8 +629,7 @@ class MobileTUI(App):
 
             import requests
             from async_adbutils import adb
-
-            from mobilerun.portal import (
+            from mobilerun_core_cli.portal import (
                 _resolve_latest_portal_apk_asset,
                 _resolve_versioned_portal_apk_asset,
                 enable_portal_accessibility,

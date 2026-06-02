@@ -1839,6 +1839,7 @@ dependencies = [
     { name = "llama-index-llms-openrouter" },
     { name = "llama-index-workflows" },
     { name = "mcp" },
+    { name = "mobilerun-core-cli" },
     { name = "mobilerun-sdk" },
     { name = "posthog" },
     { name = "pydantic" },
@@ -1901,6 +1902,7 @@ requires-dist = [
     { name = "llama-index-workflows", specifier = ">=2.16.0,<3.0.0" },
     { name = "mcp", specifier = ">=1.26.0" },
     { name = "mobilerun", extras = ["langfuse"], marker = "extra == 'dev'" },
+    { name = "mobilerun-core-cli", specifier = ">=0.1.0" },
     { name = "mobilerun-sdk", specifier = ">=3.2.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.0.0" },
     { name = "openinference-instrumentation-llama-index", marker = "extra == 'langfuse'", specifier = ">=3.0.0" },
@@ -1922,6 +1924,21 @@ dev = [
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "ruff", specifier = ">=0.13.0" },
     { name = "safety", specifier = ">=3.2.11" },
+]
+
+[[package]]
+name = "mobilerun-core-cli"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "async-adbutils" },
+    { name = "httpx" },
+    { name = "requests" },
+    { name = "rich" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f3/c1/fcd8dae643a3e3aebe97b47a5e3f90615d84ec5a7ba349c89dcd3cdc8e53/mobilerun_core_cli-0.1.0.tar.gz", hash = "sha256:fb137e2b084d51c8d19ae8d64d6f4ed7efe41072f10cc3b724d1025fc0b337a2", size = 19707, upload-time = "2026-06-02T13:34:07.477Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8b/b0/81683eec1a9d27a06cb3d0674844f7b898ee2220444305b80b741f4a7ec8/mobilerun_core_cli-0.1.0-py3-none-any.whl", hash = "sha256:44b9735e486976db48bad9143875cbdcc2744cdba758d7539224cf15f295eaed", size = 22391, upload-time = "2026-06-02T13:34:06.195Z" },
 ]
 
 [[package]]

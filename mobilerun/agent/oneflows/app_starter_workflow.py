@@ -116,8 +116,7 @@ async def main():
     Example of how to use the OpenAppWorkflow.
     """
     from llama_index.llms.openai import OpenAI
-
-    from mobilerun.tools.driver.android import AndroidDriver
+    from mobilerun_core_cli.driver.android import AndroidDriver
 
     # Initialize driver with device serial (None for default device)
     driver = AndroidDriver(serial=None)

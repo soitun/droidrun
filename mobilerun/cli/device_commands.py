@@ -12,11 +12,11 @@ from typing import Optional
 
 import click
 from async_adbutils import adb
+from mobilerun_core_cli.driver.android import AndroidDriver
+from mobilerun_core_cli.portal import ensure_portal_ready
 from rich.console import Console
 
 from mobilerun.config_manager import ConfigLoader
-from mobilerun.portal import ensure_portal_ready
-from mobilerun.tools.driver.android import AndroidDriver
 from mobilerun.tools.driver.ios import (
     IOSDriver,
     discover_ios_portal,
@@ -97,7 +97,7 @@ async def _create_driver(
 async def _teardown_android(driver):
     """Disable Mobilerun keyboard after direct command execution."""
     if isinstance(driver, AndroidDriver) and driver.device:
-        from mobilerun.portal import PORTAL_PACKAGE_NAME, portal_ime_id
+        from mobilerun_core_cli.portal import PORTAL_PACKAGE_NAME, portal_ime_id
 
         try:
             ime = portal_ime_id(PORTAL_PACKAGE_NAME)

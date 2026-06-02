@@ -11,10 +11,7 @@ from typing import Any
 import httpx
 import requests
 from async_adbutils import AdbDevice, adb
-from rich.console import Console
-
-from mobilerun import __version__
-from mobilerun.portal import (
+from mobilerun_core_cli.portal import (
     GITHUB_API_HOSTS,
     PORTAL_PACKAGE_NAME,
     REPO,
@@ -24,7 +21,10 @@ from mobilerun.portal import (
     portal_content_uri,
     portal_ime_id,
 )
-from mobilerun.tools.android.portal_client import PortalClient
+from mobilerun_core_cli.transport.portal_client import PortalClient
+from rich.console import Console
+
+from mobilerun import __version__
 
 console = Console()
 
@@ -511,7 +511,7 @@ async def check_portal_state(
     device: AdbDevice, use_tcp: bool, debug: bool
 ) -> tuple[CheckResult, Any]:
     """Fetch full state and verify a11y_tree, phone_state, device_context are present."""
-    from mobilerun.tools.android.portal_client import PortalClient
+    from mobilerun_core_cli.transport.portal_client import PortalClient
 
     try:
         portal = PortalClient(device, prefer_tcp=use_tcp)

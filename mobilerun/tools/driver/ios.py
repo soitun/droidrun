@@ -17,8 +17,7 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
 import httpx
-
-from mobilerun.tools.driver.base import DeviceDriver
+from mobilerun_core_cli.driver.base import DeviceDriver
 
 logger = logging.getLogger("mobilerun")
 

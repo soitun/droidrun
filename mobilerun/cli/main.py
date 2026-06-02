@@ -15,6 +15,17 @@ from pathlib import Path
 
 import click
 from async_adbutils import adb
+from mobilerun_core_cli.portal import (
+    DOWNLOAD_BASE,
+    PORTAL_PACKAGE_NAME,
+    download_portal_apk,
+    download_versioned_portal_apk,
+    enable_portal_accessibility,
+    ping_portal,
+    ping_portal_content,
+    ping_portal_tcp,
+    setup_portal,
+)
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
@@ -47,17 +58,6 @@ from mobilerun.config_manager.credential_paths import (
 )
 from mobilerun.log_handlers import CLILogHandler, configure_logging
 from mobilerun.macro.cli import macro_cli
-from mobilerun.portal import (
-    DOWNLOAD_BASE,
-    PORTAL_PACKAGE_NAME,
-    download_portal_apk,
-    download_versioned_portal_apk,
-    enable_portal_accessibility,
-    ping_portal,
-    ping_portal_content,
-    ping_portal_tcp,
-    setup_portal,
-)
 from mobilerun.telemetry import print_telemetry_message
 from mobilerun.tools.driver.ios import discover_ios_portal, validate_ios_portal_url
 from mobilerun.tools.driver.visual_remote import VISUAL_REMOTE_CONNECTION
@@ -329,7 +329,7 @@ async def _cleanup_android_keyboard(config: MobileConfig) -> None:
     try:
         device_obj = await adb.device(config.device.serial)
         if device_obj:
-            from mobilerun.portal import PORTAL_PACKAGE_NAME, portal_ime_id
+            from mobilerun_core_cli.portal import PORTAL_PACKAGE_NAME, portal_ime_id
 
             ime = portal_ime_id(PORTAL_PACKAGE_NAME)
             await device_obj.shell(f"ime disable {ime}")

@@ -10,6 +10,8 @@ import logging
 import time
 from typing import Any, Dict, Optional
 
+from mobilerun_core_cli.driver.android import AndroidDriver
+
 from mobilerun.agent.utils.trajectory import Trajectory
 from mobilerun.macro.handoff import run_agent_handoff
 from mobilerun.macro.matcher import StateMatchResult, compare_states
@@ -18,7 +20,6 @@ from mobilerun.macro.state import (
     UNSUPPORTED_SCHEMA_MESSAGE,
     normalize_ui_state,
 )
-from mobilerun.tools.driver.android import AndroidDriver
 from mobilerun.tools.filters import DetailedFilter
 from mobilerun.tools.formatters import IndexedFormatter
 from mobilerun.tools.ui.provider import AndroidStateProvider

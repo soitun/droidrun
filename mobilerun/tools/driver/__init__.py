@@ -1,7 +1,8 @@
 """Device driver abstractions for Mobilerun."""
 
-from mobilerun.tools.driver.android import AndroidDriver
-from mobilerun.tools.driver.base import DeviceDisconnectedError, DeviceDriver
+from mobilerun_core_cli.driver.android import AndroidDriver
+from mobilerun_core_cli.driver.base import DeviceDisconnectedError, DeviceDriver
+
 from mobilerun.tools.driver.cloud import CloudDriver
 from mobilerun.tools.driver.ios import IOSDriver
 from mobilerun.tools.driver.recording import RecordingDriver
