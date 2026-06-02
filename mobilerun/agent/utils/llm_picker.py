@@ -23,13 +23,66 @@ SUPPORTED_PROVIDERS = [
     "MiniMax",
 ]
 
+PROVIDER_ALIASES = {
+    "openai": "OpenAIResponses",
+    "gpt": "OpenAIResponses",
+    "gemini": "GoogleGenAI",
+    "google": "GoogleGenAI",
+    "claude": "Anthropic",
+    "openai compatible": "OpenAILike",
+    "openai-like": "OpenAILike",
+    "openai like": "OpenAILike",
+    "openai_compatible": "OpenAILike",
+    "openai_like": "OpenAILike",
+    "zai": "ZAI",
+    "z.ai": "ZAI",
+}
+
+ZAI_GLOBAL_API_BASE = "https://api.z.ai/api/paas/v4"
+OPENAI_RESPONSES_MODELS_WITHOUT_SAMPLING_PARAMS = {"gpt-5.5"}
+OPENAI_RESPONSES_UNSUPPORTED_SAMPLING_PARAMS = {"temperature", "top_p"}
+
+
+def normalize_provider_name(provider_name: str) -> str:
+    """Map user-facing provider names to Mobilerun runtime providers."""
+    stripped = provider_name.strip()
+    key = stripped.lower()
+    return PROVIDER_ALIASES.get(key, stripped)
+
+
+def _openai_responses_model_omits_sampling_params(model: object) -> bool:
+    return (
+        str(model or "").strip() in OPENAI_RESPONSES_MODELS_WITHOUT_SAMPLING_PARAMS
+    )
+
+
+def _load_openai_responses(**kwargs: Any) -> LLM:
+    from llama_index.llms.openai.responses import OpenAIResponses
+
+    class MobilerunOpenAIResponses(OpenAIResponses):
+        def _get_model_kwargs(self, **kwargs: Any) -> dict[str, Any]:
+            model_kwargs = super()._get_model_kwargs(**kwargs)
+            if _openai_responses_model_omits_sampling_params(
+                model_kwargs.get("model", self.model)
+            ):
+                for param in OPENAI_RESPONSES_UNSUPPORTED_SAMPLING_PARAMS:
+                    model_kwargs.pop(param, None)
+            return model_kwargs
+
+    filtered_kwargs = {k: v for k, v in kwargs.items() if v is not None}
+    logger.debug(
+        "Initializing MobilerunOpenAIResponses with kwargs: "
+        f"{list(filtered_kwargs.keys())}"
+    )
+    return MobilerunOpenAIResponses(**filtered_kwargs)
+
 
 def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM:
     """Load and initialize a configured LLM backend.
 
     Args:
         provider_name: Case-sensitive provider name (e.g. "OpenAIResponses", "Ollama").
-        model: Model name (e.g. "gpt-4", "gemini-3.1-flash-lite-preview").
+        model: Model name (e.g. "gpt-4", "gemini-3.1-flash-lite").
         **kwargs: Keyword arguments for the LLM class constructor.
 
     Returns:
@@ -37,6 +90,8 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
     """
     if not provider_name:
         raise ValueError("provider_name cannot be empty.")
+
+    provider_name = normalize_provider_name(provider_name)
 
     if model is not None:
         kwargs["model"] = model
@@ -67,6 +122,13 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
         if "base_url" in kwargs and "api_base" not in kwargs:
             kwargs["api_base"] = kwargs.pop("base_url")
 
+    if provider_name == "ZAI":
+        provider_name = "OpenAILike"
+        kwargs.setdefault("is_chat_model", True)
+        if "base_url" in kwargs and "api_base" not in kwargs:
+            kwargs["api_base"] = kwargs.pop("base_url")
+        kwargs.setdefault("api_base", ZAI_GLOBAL_API_BASE)
+
     if provider_name == "DeepSeek":
         import os
 
@@ -83,9 +145,7 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
 
     # --- Standard providers (inline dispatch) ---
     if provider_name == "OpenAIResponses":
-        from llama_index.llms.openai.responses import OpenAIResponses
-
-        llm_class = OpenAIResponses
+        return _load_openai_responses(**kwargs)
     elif provider_name == "OpenAILike":
         from llama_index.llms.openai_like import OpenAILike
 
@@ -206,7 +266,7 @@ if __name__ == "__main__":
         },
         {
             "name": "GoogleGenAI",
-            "model": "gemini-3.1-flash-lite-preview",
+            "model": "gemini-3.1-flash-lite",
         },
         {
             "name": "OpenAIResponses",
