@@ -15,6 +15,9 @@ from typing import TYPE_CHECKING, Awaitable, Type, Union
 from async_adbutils import adb
 from llama_index.core.llms.llm import LLM
 from llama_index.core.workflow import Context, StartEvent, StopEvent, Workflow, step
+from mobilerun_core_cli.driver.android import AndroidDriver
+from mobilerun_core_cli.driver.base import DeviceDisconnectedError
+from mobilerun_core_cli.portal import ensure_portal_ready
 from opentelemetry import trace
 from pydantic import BaseModel
 from workflows.events import Event
@@ -70,15 +73,12 @@ from mobilerun.macro.recorder import MacroRecorder
 from mobilerun.mcp.adapter import mcp_to_mobilerun_tools
 from mobilerun.mcp.client import MCPClientManager
 from mobilerun.mcp.config import MCPConfig
-from mobilerun.portal import ensure_portal_ready
 from mobilerun.telemetry import (
     MobileAgentFinalizeEvent,
     MobileAgentInitEvent,
     capture,
     flush,
 )
-from mobilerun.tools.driver.android import AndroidDriver
-from mobilerun.tools.driver.base import DeviceDisconnectedError
 from mobilerun.tools.driver.ios import IOSDriver, discover_ios_portal
 from mobilerun.tools.driver.recording import RecordingDriver
 from mobilerun.tools.driver.stealth import StealthDriver
@@ -94,7 +94,8 @@ from mobilerun.tools.ui.provider import AndroidStateProvider
 from mobilerun.tools.ui.screenshot_provider import ScreenshotOnlyStateProvider
 
 if TYPE_CHECKING:
-    from mobilerun.tools.driver.base import DeviceDriver
+    from mobilerun_core_cli.driver.base import DeviceDriver
+
     from mobilerun.tools.ui.provider import StateProvider
 
 logger = logging.getLogger("mobilerun")

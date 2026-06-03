@@ -4,7 +4,7 @@ title: AndroidDriver
 
 Raw Android device I/O via ADB + Portal.
 
-<a id="mobilerun.tools.driver.android.AndroidDriver"></a>
+<a id="mobilerun.tools.AndroidDriver"></a>
 
 ## AndroidDriver
 
@@ -16,7 +16,7 @@ Raw Android device I/O via ADB and the Mobilerun Portal app.
 
 AndroidDriver provides low-level device communication for Android devices through ADB (Android Debug Bridge). It supports both TCP communication and content provider modes via the Mobilerun Portal app. AndroidDriver declares its capabilities in the `supported` set, and unsupported methods raise `NotImplementedError`.
 
-<a id="mobilerun.tools.driver.android.AndroidDriver.__init__"></a>
+<a id="mobilerun.tools.AndroidDriver.__init__"></a>
 
 #### AndroidDriver.\_\_init\_\_
 
@@ -73,7 +73,7 @@ AndroidDriver.supported_buttons = {"back", "home", "enter"}
 
 ## Lifecycle Methods
 
-<a id="mobilerun.tools.driver.android.AndroidDriver.connect"></a>
+<a id="mobilerun.tools.AndroidDriver.connect"></a>
 
 #### AndroidDriver.connect
 
@@ -90,7 +90,7 @@ driver = AndroidDriver(serial="emulator-5554")
 await driver.connect()
 ```
 
-<a id="mobilerun.tools.driver.android.AndroidDriver.ensure_connected"></a>
+<a id="mobilerun.tools.AndroidDriver.ensure_connected"></a>
 
 #### AndroidDriver.ensure\_connected
 
@@ -104,7 +104,7 @@ Connect if not already connected. Safe to call multiple times.
 
 ## Input Action Methods
 
-<a id="mobilerun.tools.driver.android.AndroidDriver.tap"></a>
+<a id="mobilerun.tools.AndroidDriver.tap"></a>
 
 #### AndroidDriver.tap
 
@@ -125,7 +125,7 @@ Tap at absolute pixel coordinates on the device screen.
 await driver.tap(540, 960)
 ```
 
-<a id="mobilerun.tools.driver.android.AndroidDriver.swipe"></a>
+<a id="mobilerun.tools.AndroidDriver.swipe"></a>
 
 #### AndroidDriver.swipe
 
@@ -163,7 +163,7 @@ await driver.swipe(800, 960, 200, 960, duration_ms=250)
 - Duration is converted to seconds internally (dividing by 1000)
 - Includes an async sleep matching the swipe duration for UI settling
 
-<a id="mobilerun.tools.driver.android.AndroidDriver.input_text"></a>
+<a id="mobilerun.tools.AndroidDriver.input_text"></a>
 
 #### AndroidDriver.input\_text
 
@@ -196,7 +196,7 @@ success = await driver.input_text("New text", clear=True)
 - Uses the Mobilerun Portal app keyboard for reliable text input via PortalClient
 - Supports Unicode characters and special characters
 
-<a id="mobilerun.tools.driver.android.AndroidDriver.press_button"></a>
+<a id="mobilerun.tools.AndroidDriver.press_button"></a>
 
 #### AndroidDriver.press\_button
 
@@ -222,7 +222,7 @@ await driver.press_button("home")
 await driver.press_button("back")
 ```
 
-<a id="mobilerun.tools.driver.android.AndroidDriver.drag"></a>
+<a id="mobilerun.tools.AndroidDriver.drag"></a>
 
 #### AndroidDriver.drag
 
@@ -253,7 +253,7 @@ Drag from (x1, y1) to (x2, y2).
 
 ## App Management Methods
 
-<a id="mobilerun.tools.driver.android.AndroidDriver.start_app"></a>
+<a id="mobilerun.tools.AndroidDriver.start_app"></a>
 
 #### AndroidDriver.start\_app
 
@@ -284,7 +284,7 @@ result = await driver.start_app("com.android.settings")
 result = await driver.start_app("com.android.settings", ".Settings")
 ```
 
-<a id="mobilerun.tools.driver.android.AndroidDriver.install_app"></a>
+<a id="mobilerun.tools.AndroidDriver.install_app"></a>
 
 #### AndroidDriver.install\_app
 
@@ -311,7 +311,7 @@ result = await driver.install_app("/path/to/app.apk")
 result = await driver.install_app("/path/to/app.apk", reinstall=True)
 ```
 
-<a id="mobilerun.tools.driver.android.AndroidDriver.list_packages"></a>
+<a id="mobilerun.tools.AndroidDriver.list_packages"></a>
 
 #### AndroidDriver.list\_packages
 
@@ -329,7 +329,7 @@ Return installed package names.
 
 - `List[str]` - List of package names
 
-<a id="mobilerun.tools.driver.android.AndroidDriver.get_apps"></a>
+<a id="mobilerun.tools.AndroidDriver.get_apps"></a>
 
 #### AndroidDriver.get\_apps
 
@@ -351,7 +351,7 @@ Return installed apps as list of dicts with 'package' and 'label' keys.
 
 ## State and Observation Methods
 
-<a id="mobilerun.tools.driver.android.AndroidDriver.screenshot"></a>
+<a id="mobilerun.tools.AndroidDriver.screenshot"></a>
 
 #### AndroidDriver.screenshot
 
@@ -377,7 +377,7 @@ with open("screenshot.png", "wb") as f:
     f.write(png_bytes)
 ```
 
-<a id="mobilerun.tools.driver.android.AndroidDriver.get_ui_tree"></a>
+<a id="mobilerun.tools.AndroidDriver.get_ui_tree"></a>
 
 #### AndroidDriver.get\_ui\_tree
 
@@ -393,7 +393,7 @@ Returns a dictionary containing both the accessibility tree and phone state data
 
 - `Dict[str, Any]` - Raw UI tree data from the device
 
-<a id="mobilerun.tools.driver.android.AndroidDriver.get_date"></a>
+<a id="mobilerun.tools.AndroidDriver.get_date"></a>
 
 #### AndroidDriver.get\_date
 

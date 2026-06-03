@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Optional, Type
 
 from llama_index.core.llms.llm import LLM
 from llama_index.core.workflow import Context, StartEvent, StopEvent, Workflow, step
+from mobilerun_core_cli.driver.base import DeviceDisconnectedError
 from opentelemetry import trace
 from pydantic import BaseModel
 
@@ -25,7 +26,6 @@ from mobilerun.agent.utils.inference import acall_with_retries
 from mobilerun.agent.utils.prompt_resolver import PromptResolver
 from mobilerun.agent.utils.tracing_setup import record_langfuse_screenshot
 from mobilerun.config_manager.prompt_loader import PromptLoader
-from mobilerun.tools.driver.base import DeviceDisconnectedError
 from mobilerun.tools.helpers.images import resize_image_to_max_side_with_grid
 
 if TYPE_CHECKING:

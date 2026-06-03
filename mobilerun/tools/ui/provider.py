@@ -11,12 +11,14 @@ import logging
 import time
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, List, Optional
 
-from mobilerun.tools.driver.base import DeviceDisconnectedError
+from mobilerun_core_cli.driver.base import DeviceDisconnectedError
+
 from mobilerun.tools.ui.state import UIState
 from mobilerun.tools.ui.stealth_state import StealthUIState
 
 if TYPE_CHECKING:
-    from mobilerun.tools.driver.base import DeviceDriver
+    from mobilerun_core_cli.driver.base import DeviceDriver
+
     from mobilerun.tools.filters import TreeFilter
     from mobilerun.tools.formatters import TreeFormatter
 
@@ -174,7 +176,7 @@ class AndroidStateProvider(StateProvider):
 
     async def _recover_portal(self) -> None:
         """Restart Portal's accessibility service and TCP socket server."""
-        from mobilerun.tools.driver.android import AndroidDriver
+        from mobilerun_core_cli.driver.android import AndroidDriver
 
         if not isinstance(self.driver, AndroidDriver):
             return
@@ -182,7 +184,7 @@ class AndroidStateProvider(StateProvider):
         if device is None:
             return
 
-        from mobilerun.portal import (
+        from mobilerun_core_cli.portal import (
             PORTAL_PACKAGE_NAME,
             portal_a11y_service,
             portal_content_uri,
