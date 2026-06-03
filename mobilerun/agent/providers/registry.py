@@ -33,9 +33,10 @@ PROVIDER_FAMILIES: tuple[ProviderFamilySpec, ...] = (
                 auth_mode="api_key",
                 default_model="gemini-3.1-pro-preview",
                 models=(
+                    "gemini-3.5-flash",
                     "gemini-3-flash-preview",
                     "gemini-3.1-pro-preview",
-                    "gemini-3.1-flash-lite-preview",
+                    "gemini-3.1-flash-lite",
                 ),
                 requires_api_key=True,
             ),
@@ -47,7 +48,7 @@ PROVIDER_FAMILIES: tuple[ProviderFamilySpec, ...] = (
                 models=(
                     "gemini-3-flash-preview",
                     "gemini-3.1-pro-preview",
-                    "gemini-3.1-flash-lite-preview",
+                    "gemini-3.1-flash-lite",
                 ),
                 credential_path=str(GEMINI_OAUTH_CREDENTIAL_PATH),
             ),
@@ -61,8 +62,9 @@ PROVIDER_FAMILIES: tuple[ProviderFamilySpec, ...] = (
                 id="OpenAIResponses",
                 runtime_provider_name="OpenAIResponses",
                 auth_mode="api_key",
-                default_model="gpt-5.4",
+                default_model="gpt-5.5",
                 models=(
+                    "gpt-5.5",
                     "gpt-5.4",
                     "gpt-5.4-mini",
                     "gpt-5.4-nano",
@@ -73,11 +75,11 @@ PROVIDER_FAMILIES: tuple[ProviderFamilySpec, ...] = (
                 id="openai_oauth",
                 runtime_provider_name="openai_oauth",
                 auth_mode="oauth",
-                default_model="gpt-5.4",
+                default_model="gpt-5.5",
                 models=(
+                    "gpt-5.5",
                     "gpt-5.4",
                     "gpt-5.4-mini",
-                    "gpt-5.3-codex",
                 ),
                 credential_path=str(OPENAI_OAUTH_CREDENTIAL_PATH),
             ),
@@ -95,6 +97,7 @@ PROVIDER_FAMILIES: tuple[ProviderFamilySpec, ...] = (
                 default_model="claude-sonnet-4-6",
                 models=(
                     "claude-sonnet-4-6",
+                    "claude-opus-4-8",
                     "claude-opus-4-6",
                     "claude-haiku-4-5",
                 ),
@@ -107,6 +110,7 @@ PROVIDER_FAMILIES: tuple[ProviderFamilySpec, ...] = (
                 default_model="claude-opus-4-7",
                 models=(
                     "claude-opus-4-7",
+                    "claude-opus-4-8",
                     "claude-sonnet-4-6",
                     "claude-opus-4-6",
                     "claude-haiku-4-5",

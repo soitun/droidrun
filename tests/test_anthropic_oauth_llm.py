@@ -51,3 +51,11 @@ def test_default_opus_payload_sends_max_tokens_without_temperature():
     assert payload["model"] == "claude-opus-4-7"
     assert payload["max_tokens"] == 8192
     assert "temperature" not in payload
+
+
+def test_opus_4_8_payload_sends_max_tokens_without_temperature():
+    payload = _payload_for(model="claude-opus-4-8")
+
+    assert payload["model"] == "claude-opus-4-8"
+    assert payload["max_tokens"] == 8192
+    assert "temperature" not in payload

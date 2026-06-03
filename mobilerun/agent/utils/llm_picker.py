@@ -23,13 +23,140 @@ SUPPORTED_PROVIDERS = [
     "MiniMax",
 ]
 
+PROVIDER_ALIASES = {
+    "openai": "OpenAIResponses",
+    "gpt": "OpenAIResponses",
+    "gemini": "GoogleGenAI",
+    "google": "GoogleGenAI",
+    "claude": "Anthropic",
+    "openai compatible": "OpenAILike",
+    "openai-like": "OpenAILike",
+    "openai like": "OpenAILike",
+    "openai_compatible": "OpenAILike",
+    "openai_like": "OpenAILike",
+    "zai": "ZAI",
+    "z.ai": "ZAI",
+}
+
+ZAI_GLOBAL_API_BASE = "https://api.z.ai/api/paas/v4"
+GEMINI_OAUTH_UNSUPPORTED_MODELS = {"gemini-3.5-flash"}
+OPENAI_OAUTH_UNSUPPORTED_MODELS = {"gpt-5.3-codex"}
+OPENAI_RESPONSES_MODELS_WITHOUT_SAMPLING_PARAMS = {"gpt-5.5"}
+OPENAI_RESPONSES_UNSUPPORTED_SAMPLING_PARAMS = {"temperature", "top_p"}
+ANTHROPIC_CURRENT_MODEL_CONTEXT_WINDOWS = {
+    "claude-opus-4-8": 200_000,
+    "claude-sonnet-4-6": 200_000,
+    "claude-opus-4-6": 200_000,
+    "claude-haiku-4-5": 200_000,
+}
+
+
+def normalize_provider_name(provider_name: str) -> str:
+    """Map user-facing provider names to Mobilerun runtime providers."""
+    stripped = provider_name.strip()
+    key = stripped.lower()
+    return PROVIDER_ALIASES.get(key, stripped)
+
+
+def _openai_responses_model_omits_sampling_params(model: object) -> bool:
+    return (
+        str(model or "").strip() in OPENAI_RESPONSES_MODELS_WITHOUT_SAMPLING_PARAMS
+    )
+
+
+def _anthropic_model_omits_temperature(model: object) -> bool:
+    return str(model or "").strip().startswith("claude-opus-4")
+
+
+def _validate_openai_oauth_model(model: object) -> None:
+    model_id = str(model or "").strip()
+    if model_id in OPENAI_OAUTH_UNSUPPORTED_MODELS:
+        supported = "gpt-5.5, gpt-5.4, or gpt-5.4-mini"
+        raise ValueError(
+            f"Model '{model_id}' is not supported with OpenAI OAuth "
+            f"ChatGPT-account credentials. Use {supported}."
+        )
+
+
+def _validate_gemini_oauth_model(model: object) -> None:
+    model_id = str(model or "").strip()
+    if model_id in GEMINI_OAUTH_UNSUPPORTED_MODELS:
+        supported = "gemini-3-flash-preview, gemini-3.1-pro-preview, or gemini-3.1-flash-lite"
+        raise ValueError(
+            f"Model '{model_id}' is not supported with Gemini OAuth Code Assist "
+            f"credentials. Use {supported}."
+        )
+
+
+def _load_openai_responses(**kwargs: Any) -> LLM:
+    from llama_index.llms.openai.responses import OpenAIResponses
+
+    class MobilerunOpenAIResponses(OpenAIResponses):
+        def _get_model_kwargs(self, **kwargs: Any) -> dict[str, Any]:
+            model_kwargs = super()._get_model_kwargs(**kwargs)
+            if _openai_responses_model_omits_sampling_params(
+                model_kwargs.get("model", self.model)
+            ):
+                for param in OPENAI_RESPONSES_UNSUPPORTED_SAMPLING_PARAMS:
+                    model_kwargs.pop(param, None)
+            return model_kwargs
+
+    filtered_kwargs = {k: v for k, v in kwargs.items() if v is not None}
+    logger.debug(
+        "Initializing MobilerunOpenAIResponses with kwargs: "
+        f"{list(filtered_kwargs.keys())}"
+    )
+    return MobilerunOpenAIResponses(**filtered_kwargs)
+
+
+def _load_anthropic(**kwargs: Any) -> LLM:
+    from llama_index.core.base.llms.types import LLMMetadata
+    from llama_index.llms.anthropic import Anthropic
+
+    class MobilerunAnthropic(Anthropic):
+        @property
+        def _model_kwargs(self) -> dict[str, Any]:
+            model_kwargs = super()._model_kwargs
+            if (
+                _anthropic_model_omits_temperature(
+                    model_kwargs.get("model", self.model)
+                )
+                and "temperature" not in (self.additional_kwargs or {})
+            ):
+                model_kwargs.pop("temperature", None)
+            return model_kwargs
+
+        @property
+        def metadata(self) -> LLMMetadata:
+            try:
+                return super().metadata
+            except ValueError:
+                context_window = ANTHROPIC_CURRENT_MODEL_CONTEXT_WINDOWS.get(
+                    self.model
+                )
+                if context_window is None:
+                    raise
+                return LLMMetadata(
+                    context_window=context_window,
+                    num_output=self.max_tokens,
+                    is_chat_model=True,
+                    model_name=self.model,
+                    is_function_calling_model=True,
+                )
+
+    filtered_kwargs = {k: v for k, v in kwargs.items() if v is not None}
+    logger.debug(
+        f"Initializing MobilerunAnthropic with kwargs: {list(filtered_kwargs.keys())}"
+    )
+    return MobilerunAnthropic(**filtered_kwargs)
+
 
 def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM:
     """Load and initialize a configured LLM backend.
 
     Args:
         provider_name: Case-sensitive provider name (e.g. "OpenAIResponses", "Ollama").
-        model: Model name (e.g. "gpt-4", "gemini-3.1-flash-lite-preview").
+        model: Model name (e.g. "gpt-4", "gemini-3.1-flash-lite").
         **kwargs: Keyword arguments for the LLM class constructor.
 
     Returns:
@@ -38,6 +165,8 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
     if not provider_name:
         raise ValueError("provider_name cannot be empty.")
 
+    provider_name = normalize_provider_name(provider_name)
+
     if model is not None:
         kwargs["model"] = model
 
@@ -45,6 +174,7 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
     if provider_name == "openai_oauth":
         from mobilerun.agent.utils.oauth.openai_oauth_llm import OpenAIOAuth
 
+        _validate_openai_oauth_model(kwargs.get("model"))
         return OpenAIOAuth(**{k: v for k, v in kwargs.items() if v is not None})
     if provider_name == "anthropic_oauth":
         from mobilerun.agent.utils.oauth.anthropic_oauth_llm import AnthropicOAuthLLM
@@ -55,6 +185,7 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
             GeminiOAuthCodeAssistLLM,
         )
 
+        _validate_gemini_oauth_model(kwargs.get("model"))
         return GeminiOAuthCodeAssistLLM(
             **{k: v for k, v in kwargs.items() if v is not None}
         )
@@ -66,6 +197,13 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
         kwargs.setdefault("api_base", "https://api.minimaxi.chat/v1")
         if "base_url" in kwargs and "api_base" not in kwargs:
             kwargs["api_base"] = kwargs.pop("base_url")
+
+    if provider_name == "ZAI":
+        provider_name = "OpenAILike"
+        kwargs.setdefault("is_chat_model", True)
+        if "base_url" in kwargs and "api_base" not in kwargs:
+            kwargs["api_base"] = kwargs.pop("base_url")
+        kwargs.setdefault("api_base", ZAI_GLOBAL_API_BASE)
 
     if provider_name == "DeepSeek":
         import os
@@ -83,9 +221,7 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
 
     # --- Standard providers (inline dispatch) ---
     if provider_name == "OpenAIResponses":
-        from llama_index.llms.openai.responses import OpenAIResponses
-
-        llm_class = OpenAIResponses
+        return _load_openai_responses(**kwargs)
     elif provider_name == "OpenAILike":
         from llama_index.llms.openai_like import OpenAILike
 
@@ -102,9 +238,7 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
 
         llm_class = Ollama
     elif provider_name == "Anthropic":
-        from llama_index.llms.anthropic import Anthropic
-
-        llm_class = Anthropic
+        return _load_anthropic(**kwargs)
     elif provider_name == "OpenRouter":
         from llama_index.llms.openrouter import OpenRouter
 
@@ -206,7 +340,7 @@ if __name__ == "__main__":
         },
         {
             "name": "GoogleGenAI",
-            "model": "gemini-3.1-flash-lite-preview",
+            "model": "gemini-3.1-flash-lite",
         },
         {
             "name": "OpenAIResponses",

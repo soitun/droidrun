@@ -45,7 +45,7 @@ class ProfileSettings:
     """Full LLM profile for one agent role."""
 
     provider: str = "GoogleGenAI"
-    model: str = "gemini-3.1-flash-lite-preview"
+    model: str = "gemini-3.1-flash-lite"
     temperature: float = 0.2
     api_key: str = ""
     api_key_source: str = "auto"

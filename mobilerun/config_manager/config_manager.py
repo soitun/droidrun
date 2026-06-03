@@ -17,7 +17,7 @@ class LLMProfile:
     """LLM profile configuration."""
 
     provider: str = "GoogleGenAI"
-    model: str = "gemini-3.1-flash-lite-preview"
+    model: str = "gemini-3.1-flash-lite"
     temperature: float = 0.2
     api_key_source: Literal["auto", "env", "file"] = "auto"
     base_url: Optional[str] = None
@@ -232,31 +232,31 @@ class MobileConfig:
         return {
             "manager": LLMProfile(
                 provider="GoogleGenAI",
-                model="gemini-3.1-flash-lite-preview",
+                model="gemini-3.1-flash-lite",
                 temperature=0.2,
                 kwargs={},
             ),
             "executor": LLMProfile(
                 provider="GoogleGenAI",
-                model="gemini-3.1-flash-lite-preview",
+                model="gemini-3.1-flash-lite",
                 temperature=0.1,
                 kwargs={},
             ),
             "fast_agent": LLMProfile(
                 provider="GoogleGenAI",
-                model="gemini-3.1-flash-lite-preview",
+                model="gemini-3.1-flash-lite",
                 temperature=0.2,
                 kwargs={},
             ),
             "app_opener": LLMProfile(
                 provider="GoogleGenAI",
-                model="gemini-3.1-flash-lite-preview",
+                model="gemini-3.1-flash-lite",
                 temperature=0.0,
                 kwargs={},
             ),
             "structured_output": LLMProfile(
                 provider="GoogleGenAI",
-                model="gemini-3.1-flash-lite-preview",
+                model="gemini-3.1-flash-lite",
                 temperature=0.0,
                 kwargs={},
             ),

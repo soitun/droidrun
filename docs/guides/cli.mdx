@@ -94,7 +94,7 @@ In screenshot-only mode, Mobilerun does not read an accessibility tree. The agen
 export GOOGLE_API_KEY=your-key
 mobilerun run "Archive old emails" \
   --provider GoogleGenAI \
-  --model gemini-3.1-flash-lite-preview
+  --model gemini-3.1-flash-lite
 
 # OpenAI
 export OPENAI_API_KEY=your-key
@@ -384,7 +384,7 @@ trajectories/2025-10-16_14-30-45/
 ```bash Quick Test
 mobilerun run "Turn on dark mode" \
   --provider GoogleGenAI \
-  --model gemini-3.1-flash-lite-preview
+  --model gemini-3.1-flash-lite
 ```
 
 ```bash Debug Task
@@ -405,7 +405,7 @@ mobilerun run "Check Wi-Fi" \
 ```bash Cost Optimization
 mobilerun run "Set alarm" \
   --provider GoogleGenAI \
-  --model gemini-3.1-flash-lite-preview \
+  --model gemini-3.1-flash-lite \
   --no-vision
 ```
 

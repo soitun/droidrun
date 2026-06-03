@@ -228,7 +228,7 @@ CredentialsConfig(
 ```python
 from llama_index.llms.google_genai import GoogleGenAI
 
-llm = GoogleGenAI(model="gemini-3.1-flash-lite-preview", temperature=0.2)
+llm = GoogleGenAI(model="gemini-3.1-flash-lite", temperature=0.2)
 agent = MobileAgent(goal="...", llms=llm)
 ```
 
@@ -242,10 +242,10 @@ agent = MobileAgent(
     goal="...",
     llms={
         "manager": OpenAI(model="gpt-4o"),                    # Planning
-        "executor": GoogleGenAI(model="gemini-3.1-flash-lite-preview"),  # Action selection
-        "fast_agent": GoogleGenAI(model="gemini-3.1-flash-lite-preview"),   # Fast Agent: Direct execution (XML tool-calling)
+        "executor": GoogleGenAI(model="gemini-3.1-flash-lite"),  # Action selection
+        "fast_agent": GoogleGenAI(model="gemini-3.1-flash-lite"),   # Fast Agent: Direct execution (XML tool-calling)
         "app_opener": OpenAI(model="gpt-4o-mini"),            # App launching
-        "structured_output": GoogleGenAI(model="gemini-3.1-flash-lite-preview"),  # Output extraction
+        "structured_output": GoogleGenAI(model="gemini-3.1-flash-lite"),  # Output extraction
     }
 )
 ```
@@ -429,10 +429,10 @@ agent = MobileAgent(
     # LLMs
     llms={
         "manager": OpenAI(model="gpt-4o"),                    # Planning
-        "executor": GoogleGenAI(model="gemini-3.1-flash-lite-preview"),  # Action selection
-        "fast_agent": GoogleGenAI(model="gemini-3.1-flash-lite-preview"),   # Fast Agent: Direct execution (XML tool-calling)
+        "executor": GoogleGenAI(model="gemini-3.1-flash-lite"),  # Action selection
+        "fast_agent": GoogleGenAI(model="gemini-3.1-flash-lite"),   # Fast Agent: Direct execution (XML tool-calling)
         "app_opener": OpenAI(model="gpt-4o-mini"),            # App launching
-        "structured_output": GoogleGenAI(model="gemini-3.1-flash-lite-preview"),  # Output extraction
+        "structured_output": GoogleGenAI(model="gemini-3.1-flash-lite"),  # Output extraction
     },
 
     # Custom tools
@@ -505,21 +505,21 @@ agent:
 llm_profiles:
   manager:
     provider: GoogleGenAI
-    model: gemini-3.1-flash-lite-preview
+    model: gemini-3.1-flash-lite
     temperature: 0.2
     kwargs:
       max_tokens: 8192
 
   executor:
     provider: GoogleGenAI
-    model: gemini-3.1-flash-lite-preview
+    model: gemini-3.1-flash-lite
     temperature: 0.1
     kwargs:
       max_tokens: 4096
 
   fast_agent:  # Fast Agent: Direct execution (XML tool-calling)
     provider: GoogleGenAI
-    model: gemini-3.1-flash-lite-preview
+    model: gemini-3.1-flash-lite
     temperature: 0.2
     kwargs:
       max_tokens: 8192
@@ -531,7 +531,7 @@ llm_profiles:
 
   structured_output:
     provider: GoogleGenAI
-    model: gemini-3.1-flash-lite-preview
+    model: gemini-3.1-flash-lite
     temperature: 0.0
 
 device:
@@ -585,7 +585,7 @@ mobilerun run "Task" --steps 30 --reasoning --vision
 mobilerun run "Task" --device emulator-5554 --tcp
 
 # Override LLM (applies to ALL agents)
-mobilerun run "Task" --provider GoogleGenAI --model gemini-3.1-flash-lite-preview
+mobilerun run "Task" --provider GoogleGenAI --model gemini-3.1-flash-lite
 
 # Override logging
 mobilerun run "Task" --debug --save-trajectory action --tracing
