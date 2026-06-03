@@ -1,64 +1,7 @@
-import importlib.util
-import sys
-import types
 import unittest
-from pathlib import Path
 
+from mobilerun_core_cli import portal
 
-def _load_portal_module():
-    console_module = types.ModuleType("rich.console")
-
-    class Console:
-        def print(self, *args, **kwargs):
-            pass
-
-    console_module.Console = Console
-
-    mobilerun_module = types.ModuleType("mobilerun")
-    mobilerun_module.__version__ = "0.6.0"
-
-    async_adbutils_module = types.ModuleType("async_adbutils")
-    async_adbutils_module.AdbDevice = object
-    async_adbutils_module.adb = object()
-
-    requests_module = types.ModuleType("requests")
-    requests_module.RequestException = type("RequestException", (Exception,), {})
-    requests_module.ConnectionError = type(
-        "ConnectionError", (requests_module.RequestException,), {}
-    )
-
-    def get(*args, **kwargs):
-        return None
-
-    requests_module.get = get
-
-    stubs = {
-        "async_adbutils": async_adbutils_module,
-        "mobilerun": mobilerun_module,
-        "requests": requests_module,
-        "rich": types.ModuleType("rich"),
-        "rich.console": console_module,
-    }
-    missing = object()
-    previous = {name: sys.modules.get(name, missing) for name in stubs}
-
-    try:
-        sys.modules.update(stubs)
-        path = Path(__file__).resolve().parents[1] / "mobilerun" / "portal.py"
-        spec = importlib.util.spec_from_file_location("portal_asset_module", path)
-        module = importlib.util.module_from_spec(spec)
-        assert spec.loader is not None
-        spec.loader.exec_module(module)
-        return module
-    finally:
-        for name, old_module in previous.items():
-            if old_module is missing:
-                sys.modules.pop(name, None)
-            else:
-                sys.modules[name] = old_module
-
-
-portal = _load_portal_module()
 _get_release_assets_by_tag = portal._get_release_assets_by_tag
 _normalize_download_base = portal._normalize_download_base
 _parse_portal_asset_version = portal._parse_portal_asset_version

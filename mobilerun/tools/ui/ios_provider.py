@@ -14,7 +14,8 @@ import logging
 import re
 from typing import Any, Dict, List
 
-from mobilerun.tools.driver.base import DeviceDisconnectedError, DeviceDriver
+from mobilerun_core_cli.driver.base import DeviceDisconnectedError, DeviceDriver
+
 from mobilerun.tools.ui.provider import StateProvider
 from mobilerun.tools.ui.state import UIState
 

@@ -14,7 +14,7 @@ import math
 import random
 from typing import Any, List, Tuple
 
-from mobilerun.tools.driver.base import DeviceDriver
+from mobilerun_core_cli.driver.base import DeviceDriver
 
 # ---------------------------------------------------------------------------
 # Path generation helpers

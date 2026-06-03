@@ -9,10 +9,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
+    from mobilerun_core_cli.driver.base import DeviceDriver
+
     from mobilerun.agent.droid.state import MobileAgentState
     from mobilerun.credential_manager import CredentialManager
     from mobilerun.macro.recorder import MacroRecorder
-    from mobilerun.tools.driver.base import DeviceDriver
     from mobilerun.tools.ui.provider import StateProvider
     from mobilerun.tools.ui.state import UIState
 
