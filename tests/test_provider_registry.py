@@ -1,6 +1,5 @@
 from mobilerun.agent.providers.registry import (
     list_models_for_variant,
-    normalize_model_id_for_variant,
     resolve_provider_variant,
 )
 from mobilerun.config_manager.config_manager import LLMProfile, MobileConfig
@@ -46,18 +45,13 @@ def test_anthropic_catalogs_include_opus_4_8_without_changing_defaults() -> None
     )
 
 
-def test_openai_oauth_catalog_uses_current_codex_model() -> None:
+def test_openai_oauth_catalog_hides_unsupported_codex_model() -> None:
     variant = resolve_provider_variant("openai", "oauth")
     models = list_models_for_variant("openai", "oauth")
 
     assert variant.default_model == "gpt-5.5"
-    assert models == ("gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.3-codex")
-    assert (
-        normalize_model_id_for_variant(
-            "openai", "oauth", "openai-codex/gpt-5.3-codex"
-        )
-        == "gpt-5.3-codex"
-    )
+    assert models == ("gpt-5.5", "gpt-5.4", "gpt-5.4-mini")
+    assert "gpt-5.3-codex" not in models
 
 
 def test_openai_api_key_catalog_uses_current_default_model() -> None:

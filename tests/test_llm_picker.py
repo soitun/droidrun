@@ -76,3 +76,83 @@ def test_zai_alias_uses_openai_like_transport_defaults() -> None:
 
     assert type(llm).__name__ == "OpenAILike"
     assert llm.api_base == "https://api.z.ai/api/paas/v4"
+
+
+def test_openai_oauth_rejects_unsupported_codex_model() -> None:
+    with pytest.raises(ValueError, match="not supported with OpenAI OAuth"):
+        load_llm("openai_oauth", model="gpt-5.3-codex")
+
+
+@pytest.mark.parametrize("model", ["claude-opus-4-8", "claude-opus-4-6"])
+def test_anthropic_opus_4_omits_default_temperature(model: str) -> None:
+    llm = load_llm(
+        "Anthropic",
+        model=model,
+        api_key="stub",
+        temperature=0.2,
+    )
+
+    kwargs = llm._get_all_kwargs()
+
+    assert type(llm).__name__ == "MobilerunAnthropic"
+    assert kwargs["model"] == model
+    assert "temperature" not in kwargs
+
+
+def test_anthropic_opus_4_keeps_explicit_additional_temperature() -> None:
+    llm = load_llm(
+        "Anthropic",
+        model="claude-opus-4-8",
+        api_key="stub",
+        temperature=0.2,
+        additional_kwargs={"temperature": 0.0},
+    )
+
+    assert llm._get_all_kwargs()["temperature"] == 0.0
+
+
+def test_anthropic_opus_4_keeps_per_call_temperature() -> None:
+    llm = load_llm(
+        "Anthropic",
+        model="claude-opus-4-8",
+        api_key="stub",
+        temperature=0.2,
+    )
+
+    assert llm._get_all_kwargs(temperature=0.0)["temperature"] == 0.0
+
+
+def test_anthropic_sonnet_keeps_temperature() -> None:
+    llm = load_llm(
+        "Anthropic",
+        model="claude-sonnet-4-6",
+        api_key="stub",
+        temperature=0.2,
+    )
+
+    kwargs = llm._get_all_kwargs()
+
+    assert kwargs["model"] == "claude-sonnet-4-6"
+    assert kwargs["temperature"] == 0.2
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        "claude-opus-4-8",
+        "claude-sonnet-4-6",
+        "claude-opus-4-6",
+        "claude-haiku-4-5",
+    ],
+)
+def test_anthropic_current_catalog_models_have_metadata(model: str) -> None:
+    llm = load_llm(
+        "Anthropic",
+        model=model,
+        api_key="stub",
+    )
+
+    metadata = llm.metadata
+
+    assert metadata.model_name == model
+    assert metadata.context_window > 0

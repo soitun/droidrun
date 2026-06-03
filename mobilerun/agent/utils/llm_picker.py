@@ -39,8 +39,15 @@ PROVIDER_ALIASES = {
 }
 
 ZAI_GLOBAL_API_BASE = "https://api.z.ai/api/paas/v4"
+OPENAI_OAUTH_UNSUPPORTED_MODELS = {"gpt-5.3-codex"}
 OPENAI_RESPONSES_MODELS_WITHOUT_SAMPLING_PARAMS = {"gpt-5.5"}
 OPENAI_RESPONSES_UNSUPPORTED_SAMPLING_PARAMS = {"temperature", "top_p"}
+ANTHROPIC_CURRENT_MODEL_CONTEXT_WINDOWS = {
+    "claude-opus-4-8": 200_000,
+    "claude-sonnet-4-6": 200_000,
+    "claude-opus-4-6": 200_000,
+    "claude-haiku-4-5": 200_000,
+}
 
 
 def normalize_provider_name(provider_name: str) -> str:
@@ -54,6 +61,20 @@ def _openai_responses_model_omits_sampling_params(model: object) -> bool:
     return (
         str(model or "").strip() in OPENAI_RESPONSES_MODELS_WITHOUT_SAMPLING_PARAMS
     )
+
+
+def _anthropic_model_omits_temperature(model: object) -> bool:
+    return str(model or "").strip().startswith("claude-opus-4")
+
+
+def _validate_openai_oauth_model(model: object) -> None:
+    model_id = str(model or "").strip()
+    if model_id in OPENAI_OAUTH_UNSUPPORTED_MODELS:
+        supported = "gpt-5.5, gpt-5.4, or gpt-5.4-mini"
+        raise ValueError(
+            f"Model '{model_id}' is not supported with OpenAI OAuth "
+            f"ChatGPT-account credentials. Use {supported}."
+        )
 
 
 def _load_openai_responses(**kwargs: Any) -> LLM:
@@ -75,6 +96,48 @@ def _load_openai_responses(**kwargs: Any) -> LLM:
         f"{list(filtered_kwargs.keys())}"
     )
     return MobilerunOpenAIResponses(**filtered_kwargs)
+
+
+def _load_anthropic(**kwargs: Any) -> LLM:
+    from llama_index.core.base.llms.types import LLMMetadata
+    from llama_index.llms.anthropic import Anthropic
+
+    class MobilerunAnthropic(Anthropic):
+        @property
+        def _model_kwargs(self) -> dict[str, Any]:
+            model_kwargs = super()._model_kwargs
+            if (
+                _anthropic_model_omits_temperature(
+                    model_kwargs.get("model", self.model)
+                )
+                and "temperature" not in (self.additional_kwargs or {})
+            ):
+                model_kwargs.pop("temperature", None)
+            return model_kwargs
+
+        @property
+        def metadata(self) -> LLMMetadata:
+            try:
+                return super().metadata
+            except ValueError:
+                context_window = ANTHROPIC_CURRENT_MODEL_CONTEXT_WINDOWS.get(
+                    self.model
+                )
+                if context_window is None:
+                    raise
+                return LLMMetadata(
+                    context_window=context_window,
+                    num_output=self.max_tokens,
+                    is_chat_model=True,
+                    model_name=self.model,
+                    is_function_calling_model=True,
+                )
+
+    filtered_kwargs = {k: v for k, v in kwargs.items() if v is not None}
+    logger.debug(
+        f"Initializing MobilerunAnthropic with kwargs: {list(filtered_kwargs.keys())}"
+    )
+    return MobilerunAnthropic(**filtered_kwargs)
 
 
 def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM:
@@ -100,6 +163,7 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
     if provider_name == "openai_oauth":
         from mobilerun.agent.utils.oauth.openai_oauth_llm import OpenAIOAuth
 
+        _validate_openai_oauth_model(kwargs.get("model"))
         return OpenAIOAuth(**{k: v for k, v in kwargs.items() if v is not None})
     if provider_name == "anthropic_oauth":
         from mobilerun.agent.utils.oauth.anthropic_oauth_llm import AnthropicOAuthLLM
@@ -162,9 +226,7 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
 
         llm_class = Ollama
     elif provider_name == "Anthropic":
-        from llama_index.llms.anthropic import Anthropic
-
-        llm_class = Anthropic
+        return _load_anthropic(**kwargs)
     elif provider_name == "OpenRouter":
         from llama_index.llms.openrouter import OpenRouter
 

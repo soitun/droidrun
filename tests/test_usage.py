@@ -62,3 +62,12 @@ def test_openai_responses_class_name_extracts_usage_from_response() -> None:
     assert usage.response_tokens == 2
     assert usage.total_tokens == 5
     assert usage.requests == 1
+
+
+def test_track_usage_supports_mobilerun_anthropic_wrapper() -> None:
+    llm = load_llm("Anthropic", model="claude-opus-4-8", api_key="stub")
+
+    tracker = track_usage(llm)
+
+    assert isinstance(tracker, TokenCountingHandler)
+    assert tracker.provider == "Anthropic"
