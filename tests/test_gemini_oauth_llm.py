@@ -8,7 +8,7 @@ from mobilerun.agent.providers.setup_service import (
 from mobilerun.agent.utils.llm_picker import load_llm
 
 
-def test_gemini_oauth_profile_sends_gemini_3_5_flash_verbatim(tmp_path) -> None:
+def test_gemini_oauth_profile_sends_gemini_flash_lite_verbatim(tmp_path) -> None:
     variant = resolve_provider_variant("gemini", "oauth")
     profile = create_profile_for_variant(
         variant,
@@ -16,7 +16,7 @@ def test_gemini_oauth_profile_sends_gemini_3_5_flash_verbatim(tmp_path) -> None:
             family_id="gemini",
             variant_id=variant.id,
             auth_mode="oauth",
-            model="gemini-3.5-flash",
+            model="gemini-3.1-flash-lite",
             credential_path=str(tmp_path / "missing-auth-profiles.json"),
         ),
     )
@@ -32,5 +32,5 @@ def test_gemini_oauth_profile_sends_gemini_3_5_flash_verbatim(tmp_path) -> None:
     )
 
     assert profile.provider == "gemini_oauth_code_assist"
-    assert profile.model == "gemini-3.5-flash"
-    assert payload["model"] == "gemini-3.5-flash"
+    assert profile.model == "gemini-3.1-flash-lite"
+    assert payload["model"] == "gemini-3.1-flash-lite"

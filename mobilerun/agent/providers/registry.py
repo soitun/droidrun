@@ -46,7 +46,6 @@ PROVIDER_FAMILIES: tuple[ProviderFamilySpec, ...] = (
                 auth_mode="oauth",
                 default_model="gemini-3.1-pro-preview",
                 models=(
-                    "gemini-3.5-flash",
                     "gemini-3-flash-preview",
                     "gemini-3.1-pro-preview",
                     "gemini-3.1-flash-lite",

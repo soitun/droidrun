@@ -39,6 +39,7 @@ PROVIDER_ALIASES = {
 }
 
 ZAI_GLOBAL_API_BASE = "https://api.z.ai/api/paas/v4"
+GEMINI_OAUTH_UNSUPPORTED_MODELS = {"gemini-3.5-flash"}
 OPENAI_OAUTH_UNSUPPORTED_MODELS = {"gpt-5.3-codex"}
 OPENAI_RESPONSES_MODELS_WITHOUT_SAMPLING_PARAMS = {"gpt-5.5"}
 OPENAI_RESPONSES_UNSUPPORTED_SAMPLING_PARAMS = {"temperature", "top_p"}
@@ -74,6 +75,16 @@ def _validate_openai_oauth_model(model: object) -> None:
         raise ValueError(
             f"Model '{model_id}' is not supported with OpenAI OAuth "
             f"ChatGPT-account credentials. Use {supported}."
+        )
+
+
+def _validate_gemini_oauth_model(model: object) -> None:
+    model_id = str(model or "").strip()
+    if model_id in GEMINI_OAUTH_UNSUPPORTED_MODELS:
+        supported = "gemini-3-flash-preview, gemini-3.1-pro-preview, or gemini-3.1-flash-lite"
+        raise ValueError(
+            f"Model '{model_id}' is not supported with Gemini OAuth Code Assist "
+            f"credentials. Use {supported}."
         )
 
 
@@ -174,6 +185,7 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
             GeminiOAuthCodeAssistLLM,
         )
 
+        _validate_gemini_oauth_model(kwargs.get("model"))
         return GeminiOAuthCodeAssistLLM(
             **{k: v for k, v in kwargs.items() if v is not None}
         )

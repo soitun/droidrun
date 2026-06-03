@@ -83,6 +83,11 @@ def test_openai_oauth_rejects_unsupported_codex_model() -> None:
         load_llm("openai_oauth", model="gpt-5.3-codex")
 
 
+def test_gemini_oauth_rejects_unsupported_flash_3_5_model() -> None:
+    with pytest.raises(ValueError, match="not supported with Gemini OAuth"):
+        load_llm("gemini_oauth_code_assist", model="gemini-3.5-flash")
+
+
 @pytest.mark.parametrize("model", ["claude-opus-4-8", "claude-opus-4-6"])
 def test_anthropic_opus_4_omits_default_temperature(model: str) -> None:
     llm = load_llm(

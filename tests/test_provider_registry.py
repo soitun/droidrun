@@ -5,21 +5,32 @@ from mobilerun.agent.providers.registry import (
 from mobilerun.config_manager.config_manager import LLMProfile, MobileConfig
 
 
-def test_gemini_catalogs_use_current_flash_models() -> None:
-    expected_models = (
+def test_gemini_api_key_catalog_uses_current_flash_models() -> None:
+    variant = resolve_provider_variant("gemini", "api_key")
+    models = list_models_for_variant("gemini", "api_key")
+
+    assert variant.default_model == "gemini-3.1-pro-preview"
+    assert models == (
         "gemini-3.5-flash",
         "gemini-3-flash-preview",
         "gemini-3.1-pro-preview",
         "gemini-3.1-flash-lite",
     )
+    assert "gemini-3.1-flash-lite-preview" not in models
 
-    for auth_mode in ("api_key", "oauth"):
-        variant = resolve_provider_variant("gemini", auth_mode)
-        models = list_models_for_variant("gemini", auth_mode)
 
-        assert variant.default_model == "gemini-3.1-pro-preview"
-        assert models == expected_models
-        assert "gemini-3.1-flash-lite-preview" not in models
+def test_gemini_oauth_catalog_hides_unsupported_flash_3_5_model() -> None:
+    variant = resolve_provider_variant("gemini", "oauth")
+    models = list_models_for_variant("gemini", "oauth")
+
+    assert variant.default_model == "gemini-3.1-pro-preview"
+    assert models == (
+        "gemini-3-flash-preview",
+        "gemini-3.1-pro-preview",
+        "gemini-3.1-flash-lite",
+    )
+    assert "gemini-3.5-flash" not in models
+    assert "gemini-3.1-flash-lite-preview" not in models
 
 
 def test_anthropic_catalogs_include_opus_4_8_without_changing_defaults() -> None:
