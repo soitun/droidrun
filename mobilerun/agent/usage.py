@@ -24,6 +24,11 @@ SUPPORTED_PROVIDERS = [
     "Ollama",
 ]
 
+PROVIDER_ALIASES = {
+    "MobilerunOpenAIResponses": "OpenAIResponses",
+    "openai_responses_llm": "OpenAIResponses",
+}
+
 
 class UsageResult(BaseModel):
     request_tokens: int
@@ -50,7 +55,12 @@ def _usage_field(usage: Any, *names: str) -> int:
     return 0
 
 
+def _normalize_provider_name(provider: str) -> str:
+    return PROVIDER_ALIASES.get(provider, provider)
+
+
 def get_usage_from_response(provider: str, chat_rsp: ChatResponse) -> UsageResult:
+    provider = _normalize_provider_name(provider)
     rsp = chat_rsp.raw
     if not rsp:
         raise ValueError("No raw response in chat response")
@@ -210,7 +220,7 @@ def llm_callback(llm: LLM, *args: List[BaseCallbackHandler]):
 
 
 def create_tracker(llm: LLM) -> TokenCountingHandler:
-    provider = llm.__class__.__name__
+    provider = _normalize_provider_name(llm.__class__.__name__)
     if provider not in SUPPORTED_PROVIDERS:
         raise ValueError(f"Tracking not yet supported for provider: {provider}")
 
@@ -245,7 +255,7 @@ def track_usage(llm: LLM) -> TokenCountingHandler:
         >>> # ... make LLM calls ...
         >>> print(f"Total tokens used: {tracker.usage.total_tokens}")
     """
-    provider = llm.__class__.__name__
+    provider = _normalize_provider_name(llm.__class__.__name__)
     if provider not in SUPPORTED_PROVIDERS:
         raise ValueError(f"Tracking not yet supported for provider: {provider}")
 
