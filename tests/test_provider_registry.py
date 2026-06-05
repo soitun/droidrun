@@ -77,6 +77,6 @@ def test_default_profiles_use_stable_gemini_flash_lite() -> None:
     config = MobileConfig()
 
     assert LLMProfile().model == "gemini-3.1-flash-lite"
-    assert {
-        profile.model for profile in config.llm_profiles.values()
-    } == {"gemini-3.1-flash-lite"}
+    assert {profile.model for profile in config.llm_profiles.values()} == {
+        "gemini-3.1-flash-lite"
+    }

@@ -59,9 +59,7 @@ def normalize_provider_name(provider_name: str) -> str:
 
 
 def _openai_responses_model_omits_sampling_params(model: object) -> bool:
-    return (
-        str(model or "").strip() in OPENAI_RESPONSES_MODELS_WITHOUT_SAMPLING_PARAMS
-    )
+    return str(model or "").strip() in OPENAI_RESPONSES_MODELS_WITHOUT_SAMPLING_PARAMS
 
 
 def _anthropic_model_omits_temperature(model: object) -> bool:
@@ -81,7 +79,9 @@ def _validate_openai_oauth_model(model: object) -> None:
 def _validate_gemini_oauth_model(model: object) -> None:
     model_id = str(model or "").strip()
     if model_id in GEMINI_OAUTH_UNSUPPORTED_MODELS:
-        supported = "gemini-3-flash-preview, gemini-3.1-pro-preview, or gemini-3.1-flash-lite"
+        supported = (
+            "gemini-3-flash-preview, gemini-3.1-pro-preview, or gemini-3.1-flash-lite"
+        )
         raise ValueError(
             f"Model '{model_id}' is not supported with Gemini OAuth Code Assist "
             f"credentials. Use {supported}."
@@ -117,12 +117,9 @@ def _load_anthropic(**kwargs: Any) -> LLM:
         @property
         def _model_kwargs(self) -> dict[str, Any]:
             model_kwargs = super()._model_kwargs
-            if (
-                _anthropic_model_omits_temperature(
-                    model_kwargs.get("model", self.model)
-                )
-                and "temperature" not in (self.additional_kwargs or {})
-            ):
+            if _anthropic_model_omits_temperature(
+                model_kwargs.get("model", self.model)
+            ) and "temperature" not in (self.additional_kwargs or {}):
                 model_kwargs.pop("temperature", None)
             return model_kwargs
 
@@ -131,9 +128,7 @@ def _load_anthropic(**kwargs: Any) -> LLM:
             try:
                 return super().metadata
             except ValueError:
-                context_window = ANTHROPIC_CURRENT_MODEL_CONTEXT_WINDOWS.get(
-                    self.model
-                )
+                context_window = ANTHROPIC_CURRENT_MODEL_CONTEXT_WINDOWS.get(self.model)
                 if context_window is None:
                     raise
                 return LLMMetadata(
