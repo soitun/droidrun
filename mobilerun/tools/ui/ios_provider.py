@@ -5,7 +5,7 @@ into structured elements compatible with UIState.
 
 Known limitations:
 - Normalized coordinates untested on iOS
-- No filter/formatter pipeline (iOS a11y tree is raw text, not structured JSON)
+- No filter/formatter pipeline (iOS UIState still formats from raw a11y text)
 """
 
 from __future__ import annotations
@@ -70,7 +70,10 @@ class IOSStateProvider(StateProvider):
                 use_normalized=self.use_normalized,
             )
 
-        a11y_text = raw.get("a11y_tree", "")
+        a11y_tree = raw.get("a11y_tree", "")
+        a11y_text = (
+            a11y_tree if isinstance(a11y_tree, str) else raw.get("raw_a11y_tree", "")
+        )
         phone_state = dict(raw.get("phone_state", {}) or {})
         device_context = raw.get("device_context", {})
 
