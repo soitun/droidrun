@@ -17,6 +17,7 @@ iOS device driver communicating via HTTP REST to the iOS Portal app.
 **Unsupported methods**:
 - `drag()` — not in `supported` set
 - `install_app()` — not in `supported` set
+- `get_apps()` / `list_packages()` — iOS Portal does not enumerate installed apps
 - `press_button()` — `home` only
 
 <a id="mobilerun.tools.driver.ios.IOSDriver.__init__"></a>
@@ -58,7 +59,7 @@ driver = IOSDriver(
 IOSDriver.supported = {
     "tap", "swipe", "input_text", "press_button",
     "start_app", "screenshot", "get_ui_tree",
-    "list_packages", "get_apps", "get_date",
+    "get_date",
 }
 
 IOSDriver.supported_buttons = {"home"}
@@ -250,47 +251,15 @@ result = await driver.start_app("com.apple.MobileSMS")
 result = await driver.start_app("com.apple.mobilesafari")
 ```
 
-<a id="mobilerun.tools.driver.ios.IOSDriver.list_packages"></a>
+### App Enumeration
 
-#### IOSDriver.list\_packages
+iOS Portal does not expose installed-app enumeration, so `get_apps()` and
+`list_packages()` are not in `IOSDriver.supported` and should not be used for
+install checks. Keep known bundle identifiers in your test configuration, launch
+them with `start_app(bundle_id)`, then verify the foreground state or visible UI.
 
-```python
-async def list_packages(include_system: bool = False) -> List[str]
-```
-
-List known bundle identifiers.
-
-**Arguments**:
-
-- `include_system` _bool_ - Include system apps (default: False)
-
-**Returns**:
-
-- `List[str]` - List of bundle identifiers
-
-**Notes:**
-- Returns union of `bundle_identifiers` + system apps (if included)
-- Does not query device for installed apps
-
-<a id="mobilerun.tools.driver.ios.IOSDriver.get_apps"></a>
-
-#### IOSDriver.get\_apps
-
-```python
-async def get_apps(include_system: bool = True) -> List[Dict[str, str]]
-```
-
-Return known apps as list of dicts with `package` (bundle identifier) and `label` (human-readable name).
-
-System apps are mapped to friendly names (e.g., `com.apple.mobilesafari` → `Safari`). Third-party bundle identifiers are humanized from the last segment.
-
-**Arguments**:
-
-- `include_system` _bool_ - Include system apps (default: True)
-
-**Returns**:
-
-- `List[Dict[str, str]]` - List of dicts with 'package' and 'label' keys
+The legacy helper methods may return configured bundle identifiers and built-in
+system bundle labels when called directly, but that output is not a device query.
 
 ---
 

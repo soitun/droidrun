@@ -275,7 +275,7 @@ agent = MobileAgent(
 | screenshot | PNG via Portal | PNG via HTTP |
 | get_ui_tree | Accessibility tree + phone state | Accessibility tree + phone state |
 | get_date | Via ADB shell | Not available (returns empty) |
-| get_apps | Full packages with labels | Bundle identifiers only |
+| get_apps | Full packages with labels | Not supported for device enumeration; use known bundle IDs with `start_app()` |
 
 ---
 
