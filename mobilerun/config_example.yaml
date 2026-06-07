@@ -123,9 +123,10 @@ device:
   device_id: auto
   # Use TCP communication instead of usb
   use_tcp: false
-  # Platform: android or ios but currently only android is supported
+  # Platform: android or ios
   platform: android
-  # Auto-install/update Portal APK and enable accessibility before each run
+  # Android only: auto-install/update Portal APK and enable accessibility before each run.
+  # iOS requires a running iOS Portal URL or discovery through iproxy.
   auto_setup: true
 
 # === Telemetry Settings ===
