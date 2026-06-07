@@ -1902,7 +1902,7 @@ requires-dist = [
     { name = "llama-index-workflows", specifier = ">=2.16.0,<3.0.0" },
     { name = "mcp", specifier = ">=1.26.0" },
     { name = "mobilerun", extras = ["langfuse"], marker = "extra == 'dev'" },
-    { name = "mobilerun-core-cli", specifier = ">=0.1.0" },
+    { name = "mobilerun-core-cli", specifier = ">=0.2.0" },
     { name = "mobilerun-sdk", specifier = ">=3.2.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.0.0" },
     { name = "openinference-instrumentation-llama-index", marker = "extra == 'langfuse'", specifier = ">=3.0.0" },
@@ -1928,7 +1928,7 @@ dev = [
 
 [[package]]
 name = "mobilerun-core-cli"
-version = "0.1.0"
+version = "0.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "async-adbutils" },
@@ -1936,9 +1936,9 @@ dependencies = [
     { name = "requests" },
     { name = "rich" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f3/c1/fcd8dae643a3e3aebe97b47a5e3f90615d84ec5a7ba349c89dcd3cdc8e53/mobilerun_core_cli-0.1.0.tar.gz", hash = "sha256:fb137e2b084d51c8d19ae8d64d6f4ed7efe41072f10cc3b724d1025fc0b337a2", size = 19707, upload-time = "2026-06-02T13:34:07.477Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d6/78/18cd91fccb2fb348a5150707245d303b6052890a9aca2c35bd391d776208/mobilerun_core_cli-0.2.0.tar.gz", hash = "sha256:dc13016c7983476cca564dd013fc281047474dc502de54f8c0bd5647b48211e2", size = 43779, upload-time = "2026-06-07T23:46:53.93Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/8b/b0/81683eec1a9d27a06cb3d0674844f7b898ee2220444305b80b741f4a7ec8/mobilerun_core_cli-0.1.0-py3-none-any.whl", hash = "sha256:44b9735e486976db48bad9143875cbdcc2744cdba758d7539224cf15f295eaed", size = 22391, upload-time = "2026-06-02T13:34:06.195Z" },
+    { url = "https://files.pythonhosted.org/packages/40/54/2fe03bf7a98fb50b70580acef5c5bf3ea1c51ccf6ef867b5df81201934ea/mobilerun_core_cli-0.2.0-py3-none-any.whl", hash = "sha256:d94c5478d299fc10ec3f8f850dc469d65e2533db4805e0d932b15925c8e5e351", size = 30765, upload-time = "2026-06-07T23:46:52.562Z" },
 ]
 
 [[package]]
