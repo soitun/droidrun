@@ -28,6 +28,7 @@ PROVIDER_ALIASES = {
     "MobilerunAnthropic": "Anthropic",
     "MobilerunOpenAIResponses": "OpenAIResponses",
     "openai_responses_llm": "OpenAIResponses",
+    "Ollama_llm": "Ollama",
 }
 
 
