@@ -151,6 +151,21 @@ class StateProvider:
         raise NotImplementedError
 
 
+def should_resize_model_screenshot(state_provider: Any) -> bool:
+    """True when screenshots attached to LLM messages must be resized (with
+    the labeled grid) into the coordinate space the provider declared.
+
+    Falls back to the legacy ``requires_coordinate_tools`` contract: injected
+    screenshot-only providers that predate ``resize_model_screenshot`` are
+    still treated as screenshot-coordinate mode by the tool registry, prompts,
+    and validation, so they must keep receiving resized screenshots too.
+    """
+    return bool(
+        getattr(state_provider, "resize_model_screenshot", False)
+        or getattr(state_provider, "requires_coordinate_tools", False)
+    )
+
+
 class AndroidStateProvider(StateProvider):
     """Fetches state from an Android device via ``driver.get_ui_tree()``.
 

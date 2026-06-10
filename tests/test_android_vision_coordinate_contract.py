@@ -23,7 +23,11 @@ from mobilerun.tools.helpers.images import (
     image_dimensions,
     resize_image_to_max_side_with_grid,
 )
-from mobilerun.tools.ui.provider import AndroidStateProvider, StateProvider
+from mobilerun.tools.ui.provider import (
+    AndroidStateProvider,
+    StateProvider,
+    should_resize_model_screenshot,
+)
 from mobilerun.tools.ui.screenshot_provider import ScreenshotOnlyStateProvider
 
 NATIVE_W, NATIVE_H = 1080, 2400
@@ -132,8 +136,8 @@ def test_resize_flags_pair_providers_with_agent_gating():
     assert _provider(vision_enabled=True).resize_model_screenshot is True
     assert _provider().resize_model_screenshot is False
 
-    # …and every agent that attaches screenshots gates its resize on it.
-    # (This pairing is what makes the provider's coordinate_scale valid.)
+    # …and every agent that attaches screenshots gates its resize on the
+    # shared helper. (This pairing is what makes coordinate_scale valid.)
     import mobilerun.agent.executor.executor_agent as executor_agent
     import mobilerun.agent.fast_agent.fast_agent as fast_agent
     import mobilerun.agent.manager.manager_agent as manager_agent
@@ -141,8 +145,36 @@ def test_resize_flags_pair_providers_with_agent_gating():
 
     for module in (fast_agent, executor_agent, manager_agent, stateless_manager_agent):
         source = inspect.getsource(module)
-        assert "resize_model_screenshot" in source, module.__name__
+        assert "should_resize_model_screenshot" in source, module.__name__
         assert "resize_image_to_max_side_with_grid" in source, module.__name__
+
+
+def test_legacy_injected_screenshot_providers_keep_getting_resized():
+    """Injected providers that only implement the pre-existing
+    ``requires_coordinate_tools`` contract must still get resized screenshots:
+    the tool registry, prompts, and validation all still treat them as
+    screenshot-coordinate mode."""
+
+    class LegacyScreenshotProvider(StateProvider):
+        requires_coordinate_tools = True
+
+    assert should_resize_model_screenshot(LegacyScreenshotProvider(SimpleNamespace()))
+
+    class DuckTypedLegacyProvider:
+        requires_coordinate_tools = True
+
+    assert should_resize_model_screenshot(DuckTypedLegacyProvider())
+
+    # Non-coordinate providers are unaffected
+    assert not should_resize_model_screenshot(StateProvider(SimpleNamespace()))
+    assert not should_resize_model_screenshot(_provider())
+    assert not should_resize_model_screenshot(SimpleNamespace())
+
+    # And the new contract still activates it
+    assert should_resize_model_screenshot(_provider(vision_enabled=True))
+    assert should_resize_model_screenshot(
+        ScreenshotOnlyStateProvider(SimpleNamespace())
+    )
 
 
 def test_provider_scale_matches_what_agents_actually_send():
