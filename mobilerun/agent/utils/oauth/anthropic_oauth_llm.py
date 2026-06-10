@@ -20,8 +20,10 @@ from llama_index.core.base.llms.types import (
     ChatResponseGen,
     CompletionResponse,
     CompletionResponseGen,
+    ImageBlock,
     LLMMetadata,
     MessageRole,
+    TextBlock,
 )
 from llama_index.core.bridge.pydantic import Field, PrivateAttr
 from llama_index.core.callbacks import CallbackManager
@@ -664,6 +666,37 @@ class AnthropicOAuthLLM(CustomLLM):
                 texts.append(str(block["text"]))
         return "\n".join(texts)
 
+    @staticmethod
+    def _image_media_type(raw: bytes) -> str:
+        if raw.startswith(b"\xff\xd8"):
+            return "image/jpeg"
+        if raw.startswith(b"RIFF") and raw[8:12] == b"WEBP":
+            return "image/webp"
+        if raw.startswith(b"GIF8"):
+            return "image/gif"
+        return "image/png"
+
+    @classmethod
+    def _content_blocks(cls, message: ChatMessage) -> list[dict[str, Any]]:
+        blocks: list[dict[str, Any]] = []
+        for block in message.blocks or []:
+            if isinstance(block, TextBlock):
+                if block.text:
+                    blocks.append({"type": "text", "text": block.text})
+            elif isinstance(block, ImageBlock):
+                raw = block.resolve_image(as_base64=False).read()
+                blocks.append(
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": cls._image_media_type(raw),
+                            "data": base64.b64encode(raw).decode("ascii"),
+                        },
+                    }
+                )
+        return blocks
+
     def _to_provider_messages(
         self, messages: Sequence[ChatMessage]
     ) -> tuple[list[dict[str, Any]], list[str]]:
@@ -672,14 +705,21 @@ class AnthropicOAuthLLM(CustomLLM):
 
         for message in messages:
             role = message.role.value
-            content = message.content if isinstance(message.content, str) else ""
+            blocks = self._content_blocks(message)
             if role == MessageRole.SYSTEM.value:
-                if content:
-                    system_lines.append(content)
+                system_lines.extend(
+                    block["text"] for block in blocks if block["type"] == "text"
+                )
                 continue
             if role not in {MessageRole.USER.value, MessageRole.ASSISTANT.value}:
                 role = MessageRole.USER.value
-            provider_messages.append({"role": role, "content": content})
+            if any(block["type"] == "image" for block in blocks):
+                provider_messages.append({"role": role, "content": blocks})
+            else:
+                # Text-only messages keep the plain-string form the API also
+                # accepts, preserving existing request shapes.
+                content = message.content if isinstance(message.content, str) else ""
+                provider_messages.append({"role": role, "content": content})
 
         if not provider_messages:
             provider_messages.append({"role": MessageRole.USER.value, "content": ""})
