@@ -230,7 +230,7 @@ class StatelessManagerAgent(Workflow):
         messages = [{"role": "user", "content": [{"text": prompt_text}]}]
 
         if self.vision and screenshot:
-            if getattr(self.state_provider, "requires_coordinate_tools", False):
+            if getattr(self.state_provider, "resize_model_screenshot", False):
                 screenshot = resize_image_to_max_side_with_grid(screenshot)
             messages[0]["content"].append({"image": screenshot})
 

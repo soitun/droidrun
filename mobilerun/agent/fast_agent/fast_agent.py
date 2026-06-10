@@ -326,7 +326,7 @@ class FastAgent(Workflow):
 
             # Screenshot → last user message
             if self.vision and screenshot:
-                if getattr(self.state_provider, "requires_coordinate_tools", False):
+                if getattr(self.state_provider, "resize_model_screenshot", False):
                     screenshot = resize_image_to_max_side_with_grid(screenshot)
                 messages_to_send[last_user_idx].blocks.append(
                     ImageBlock(image=screenshot)

@@ -17,6 +17,7 @@ class ScreenshotOnlyStateProvider(StateProvider):
 
     supported = {"convert_point", "direct_text_input"}
     requires_coordinate_tools = True
+    resize_model_screenshot = True
 
     def __init__(self, driver: "DeviceDriver") -> None:
         super().__init__(driver)

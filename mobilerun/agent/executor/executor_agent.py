@@ -139,7 +139,7 @@ class ExecutorAgent(Workflow):
             if screenshot is not None:
                 if getattr(
                     self.action_ctx.state_provider,
-                    "requires_coordinate_tools",
+                    "resize_model_screenshot",
                     False,
                 ):
                     screenshot = resize_image_to_max_side_with_grid(screenshot)

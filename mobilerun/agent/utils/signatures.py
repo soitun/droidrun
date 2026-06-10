@@ -84,21 +84,25 @@ async def build_tool_registry(
         )
     else:
         click_at_description = (
-            "Click at screen position (x, y). "
+            "Click at position (x, y), in the same coordinate space as the "
+            "element bounds in the device state. "
             'Usage: {"action": "click_at", "x": 500, "y": 300}'
         )
         click_area_description = (
-            "Click the center of area (x1, y1, x2, y2). Use click_area only "
-            "for large, unambiguous targets. "
+            "Click the center of area (x1, y1, x2, y2), in the same coordinate "
+            "space as the element bounds in the device state. Use click_area "
+            "only for large, unambiguous targets. "
             'Usage: {"action": "click_area", "x1": 100, "y1": 200, "x2": 300, "y2": 400}'
         )
         long_press_at_description = (
-            "Long press at screen position (x, y). "
+            "Long press at position (x, y), in the same coordinate space as "
+            "the element bounds in the device state. "
             'Usage: {"action": "long_press_at", "x": 500, "y": 300}'
         )
         swipe_description = (
             "Swipe from the position with coordinate to the position with "
-            "coordinate2. Duration is in seconds (default: 1.0). "
+            "coordinate2, in the same coordinate space as the element bounds "
+            "in the device state. Duration is in seconds (default: 1.0). "
             'Usage Example: {"action": "swipe", "coordinate": [x1, y1], "coordinate2": [x2, y2], "duration": 1.5}'
         )
 

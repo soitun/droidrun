@@ -290,7 +290,7 @@ class ManagerAgent(Workflow):
 
             # Add screenshot if vision enabled
             if screenshot and self.vision:
-                if getattr(self.state_provider, "requires_coordinate_tools", False):
+                if getattr(self.state_provider, "resize_model_screenshot", False):
                     screenshot = resize_image_to_max_side_with_grid(screenshot)
                 messages[last_user_idx].blocks.append(ImageBlock(image=screenshot))
 

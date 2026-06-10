@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, List, Optional
 
 from mobilerun_core_cli.driver.base import DeviceDisconnectedError
 
+from mobilerun.tools.helpers.images import fit_dimensions_to_max_side
 from mobilerun.tools.ui.state import UIState
 from mobilerun.tools.ui.stealth_state import StealthUIState
 
@@ -135,6 +136,13 @@ class StateProvider:
     # picking from the screenshot would tap the wrong location. Screenshot-only
     # providers handle scaling explicitly via ``coordinate_scale_x/y``.
     screenshot_matches_input_coords: bool = False
+    # True when the screenshot attached to LLM messages must first be resized
+    # (with a labeled coordinate grid) into the deterministic coordinate space
+    # the provider declared in ``formatted_text`` and compensates for via
+    # ``coordinate_scale_x/y``. Vision-model output spaces are otherwise
+    # model-dependent: a raw native screenshot is downscaled inside the LLM
+    # provider's API and different models answer in different spaces.
+    resize_model_screenshot: bool = False
 
     def __init__(self, driver: "DeviceDriver") -> None:
         self.driver = driver
@@ -161,18 +169,23 @@ class AndroidStateProvider(StateProvider):
         use_normalized: bool = False,
         stealth: bool = False,
         ui_cls: "type[UIState] | None" = None,
+        vision_enabled: bool = False,
     ) -> None:
         super().__init__(driver)
         self.tree_filter = tree_filter
         self.tree_formatter = tree_formatter
         self.use_normalized = use_normalized
         self._ui_cls = ui_cls or (StealthUIState if stealth else UIState)
+        self.vision_enabled = vision_enabled
         # Android screenshots and input taps share device-pixel coordinates,
         # but only when not in normalized mode. ``use_normalized=True`` makes
         # ``UIState.convert_point`` treat inputs as [0-1000] normalized
         # coordinates, which is incompatible with picking coordinates off the
         # screenshot — keep click_at masked in that case.
         self.screenshot_matches_input_coords = not use_normalized
+        # Normalized [0-1000] coordinates are scale-invariant, so the
+        # deterministic-space contract is only needed for pixel coordinates.
+        self.resize_model_screenshot = vision_enabled and not use_normalized
 
     async def _recover_portal(self) -> None:
         """Restart Portal's accessibility service and TCP socket server."""
@@ -235,13 +248,43 @@ class AndroidStateProvider(StateProvider):
 
         filtered = self.tree_filter.filter(combined_data["a11y_tree"], device_context)
 
+        coordinate_scale_x = 1.0
+        coordinate_scale_y = 1.0
+        display_width = None
+        display_height = None
+        if self.resize_model_screenshot and screen_width and screen_height:
+            display_width, display_height = fit_dimensions_to_max_side(
+                screen_width, screen_height
+            )
+            coordinate_scale_x = screen_width / display_width
+            coordinate_scale_y = screen_height / display_height
+
         self.tree_formatter.screen_width = screen_width
         self.tree_formatter.screen_height = screen_height
         self.tree_formatter.use_normalized = self.use_normalized
+        # Model-facing bounds text is emitted in the display space the model
+        # actually sees; tap bounds in ``elements`` stay native device pixels.
+        self.tree_formatter.display_scale_x = coordinate_scale_x
+        self.tree_formatter.display_scale_y = coordinate_scale_y
 
         formatted_text, focused_text, elements, phone_state = (
             self.tree_formatter.format(filtered, combined_data["phone_state"])
         )
+
+        if display_width and display_height:
+            scaled_note = (
+                f" — the {screen_width}x{screen_height} device screen scaled down"
+                if (display_width, display_height) != (screen_width, screen_height)
+                else ""
+            )
+            formatted_text += (
+                f"\n\nAll coordinates in this device state (element bounds above, "
+                f"and any x/y you provide to coordinate actions) are in a "
+                f"{display_width}x{display_height} coordinate space{scaled_note}. "
+                f"When a screenshot is provided it matches this "
+                f"{display_width}x{display_height} space and carries a labeled "
+                f"coordinate grid for reference."
+            )
 
         return self._ui_cls(
             elements=elements,
@@ -251,4 +294,6 @@ class AndroidStateProvider(StateProvider):
             screen_width=screen_width,
             screen_height=screen_height,
             use_normalized=self.use_normalized,
+            coordinate_scale_x=coordinate_scale_x,
+            coordinate_scale_y=coordinate_scale_y,
         )
