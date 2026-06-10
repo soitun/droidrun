@@ -464,7 +464,7 @@ class ScreenshotOnlyStateProviderTest(unittest.TestCase):
             self.assertNotIn("Do not tap toggles", description)
 
         self.assertIn(
-            "Click at screen position", registry.tools["click_at"].description
+            "Click at position", registry.tools["click_at"].description
         )
         self.assertIn("Duration is in seconds", registry.tools["swipe"].description)
 

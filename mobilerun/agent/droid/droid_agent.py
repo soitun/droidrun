@@ -465,8 +465,12 @@ class MobileAgent(Workflow):
 
         # ── 1. Create driver ──────────────────────────────────────────
         if self.config.agent.reasoning:
+            # The executor emits the coordinate actions, so its vision flag
+            # matters as much as the manager's for the coordinate contract.
             vision_enabled = (
-                self.config.agent.vision_only or self.config.agent.manager.vision
+                self.config.agent.vision_only
+                or self.config.agent.manager.vision
+                or self.config.agent.executor.vision
             )
         else:
             vision_enabled = (
@@ -554,6 +558,7 @@ class MobileAgent(Workflow):
                 tree_formatter=tree_formatter,
                 use_normalized=self.config.agent.use_normalized_coordinates,
                 stealth=stealth_enabled,
+                vision_enabled=vision_enabled,
             )
 
         # ── 3. Build tool registry ────────────────────────────────────

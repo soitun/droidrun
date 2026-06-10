@@ -49,6 +49,7 @@ from mobilerun.app_cards.providers import (
 )
 from mobilerun.config_manager.prompt_loader import PromptLoader
 from mobilerun.tools.helpers.images import resize_image_to_max_side_with_grid
+from mobilerun.tools.ui.provider import should_resize_model_screenshot
 
 if TYPE_CHECKING:
     from mobilerun.agent.action_context import ActionContext
@@ -290,7 +291,7 @@ class ManagerAgent(Workflow):
 
             # Add screenshot if vision enabled
             if screenshot and self.vision:
-                if getattr(self.state_provider, "requires_coordinate_tools", False):
+                if should_resize_model_screenshot(self.state_provider):
                     screenshot = resize_image_to_max_side_with_grid(screenshot)
                 messages[last_user_idx].blocks.append(ImageBlock(image=screenshot))
 

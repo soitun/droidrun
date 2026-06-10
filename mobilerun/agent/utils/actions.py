@@ -66,10 +66,61 @@ def _validate_screenshot_only_point(
         raise ValueError(_screenshot_only_coordinate_error(ctx))
 
 
+def _model_space_dimensions(ctx: "ActionContext") -> tuple[float, float] | None:
+    """Return the (width, height) coordinate space the model was shown.
+
+    Only applies when the provider declared a scaled coordinate contract
+    (``resize_model_screenshot``) outside screenshot-only mode: the UIState
+    keeps native screen dimensions while the model sees and answers in the
+    ``native / coordinate_scale`` display space.
+    """
+    if _uses_screenshot_only_coordinates(ctx):
+        return None
+    if not getattr(ctx.state_provider, "resize_model_screenshot", False):
+        return None
+    if getattr(ctx.ui, "use_normalized", False):
+        return None
+    try:
+        scale_x = float(ctx.ui.coordinate_scale_x)
+        scale_y = float(ctx.ui.coordinate_scale_y)
+        width = float(ctx.ui.screen_width) / scale_x
+        height = float(ctx.ui.screen_height) / scale_y
+    except (TypeError, ValueError, ZeroDivisionError):
+        return None
+    if width <= 0 or height <= 0:
+        return None
+    return width, height
+
+
+def _validate_model_space_point(
+    x: int | float, y: int | float, *, ctx: "ActionContext"
+) -> None:
+    dims = _model_space_dimensions(ctx)
+    if dims is None:
+        return
+    width, height = dims
+    try:
+        px = float(x)
+        py = float(y)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"Coordinates must be numbers inside the {round(width)}x{round(height)} "
+            "coordinate space of the provided device state."
+        ) from exc
+    if px < 0 or px >= width or py < 0 or py >= height:
+        raise ValueError(
+            f"Coordinates ({x}, {y}) are outside the {round(width)}x{round(height)} "
+            "coordinate space of the provided device state. Use the element "
+            "bounds and screenshot shown to you and retry with coordinates "
+            "inside that space."
+        )
+
+
 def _convert_action_point(
     x: int | float, y: int | float, *, ctx: "ActionContext"
 ) -> tuple[int, int]:
     _validate_screenshot_only_point(x, y, ctx=ctx)
+    _validate_model_space_point(x, y, ctx=ctx)
     abs_x, abs_y = ctx.ui.convert_point(x, y)
     return int(round(abs_x)), int(round(abs_y))
 

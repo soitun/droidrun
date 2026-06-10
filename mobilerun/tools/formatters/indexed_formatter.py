@@ -13,6 +13,11 @@ class IndexedFormatter(TreeFormatter):
         self.screen_width: Optional[int] = None
         self.screen_height: Optional[int] = None
         self.use_normalized: bool = False
+        # Native-pixels-per-displayed-pixel of the screenshot shown to the
+        # model. When != 1.0, the bounds in the model-facing text are emitted
+        # in display space while ``bounds`` (used for real taps) stay native.
+        self.display_scale_x: float = 1.0
+        self.display_scale_y: float = 1.0
 
     def format(
         self, filtered_tree: Optional[Dict[str, Any]], phone_state: Dict[str, Any]
@@ -113,7 +118,9 @@ class IndexedFormatter(TreeFormatter):
             class_name = element.get("className", "")
             resource_id = element.get("resourceId", "")
             text = element.get("text", "")
-            bounds = element.get("bounds", "")
+            # Model-facing text shows display-space bounds when the screenshot
+            # is resized for the model; "bounds" (native pixels) drive real taps.
+            bounds = element.get("displayBounds") or element.get("bounds", "")
             checkedState = element.get("checkedState", "")
             children = element.get("children", [])
 
@@ -170,9 +177,23 @@ class IndexedFormatter(TreeFormatter):
         bounds = node.get("boundsInScreen", {})
         bounds_str = f"{bounds.get('left', 0)},{bounds.get('top', 0)},{bounds.get('right', 0)},{bounds.get('bottom', 0)}"
 
+        display_bounds_str = None
         if self.use_normalized and self.screen_width and self.screen_height:
             bounds_str = bounds_to_normalized(
                 bounds_str, self.screen_width, self.screen_height
+            )
+        elif self.display_scale_x != 1.0 or self.display_scale_y != 1.0:
+            display_bounds_str = ",".join(
+                str(round(value / scale))
+                for value, scale in zip(
+                    (int(part) for part in bounds_str.split(",")),
+                    (
+                        self.display_scale_x,
+                        self.display_scale_y,
+                        self.display_scale_x,
+                        self.display_scale_y,
+                    ),
+                )
             )
 
         text = (
@@ -191,7 +212,7 @@ class IndexedFormatter(TreeFormatter):
                 "isChecked=True" if node.get("isChecked") else "isChecked=False"
             )
 
-        return {
+        formatted = {
             "index": index,
             "resourceId": node.get("resourceId", ""),
             "className": short_class,
@@ -200,3 +221,6 @@ class IndexedFormatter(TreeFormatter):
             "bounds": bounds_str,
             "children": [],
         }
+        if display_bounds_str is not None:
+            formatted["displayBounds"] = display_bounds_str
+        return formatted
