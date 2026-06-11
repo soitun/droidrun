@@ -74,6 +74,11 @@ class IOSStateProvider(StateProvider):
         # would desynchronize the model's space from convert_point.
         self._vision_contract_intent = vision_enabled and not use_normalized
         self.resize_model_screenshot = self._vision_contract_intent
+        # Without the contract, iOS screenshots (physical pixels) do not map
+        # to tap input (points), so coordinate tools stay masked. With the
+        # contract active, convert_point maps the model's display-space
+        # coordinates to points, making click_at safe to auto-enable.
+        self.screenshot_matches_input_coords = self._vision_contract_intent
 
     async def get_state(self) -> UIState:
         try:

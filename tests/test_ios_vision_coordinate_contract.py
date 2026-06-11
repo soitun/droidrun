@@ -204,3 +204,39 @@ def test_convert_action_point_validates_ios_model_space():
         assert "943x2048" in str(e)
     else:
         raise AssertionError("expected ValueError for image-space point")
+
+
+def test_click_at_auto_unmasks_with_vision_contract():
+    from mobilerun.agent.droid.droid_agent import _effective_disabled_tools
+    from mobilerun.config_manager.config_manager import DEFAULT_DISABLED_TOOLS
+
+    driver = FakeIOSDriver(screenshot_bytes=_png(PIXELS_W, PIXELS_H))
+
+    # vision + contract -> click_at auto-enabled
+    provider = IOSStateProvider(driver, vision_enabled=True)
+    effective = _effective_disabled_tools(
+        list(DEFAULT_DISABLED_TOOLS), provider, vision_enabled=True, explicit=False
+    )
+    assert "click_at" not in effective
+    assert "click_area" in effective  # only click_at auto-unmasks
+
+    # no vision -> stays masked
+    provider = IOSStateProvider(driver)
+    effective = _effective_disabled_tools(
+        list(DEFAULT_DISABLED_TOOLS), provider, vision_enabled=False, explicit=False
+    )
+    assert "click_at" in effective
+
+    # normalized mode -> stays masked even with vision
+    provider = IOSStateProvider(driver, use_normalized=True, vision_enabled=True)
+    effective = _effective_disabled_tools(
+        list(DEFAULT_DISABLED_TOOLS), provider, vision_enabled=True, explicit=False
+    )
+    assert "click_at" in effective
+
+    # explicit user list is honored verbatim
+    provider = IOSStateProvider(driver, vision_enabled=True)
+    effective = _effective_disabled_tools(
+        ["click_at"], provider, vision_enabled=True, explicit=True
+    )
+    assert "click_at" in effective
