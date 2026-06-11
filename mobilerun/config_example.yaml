@@ -76,6 +76,16 @@ llm_profiles:
     # api_key_source: auto  # auto = saved env file first, then shell env; env = shell only; file = saved env file
     # kwargs: # optional kwargs, add api_key in kwargs if not already in .env
     #   max_tokens: 8192
+    #
+    # Ollama example — max_tokens is translated to Ollama's num_predict, and
+    # context_window controls num_ctx (defaults to 32768; -1 = model maximum,
+    # which preallocates the full KV cache and can spill to CPU):
+    # provider: Ollama
+    # model: qwen3:8b
+    # base_url: http://localhost:11434
+    # kwargs:
+    #   max_tokens: 2048
+    #   context_window: 32768
       
   # Executor: Selects and executes atomic actions
   executor:

@@ -259,6 +259,18 @@ def _set_profile_max_tokens(profile: Any, value: int) -> None:
     profile.kwargs["max_tokens"] = value
 
 
+def _set_profile_context_window(profile: Any, value: int) -> None:
+    profile.kwargs = dict(profile.kwargs)
+    profile.kwargs["context_window"] = value
+
+
+def _any_ollama_profile(config) -> bool:
+    return any(
+        getattr(profile, "provider", "") == "Ollama"
+        for profile in config.llm_profiles.values()
+    )
+
+
 def _toggle_label(enabled: bool) -> str:
     """Return a toggle indicator: ON/OFF."""
     return "[ON]" if enabled else "[OFF]"
@@ -289,31 +301,40 @@ def _configure_advanced_settings(
         vision_on = _is_vision_enabled(config)
         reasoning_on = config.agent.reasoning
 
+        choices = [
+            SelectChoice(
+                value="vision",
+                label=f"Vision {_toggle_label(vision_on)}",
+            ),
+            SelectChoice(
+                value="reasoning",
+                label=f"Reasoning {_toggle_label(reasoning_on)}",
+            ),
+            SelectChoice(
+                value="max_steps",
+                label="Maximum steps",
+            ),
+            SelectChoice(
+                value="temperature",
+                label="Temperature",
+            ),
+            SelectChoice(
+                value="max_tokens",
+                label="Max tokens",
+            ),
+        ]
+        if _any_ollama_profile(config):
+            choices.append(
+                SelectChoice(
+                    value="context_window",
+                    label="Context window (Ollama)",
+                )
+            )
+        choices.append(SelectChoice(value="done", label="Done"))
+
         selected = _select_with_back(
             "Advanced settings",
-            [
-                SelectChoice(
-                    value="vision",
-                    label=f"Vision {_toggle_label(vision_on)}",
-                ),
-                SelectChoice(
-                    value="reasoning",
-                    label=f"Reasoning {_toggle_label(reasoning_on)}",
-                ),
-                SelectChoice(
-                    value="max_steps",
-                    label="Maximum steps",
-                ),
-                SelectChoice(
-                    value="temperature",
-                    label="Temperature",
-                ),
-                SelectChoice(
-                    value="max_tokens",
-                    label="Max tokens",
-                ),
-                SelectChoice(value="done", label="Done"),
-            ],
+            choices,
             default=default_selection,
         )
 
@@ -346,6 +367,20 @@ def _configure_advanced_settings(
             for role in _ALL_CONFIG_ROLES:
                 if role in config.llm_profiles:
                     _set_profile_max_tokens(config.llm_profiles[role], value)
+        elif selected == "context_window":
+            current_value = config.llm_profiles[_ALL_CONFIG_ROLES[0]].kwargs.get(
+                "context_window", 32768
+            )
+            try:
+                current_default = int(current_value)
+            except (TypeError, ValueError):
+                current_default = 32768
+            value = _prompt_int(
+                console, "Context window (-1 = model max)", default=current_default
+            )
+            for role in _ALL_CONFIG_ROLES:
+                if role in config.llm_profiles:
+                    _set_profile_context_window(config.llm_profiles[role], value)
 
         default_selection = selected
 
