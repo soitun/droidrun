@@ -88,6 +88,78 @@ def _validate_gemini_oauth_model(model: object) -> None:
         )
 
 
+# Default Ollama context size. llama-index's own default (-1) resolves to the
+# model's maximum context, which allocates the full KV cache up front (e.g. a
+# 256K-context model -> ~19 GB, spilling to CPU) — and because mobilerun sends
+# num_ctx per request, it overrides every Ollama-side setting
+# (OLLAMA_CONTEXT_LENGTH, Modelfile, /set parameter), so users cannot fix it
+# server-side. ``context_window: -1`` in profile kwargs restores model-max.
+_OLLAMA_DEFAULT_CONTEXT_WINDOW = 32768
+
+_warned_ollama_kwargs: set[str] = set()
+
+
+def _prepare_ollama_kwargs(kwargs: dict[str, Any], llm_class: Any) -> dict[str, Any]:
+    """Translate provider-portable kwargs for llama-index's Ollama class.
+
+    ``max_tokens`` is not an Ollama constructor field and pydantic silently
+    drops it; translate it to ``additional_kwargs.num_predict`` (an explicit
+    ``num_predict`` wins). Also default ``context_window`` (see
+    ``_OLLAMA_DEFAULT_CONTEXT_WINDOW``) and keep it aligned with an explicit
+    ``additional_kwargs.num_ctx`` so the -1 path's hidden ``client.show()``
+    lookup is never triggered by mobilerun defaults.
+    """
+    kwargs = dict(kwargs)
+    additional_kwargs = dict(kwargs.get("additional_kwargs") or {})
+
+    if "max_tokens" in kwargs and "max_tokens" not in llm_class.model_fields:
+        max_tokens = kwargs.pop("max_tokens")
+        if isinstance(max_tokens, bool) or max_tokens is None:
+            valid_max_tokens = None
+        else:
+            try:
+                valid_max_tokens = int(max_tokens)
+            except (TypeError, ValueError):
+                valid_max_tokens = None
+        if valid_max_tokens is None:
+            logger.warning(
+                f"Ignoring non-integer max_tokens={max_tokens!r} for Ollama."
+            )
+        elif "num_predict" in additional_kwargs:
+            if additional_kwargs["num_predict"] != valid_max_tokens:
+                logger.warning(
+                    f"Both max_tokens={valid_max_tokens} and "
+                    f"additional_kwargs.num_predict="
+                    f"{additional_kwargs['num_predict']} are set for Ollama; "
+                    f"num_predict wins."
+                )
+        else:
+            additional_kwargs["num_predict"] = valid_max_tokens
+
+    if kwargs.get("context_window") is None:
+        context_window = _OLLAMA_DEFAULT_CONTEXT_WINDOW
+        if "num_ctx" in additional_kwargs:
+            try:
+                context_window = int(additional_kwargs["num_ctx"])
+            except (TypeError, ValueError):
+                pass
+        kwargs["context_window"] = context_window
+
+    if additional_kwargs:
+        kwargs["additional_kwargs"] = additional_kwargs
+
+    for key, value in kwargs.items():
+        if value is None or key in llm_class.model_fields:
+            continue
+        if key not in _warned_ollama_kwargs:
+            _warned_ollama_kwargs.add(key)
+            logger.warning(
+                f"Ollama does not accept the {key!r} option; it will be ignored."
+            )
+
+    return kwargs
+
+
 def _load_openai_responses(**kwargs: Any) -> LLM:
     from llama_index.llms.openai.responses import OpenAIResponses
 
@@ -232,6 +304,7 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
         from llama_index.llms.ollama import Ollama
 
         llm_class = Ollama
+        kwargs = _prepare_ollama_kwargs(kwargs, Ollama)
     elif provider_name == "Anthropic":
         return _load_anthropic(**kwargs)
     elif provider_name == "OpenRouter":

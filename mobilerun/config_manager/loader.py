@@ -39,7 +39,9 @@ class ConfigLoader:
         Load config with resolution order:
         1. Explicit config_path argument
         2. MOBILERUN_CONFIG env var
-        3. User config (~/.config/mobilerun/config.yaml)
+        3. User config (platformdirs config dir for "droidrun", e.g.
+           ~/Library/Application Support/droidrun/config.yaml on macOS,
+           ~/.config/droidrun/config.yaml on Linux)
         4. Package defaults (creates user config)
         """
         if config_path:
