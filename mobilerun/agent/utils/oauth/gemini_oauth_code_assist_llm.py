@@ -20,8 +20,10 @@ from llama_index.core.base.llms.types import (
     ChatResponseGen,
     CompletionResponse,
     CompletionResponseGen,
+    ImageBlock,
     LLMMetadata,
     MessageRole,
+    TextBlock,
 )
 from llama_index.core.bridge.pydantic import Field, PrivateAttr
 from llama_index.core.callbacks import CallbackManager
@@ -748,25 +750,62 @@ class GeminiOAuthCodeAssistLLM(CustomLLM):
             return message.content
         return ""
 
+    @staticmethod
+    def _image_mime_type(raw: bytes) -> str:
+        if raw.startswith(b"\xff\xd8"):
+            return "image/jpeg"
+        if raw.startswith(b"RIFF") and raw[8:12] == b"WEBP":
+            return "image/webp"
+        if raw.startswith(b"GIF8"):
+            return "image/gif"
+        return "image/png"
+
+    @classmethod
+    def _message_parts(cls, message: ChatMessage) -> list[Dict[str, Any]]:
+        parts: list[Dict[str, Any]] = []
+        for block in message.blocks or []:
+            if isinstance(block, TextBlock):
+                if block.text:
+                    parts.append({"text": block.text})
+            elif isinstance(block, ImageBlock):
+                raw = block.resolve_image(as_base64=False).read()
+                parts.append(
+                    {
+                        "inlineData": {
+                            "mimeType": cls._image_mime_type(raw),
+                            "data": base64.b64encode(raw).decode("ascii"),
+                        }
+                    }
+                )
+        return parts
+
     def _to_code_assist_request(
         self,
         messages: Sequence[ChatMessage],
         **kwargs: Any,
     ) -> Dict[str, Any]:
-        converted_messages = self.convert_chat_messages(messages)
-
+        # NOTE: deliberately not using ``self.convert_chat_messages`` — the
+        # llama_index base helper is text-only and raises on ImageBlocks.
         contents: list[Dict[str, Any]] = []
         system_chunks: list[str] = []
 
-        for msg in converted_messages:
-            text = self._message_text(msg)
+        for msg in messages:
+            parts = self._message_parts(msg)
             if msg.role == MessageRole.SYSTEM:
-                if text:
-                    system_chunks.append(text)
+                system_chunks.extend(
+                    part["text"] for part in parts if part.get("text")
+                )
                 continue
 
             role = "model" if msg.role == MessageRole.ASSISTANT else "user"
-            contents.append({"role": role, "parts": [{"text": text}]})
+            if any("inlineData" in part for part in parts):
+                contents.append({"role": role, "parts": parts})
+            else:
+                # Text-only messages keep the single-text-part shape the API
+                # already receives.
+                contents.append(
+                    {"role": role, "parts": [{"text": self._message_text(msg)}]}
+                )
 
         if not contents:
             contents.append({"role": "user", "parts": [{"text": ""}]})
