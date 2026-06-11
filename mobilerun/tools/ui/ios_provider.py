@@ -16,6 +16,10 @@ from typing import Any, Dict, List
 
 from mobilerun_core_cli.driver.base import DeviceDisconnectedError, DeviceDriver
 
+from mobilerun.tools.helpers.images import (
+    fit_dimensions_to_max_side,
+    image_dimensions,
+)
 from mobilerun.tools.ui.provider import StateProvider
 from mobilerun.tools.ui.state import UIState
 
@@ -49,9 +53,27 @@ class IOSStateProvider(StateProvider):
 
     supported = {"element_index", "convert_point"}
 
-    def __init__(self, driver: DeviceDriver, use_normalized: bool = False) -> None:
+    def __init__(
+        self,
+        driver: DeviceDriver,
+        use_normalized: bool = False,
+        vision_enabled: bool = False,
+    ) -> None:
         super().__init__(driver)
         self.use_normalized = use_normalized
+        self.vision_enabled = vision_enabled
+        # iOS screenshots are physical pixels while taps/bounds are points, so
+        # without the contract a vision model answers in image space and taps
+        # land wrong. Normalized [0-1000] coordinates are scale-invariant and
+        # opt out, mirroring AndroidStateProvider.
+        #
+        # The flag is re-evaluated on every get_state: it must describe the
+        # CURRENT state's contract, because the agents resize the screenshot
+        # they captured based on it. If the contract could not be established
+        # for a state (screenshot probe failed), resizing that step's image
+        # would desynchronize the model's space from convert_point.
+        self._vision_contract_intent = vision_enabled and not use_normalized
+        self.resize_model_screenshot = self._vision_contract_intent
 
     async def get_state(self) -> UIState:
         try:
@@ -60,6 +82,10 @@ class IOSStateProvider(StateProvider):
             raise
         except Exception as e:
             logger.warning(f"iOS state retrieval failed, returning empty state: {e}")
+            # No contract for this state — agents must not resize the
+            # screenshot they attach alongside it.
+            if self._vision_contract_intent:
+                self.resize_model_screenshot = False
             return UIState(
                 elements=[],
                 formatted_text="No UI elements available — device may be loading.",
@@ -80,12 +106,76 @@ class IOSStateProvider(StateProvider):
         elements = _parse_a11y_tree(a11y_text)
         phone_state = _normalize_phone_state(phone_state, a11y_text)
 
-        # Screen size from device_context
+        # Screen size from device_context (points — the tap input space)
         screen_bounds = device_context.get("screen_bounds", {})
         screen_width = int(screen_bounds.get("width", 390))
         screen_height = int(screen_bounds.get("height", 844))
 
+        # Vision coordinate contract: the screenshot agents attach is resized
+        # (with a labeled grid) into a display space derived from the actual
+        # physical-pixel screenshot; the portal reports only points, so the
+        # physical dimensions must be measured from real bytes (the device
+        # scale factor varies, 2x/3x).
+        coordinate_scale_x = 1.0
+        coordinate_scale_y = 1.0
+        display_width = None
+        display_height = None
+        if self._vision_contract_intent and screen_width and screen_height:
+            try:
+                screenshot = await self.driver.screenshot()
+                shot_width, shot_height = image_dimensions(screenshot)
+                display_width, display_height = fit_dimensions_to_max_side(
+                    shot_width, shot_height
+                )
+                # convert_point maps model output back to POINTS, not pixels
+                coordinate_scale_x = screen_width / display_width
+                coordinate_scale_y = screen_height / display_height
+            except Exception as e:
+                logger.warning(
+                    f"iOS vision coordinate contract disabled for this state "
+                    f"(screenshot probe failed): {e}"
+                )
+                display_width = None
+                display_height = None
+                coordinate_scale_x = 1.0
+                coordinate_scale_y = 1.0
+        if self._vision_contract_intent:
+            # Keep agent-side resizing paired with the contract this state
+            # actually declares.
+            self.resize_model_screenshot = bool(display_width and display_height)
+
+        if display_width and display_height:
+            # Model-facing bounds in display space; "bounds" (points) keep
+            # driving element taps.
+            for element in elements:
+                left, top, right, bottom = (
+                    int(part) for part in element["bounds"].split(",")
+                )
+                element["displayBounds"] = ",".join(
+                    str(round(value / scale))
+                    for value, scale in zip(
+                        (left, top, right, bottom),
+                        (
+                            coordinate_scale_x,
+                            coordinate_scale_y,
+                            coordinate_scale_x,
+                            coordinate_scale_y,
+                        ),
+                    )
+                )
+
         formatted_text = _format_elements(elements, screen_width, screen_height)
+
+        if display_width and display_height:
+            formatted_text += (
+                f"\n\nAll coordinates in this device state (element bounds above, "
+                f"and any x/y you provide to coordinate actions) are in a "
+                f"{display_width}x{display_height} coordinate space — the device "
+                f"screen scaled to the screenshot shown to you. "
+                f"When a screenshot is provided it matches this "
+                f"{display_width}x{display_height} space and carries a labeled "
+                f"coordinate grid for reference."
+            )
 
         # Extract focused text from phone_state
         focused_element = phone_state.get("focusedElement")
@@ -101,6 +191,8 @@ class IOSStateProvider(StateProvider):
             screen_width=screen_width,
             screen_height=screen_height,
             use_normalized=self.use_normalized,
+            coordinate_scale_x=coordinate_scale_x,
+            coordinate_scale_y=coordinate_scale_y,
         )
 
 
@@ -261,7 +353,9 @@ def _format_elements(
         idx = el.get("index", 0)
         cls = el.get("className", "Unknown")
         text = el.get("text", "")
-        bounds = el.get("bounds", "")
+        # Model-facing text shows display-space bounds when the screenshot is
+        # resized for the model; "bounds" (points) drive real taps.
+        bounds = el.get("displayBounds") or el.get("bounds", "")
 
         parts = [f"{idx}. {cls}:"]
         if text:

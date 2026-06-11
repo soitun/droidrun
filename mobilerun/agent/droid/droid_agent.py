@@ -548,6 +548,7 @@ class MobileAgent(Workflow):
             self.state_provider = IOSStateProvider(
                 driver,
                 use_normalized=self.config.agent.use_normalized_coordinates,
+                vision_enabled=vision_enabled,
             )
         else:
             tree_filter = ConciseFilter() if vision_enabled else DetailedFilter()
