@@ -200,7 +200,12 @@ class AndroidStateProvider(StateProvider):
         self.screenshot_matches_input_coords = not use_normalized
         # Normalized [0-1000] coordinates are scale-invariant, so the
         # deterministic-space contract is only needed for pixel coordinates.
-        self.resize_model_screenshot = vision_enabled and not use_normalized
+        # Re-evaluated per get_state: the flag must describe the CURRENT
+        # state's contract — if screen bounds are unavailable for a state,
+        # resizing that step's screenshot would desynchronize the model's
+        # space from convert_point.
+        self._vision_contract_intent = vision_enabled and not use_normalized
+        self.resize_model_screenshot = self._vision_contract_intent
 
     async def _recover_portal(self) -> None:
         """Restart Portal's accessibility service and TCP socket server."""
@@ -267,12 +272,16 @@ class AndroidStateProvider(StateProvider):
         coordinate_scale_y = 1.0
         display_width = None
         display_height = None
-        if self.resize_model_screenshot and screen_width and screen_height:
+        if self._vision_contract_intent and screen_width and screen_height:
             display_width, display_height = fit_dimensions_to_max_side(
                 screen_width, screen_height
             )
             coordinate_scale_x = screen_width / display_width
             coordinate_scale_y = screen_height / display_height
+        if self._vision_contract_intent:
+            # Keep agent-side resizing paired with the contract this state
+            # actually declares (screen bounds can be missing for a state).
+            self.resize_model_screenshot = bool(display_width and display_height)
 
         self.tree_formatter.screen_width = screen_width
         self.tree_formatter.screen_height = screen_height

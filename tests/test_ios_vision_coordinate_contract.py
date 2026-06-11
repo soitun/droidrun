@@ -36,12 +36,18 @@ def _png(width, height):
 
 
 class FakeIOSDriver:
-    def __init__(self, screenshot_bytes=None, screenshot_error=None):
-        self._shot = screenshot_bytes
-        self._err = screenshot_error
+    def __init__(self, screenshot_bytes=None, screenshot_error=None, screenshot_plan=None):
+        # screenshot_plan: per-call behaviors (bytes or Exception); the last
+        # entry repeats. Overrides screenshot_bytes/screenshot_error.
+        self._plan = screenshot_plan or (
+            [screenshot_error] if screenshot_error else [screenshot_bytes]
+        )
         self.screenshot_calls = 0
+        self.ui_tree_error = None
 
     async def get_ui_tree(self):
+        if self.ui_tree_error:
+            raise self.ui_tree_error
         return {
             "phone_state": {"currentApp": "Settings", "packageName": "com.apple.Preferences"},
             "device_context": {"screen_bounds": {"width": POINTS_W, "height": POINTS_H}},
@@ -49,10 +55,11 @@ class FakeIOSDriver:
         }
 
     async def screenshot(self):
+        step = self._plan[min(self.screenshot_calls, len(self._plan) - 1)]
         self.screenshot_calls += 1
-        if self._err:
-            raise self._err
-        return self._shot
+        if isinstance(step, Exception):
+            raise step
+        return step
 
 
 def _state(provider):
@@ -129,6 +136,46 @@ def test_screenshot_failure_falls_back_to_legacy_behavior():
     assert "coordinate space" not in state.formatted_text
     assert "displayBounds" not in str(state.elements)
     assert state.convert_point(220, 478) == (220, 478)
+    # The resize gate must fall back WITH the state: agents capture their
+    # screenshot before get_state, and resizing it while this state converts
+    # 1:1 would desynchronize the model's space from convert_point.
+    assert should_resize_model_screenshot(provider) is False
+
+
+def test_probe_failure_disables_resize_for_agent_captured_screenshot():
+    """The review scenario, in the agents' real order: the agent's own
+    capture succeeds, the provider's probe fails — that step must not be
+    resized."""
+    driver = FakeIOSDriver(screenshot_plan=[
+        _png(PIXELS_W, PIXELS_H),          # 1: agent's capture (succeeds)
+        RuntimeError("transient hiccup"),  # 2: provider probe (fails)
+        _png(PIXELS_W, PIXELS_H),          # 3+: recovery
+    ])
+    provider = IOSStateProvider(driver, vision_enabled=True)
+
+    agent_screenshot = asyncio.run(driver.screenshot())  # agents capture first
+    state = _state(provider)                             # probe fails inside
+
+    assert agent_screenshot is not None
+    assert state.coordinate_scale_x == 1.0
+    assert should_resize_model_screenshot(provider) is False  # raw image sent
+
+    # Next step recovers: probe succeeds, contract and gate return together
+    state2 = _state(provider)
+    assert should_resize_model_screenshot(provider) is True
+    assert state2.coordinate_scale_x != 1.0
+    assert "coordinate space" in state2.formatted_text
+
+
+def test_ui_tree_failure_also_disables_resize():
+    driver = FakeIOSDriver(screenshot_bytes=_png(PIXELS_W, PIXELS_H))
+    provider = IOSStateProvider(driver, vision_enabled=True)
+    driver.ui_tree_error = RuntimeError("tree fetch failed")
+
+    state = _state(provider)
+
+    assert state.coordinate_scale_x == 1.0
+    assert should_resize_model_screenshot(provider) is False
 
 
 def test_resize_flag_pairs_with_agent_gating():

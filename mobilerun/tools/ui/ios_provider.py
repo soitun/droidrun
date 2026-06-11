@@ -66,7 +66,14 @@ class IOSStateProvider(StateProvider):
         # without the contract a vision model answers in image space and taps
         # land wrong. Normalized [0-1000] coordinates are scale-invariant and
         # opt out, mirroring AndroidStateProvider.
-        self.resize_model_screenshot = vision_enabled and not use_normalized
+        #
+        # The flag is re-evaluated on every get_state: it must describe the
+        # CURRENT state's contract, because the agents resize the screenshot
+        # they captured based on it. If the contract could not be established
+        # for a state (screenshot probe failed), resizing that step's image
+        # would desynchronize the model's space from convert_point.
+        self._vision_contract_intent = vision_enabled and not use_normalized
+        self.resize_model_screenshot = self._vision_contract_intent
 
     async def get_state(self) -> UIState:
         try:
@@ -75,6 +82,10 @@ class IOSStateProvider(StateProvider):
             raise
         except Exception as e:
             logger.warning(f"iOS state retrieval failed, returning empty state: {e}")
+            # No contract for this state — agents must not resize the
+            # screenshot they attach alongside it.
+            if self._vision_contract_intent:
+                self.resize_model_screenshot = False
             return UIState(
                 elements=[],
                 formatted_text="No UI elements available — device may be loading.",
@@ -109,7 +120,7 @@ class IOSStateProvider(StateProvider):
         coordinate_scale_y = 1.0
         display_width = None
         display_height = None
-        if self.resize_model_screenshot and screen_width and screen_height:
+        if self._vision_contract_intent and screen_width and screen_height:
             try:
                 screenshot = await self.driver.screenshot()
                 shot_width, shot_height = image_dimensions(screenshot)
@@ -128,6 +139,10 @@ class IOSStateProvider(StateProvider):
                 display_height = None
                 coordinate_scale_x = 1.0
                 coordinate_scale_y = 1.0
+        if self._vision_contract_intent:
+            # Keep agent-side resizing paired with the contract this state
+            # actually declares.
+            self.resize_model_screenshot = bool(display_width and display_height)
 
         if display_width and display_height:
             # Model-facing bounds in display space; "bounds" (points) keep

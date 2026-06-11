@@ -149,6 +149,28 @@ def test_resize_flags_pair_providers_with_agent_gating():
         assert "resize_image_to_max_side_with_grid" in source, module.__name__
 
 
+def test_missing_screen_bounds_disables_resize_for_that_state():
+    """When a state arrives without screen bounds, no contract can be
+    declared — the agents must not resize that step's screenshot either,
+    or the model's space desynchronizes from convert_point."""
+    provider = _provider(vision_enabled=True)
+    no_bounds = _combined_data()
+    no_bounds["device_context"]["screen_bounds"] = {}
+    provider.driver.get_ui_tree.return_value = no_bounds
+
+    state = _get_state(provider)
+
+    assert state.coordinate_scale_x == 1.0
+    assert "coordinate space" not in state.formatted_text
+    assert should_resize_model_screenshot(provider) is False
+
+    # Bounds return → contract and resize gate come back together
+    provider.driver.get_ui_tree.return_value = _combined_data()
+    state2 = _get_state(provider)
+    assert state2.coordinate_scale_x != 1.0
+    assert should_resize_model_screenshot(provider) is True
+
+
 def test_legacy_injected_screenshot_providers_keep_getting_resized():
     """Injected providers that only implement the pre-existing
     ``requires_coordinate_tools`` contract must still get resized screenshots:
