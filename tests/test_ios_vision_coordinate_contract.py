@@ -366,3 +366,20 @@ def test_click_at_end_to_end_refused_then_works(monkeypatch):
     ctx2 = SimpleNamespace(ui=drop_state, state_provider=drop_provider, driver=drop, macro_recorder=None)
     refused = asyncio.run(click_at(100, 200, ctx=ctx2))
     assert refused.success is False and taps == []
+
+
+def test_empty_state_from_ui_tree_failure_refuses_coordinate_actions():
+    """ui_tree fetch failure returns the empty state (contract inactive);
+    coordinate actions must be refused there too."""
+    import pytest
+
+    driver = FakeIOSDriver(screenshot_bytes=_png(PIXELS_W, PIXELS_H))
+    provider = IOSStateProvider(driver, vision_enabled=True)
+    driver.ui_tree_error = RuntimeError("tree fetch failed")
+    state = _state(provider)
+
+    assert state.coordinate_contract_active is False
+    with pytest.raises(ValueError, match="unavailable for this step"):
+        _convert_action_point(
+            10, 20, ctx=SimpleNamespace(ui=state, state_provider=provider)
+        )
