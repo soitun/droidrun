@@ -76,7 +76,8 @@ def _model_space_dimensions(ctx: "ActionContext") -> tuple[float, float] | None:
     """
     if _uses_screenshot_only_coordinates(ctx):
         return None
-    if not getattr(ctx.state_provider, "resize_model_screenshot", False):
+    # Read the contract state from the UIState snapshot the tap uses.
+    if not getattr(ctx.ui, "coordinate_contract_active", False):
         return None
     if getattr(ctx.ui, "use_normalized", False):
         return None
@@ -116,10 +117,33 @@ def _validate_model_space_point(
         )
 
 
+def _require_active_coordinate_contract(ctx: "ActionContext") -> None:
+    """Reject coordinate actions when the provider requires the vision
+    coordinate contract but it is not active for the current state.
+
+    Some providers (e.g. iOS) can only map model coordinates to the tap input
+    space while the contract is active. Without it, refuse the action so the
+    model retries or uses an element-index ``click`` instead of tapping the
+    wrong location."""
+    provider = ctx.state_provider
+    if not getattr(provider, "requires_active_contract_for_coords", False):
+        return
+    # Read the contract state from the UIState snapshot the tap uses, not a
+    # mutable provider flag.
+    if getattr(ctx.ui, "coordinate_contract_active", False):
+        return
+    raise ValueError(
+        "Coordinate actions are unavailable for this step — the screen state "
+        "could not be captured fully. Use an element index with `click`, or "
+        "retry to get a fresh screen state."
+    )
+
+
 def _convert_action_point(
     x: int | float, y: int | float, *, ctx: "ActionContext"
 ) -> tuple[int, int]:
     _validate_screenshot_only_point(x, y, ctx=ctx)
+    _require_active_coordinate_contract(ctx)
     _validate_model_space_point(x, y, ctx=ctx)
     abs_x, abs_y = ctx.ui.convert_point(x, y)
     return int(round(abs_x)), int(round(abs_y))
