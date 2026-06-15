@@ -240,3 +240,53 @@ def test_click_at_auto_unmasks_with_vision_contract():
         ["click_at"], provider, vision_enabled=True, explicit=True
     )
     assert "click_at" in effective
+
+
+def test_coordinate_actions_refused_when_contract_drops_for_a_step():
+    """Registry exposes click_at under vision, but a step whose contract
+    dropped (probe failure) must refuse coordinate actions rather than tap
+    raw pixels at 1:1 into point space."""
+    driver = FakeIOSDriver(screenshot_plan=[
+        RuntimeError("probe failed this step"),  # contract drops
+        _png(PIXELS_W, PIXELS_H),                # recovers next step
+    ])
+    provider = IOSStateProvider(driver, vision_enabled=True)
+
+    state = _state(provider)  # fallback state, contract inactive
+    assert provider.resize_model_screenshot is False
+    ctx = SimpleNamespace(ui=state, state_provider=provider)
+
+    # An in-points coordinate that would otherwise tap fine is still refused,
+    # because this step cannot guarantee the model's coordinate space.
+    import pytest
+
+    with pytest.raises(ValueError, match="unavailable for this step"):
+        _convert_action_point(100, 200, ctx=ctx)
+
+    # Next step recovers the contract -> coordinate actions work again.
+    state2 = _state(provider)
+    assert provider.resize_model_screenshot is True
+    ctx2 = SimpleNamespace(ui=state2, state_provider=provider)
+    assert _convert_action_point(471, 1024, ctx=ctx2) == (220, 478)
+
+
+def test_active_contract_state_allows_coordinate_actions():
+    driver = FakeIOSDriver(screenshot_bytes=_png(PIXELS_W, PIXELS_H))
+    provider = IOSStateProvider(driver, vision_enabled=True)
+    state = _state(provider)
+    ctx = SimpleNamespace(ui=state, state_provider=provider)
+
+    # contract active -> converts, no refusal
+    assert _convert_action_point(471, 1024, ctx=ctx) == (220, 478)
+
+
+def test_non_vision_ios_does_not_require_contract():
+    # Without vision the provider never intends the contract, so the guard is
+    # inert and (masked-by-default) coordinate paths behave as before.
+    driver = FakeIOSDriver(screenshot_bytes=_png(8, 8))
+    provider = IOSStateProvider(driver)
+    state = _state(provider)
+    ctx = SimpleNamespace(ui=state, state_provider=provider)
+
+    assert provider.requires_active_contract_for_coords is False
+    assert _convert_action_point(100, 200, ctx=ctx) == (100, 200)
