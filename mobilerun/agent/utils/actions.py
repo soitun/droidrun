@@ -76,9 +76,7 @@ def _model_space_dimensions(ctx: "ActionContext") -> tuple[float, float] | None:
     """
     if _uses_screenshot_only_coordinates(ctx):
         return None
-    # Read the contract fact from the immutable UIState snapshot the tap uses,
-    # not the provider's mutable flag (a mid-action get_state re-probe can
-    # desync them).
+    # Read the contract state from the UIState snapshot the tap uses.
     if not getattr(ctx.ui, "coordinate_contract_active", False):
         return None
     if getattr(ctx.ui, "use_normalized", False):
@@ -120,22 +118,18 @@ def _validate_model_space_point(
 
 
 def _require_active_coordinate_contract(ctx: "ActionContext") -> None:
-    """Reject coordinate actions when a provider needs the vision coordinate
-    contract for them to be safe, but it is inactive for the current state.
+    """Reject coordinate actions when the provider requires the vision
+    coordinate contract but it is not active for the current state.
 
-    The tool registry is built once at startup, so a provider that exposes
-    ``click_at`` under vision (e.g. iOS) keeps it exposed even on a step where
-    ``get_state`` could not establish the contract (screenshot probe / UI tree
-    failure). On iOS that fallback sends a raw physical-pixel screenshot with a
-    1:1 point-space ``convert_point``, so a coordinate the model reads from the
-    image would tap the wrong location. Refuse it and let the model retry
-    (next step, or via element-index ``click``)."""
+    Some providers (e.g. iOS) can only map model coordinates to the tap input
+    space while the contract is active. Without it, refuse the action so the
+    model retries or uses an element-index ``click`` instead of tapping the
+    wrong location."""
     provider = ctx.state_provider
     if not getattr(provider, "requires_active_contract_for_coords", False):
         return
-    # Whether the contract holds is a property of the snapshot the tap uses,
-    # not the provider's mutable flag (a mid-action get_state re-probe — e.g.
-    # macro pre-state capture — can flip the provider attribute out of sync).
+    # Read the contract state from the UIState snapshot the tap uses, not a
+    # mutable provider flag.
     if getattr(ctx.ui, "coordinate_contract_active", False):
         return
     raise ValueError(

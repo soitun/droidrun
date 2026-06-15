@@ -79,10 +79,9 @@ class IOSStateProvider(StateProvider):
         # contract active, convert_point maps the model's display-space
         # coordinates to points, making click_at safe to auto-enable.
         self.screenshot_matches_input_coords = self._vision_contract_intent
-        # The registry unmasks click_at once at startup, but the contract is
-        # established per-state and can drop on a step (screenshot probe / UI
-        # tree failure). Coordinate actions must be refused on those steps —
-        # raw physical-pixel coords would tap the wrong points. See
+        # Coordinate actions are only safe while the contract is active (iOS
+        # taps use points, not screenshot pixels). Action-time guards refuse
+        # them on a state without it. See
         # actions._require_active_coordinate_contract.
         self.requires_active_contract_for_coords = self._vision_contract_intent
 

@@ -38,10 +38,9 @@ class UIState:
         self.coordinate_scale_x = coordinate_scale_x
         self.coordinate_scale_y = coordinate_scale_y
         # Whether the vision coordinate contract (resized+grid screenshot,
-        # declared display space) was established for THIS snapshot. Read by
-        # the action-time guards instead of the provider's mutable flag, which
-        # a mid-action get_state() re-probe (e.g. macro pre-state) can change
-        # out of sync with this immutable snapshot.
+        # declared display space) is active for this snapshot. Action-time
+        # coordinate guards read it from here so they match the space this
+        # snapshot's convert_point uses.
         self.coordinate_contract_active = coordinate_contract_active
 
     # -- element lookup ------------------------------------------------------
