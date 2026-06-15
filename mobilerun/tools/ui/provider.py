@@ -320,4 +320,5 @@ class AndroidStateProvider(StateProvider):
             use_normalized=self.use_normalized,
             coordinate_scale_x=coordinate_scale_x,
             coordinate_scale_y=coordinate_scale_y,
+            coordinate_contract_active=bool(display_width and display_height),
         )

@@ -76,7 +76,10 @@ def _model_space_dimensions(ctx: "ActionContext") -> tuple[float, float] | None:
     """
     if _uses_screenshot_only_coordinates(ctx):
         return None
-    if not getattr(ctx.state_provider, "resize_model_screenshot", False):
+    # Read the contract fact from the immutable UIState snapshot the tap uses,
+    # not the provider's mutable flag (a mid-action get_state re-probe can
+    # desync them).
+    if not getattr(ctx.ui, "coordinate_contract_active", False):
         return None
     if getattr(ctx.ui, "use_normalized", False):
         return None
@@ -130,7 +133,10 @@ def _require_active_coordinate_contract(ctx: "ActionContext") -> None:
     provider = ctx.state_provider
     if not getattr(provider, "requires_active_contract_for_coords", False):
         return
-    if getattr(provider, "resize_model_screenshot", False):
+    # Whether the contract holds is a property of the snapshot the tap uses,
+    # not the provider's mutable flag (a mid-action get_state re-probe — e.g.
+    # macro pre-state capture — can flip the provider attribute out of sync).
+    if getattr(ctx.ui, "coordinate_contract_active", False):
         return
     raise ValueError(
         "Coordinate actions are unavailable for this step — the screen state "
