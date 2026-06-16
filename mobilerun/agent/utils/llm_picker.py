@@ -39,7 +39,17 @@ PROVIDER_ALIASES = {
 }
 
 ZAI_GLOBAL_API_BASE = "https://api.z.ai/api/paas/v4"
-GEMINI_OAUTH_UNSUPPORTED_MODELS = {"gemini-3.5-flash"}
+# Models from the deprecated gemini-cli / Code-Assist-for-individuals path that
+# no longer apply to the Antigravity consumer entitlement. Caught early so we
+# never silently send a removed model and fail remotely.
+GEMINI_OAUTH_UNSUPPORTED_MODELS = {
+    "gemini-3.5-flash",
+    "gemini-2.5-pro",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-3-flash-preview",
+    "gemini-3.1-pro-preview",
+}
 OPENAI_OAUTH_UNSUPPORTED_MODELS = {"gpt-5.3-codex"}
 OPENAI_RESPONSES_MODELS_WITHOUT_SAMPLING_PARAMS = {"gpt-5.5"}
 OPENAI_RESPONSES_UNSUPPORTED_SAMPLING_PARAMS = {"temperature", "top_p"}
@@ -80,11 +90,14 @@ def _validate_gemini_oauth_model(model: object) -> None:
     model_id = str(model or "").strip()
     if model_id in GEMINI_OAUTH_UNSUPPORTED_MODELS:
         supported = (
-            "gemini-3-flash-preview, gemini-3.1-pro-preview, or gemini-3.1-flash-lite"
+            "gemini-3.5-flash-low, gemini-3.5-flash-extra-low, gemini-3-flash-agent, "
+            "gemini-3-flash, gemini-pro-agent, or gemini-3.1-pro-low"
         )
         raise ValueError(
-            f"Model '{model_id}' is not supported with Gemini OAuth Code Assist "
-            f"credentials. Use {supported}."
+            f"Model '{model_id}' is from the deprecated gemini-cli Code Assist "
+            f"path, which stops serving Google One / individual tiers on "
+            f"2026-06-18. Re-run `mobilerun gemini login` and pick one of: "
+            f"{supported}."
         )
 
 
@@ -253,6 +266,12 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
         )
 
         _validate_gemini_oauth_model(kwargs.get("model"))
+        # Drop removed/legacy params a stale config YAML might still carry, so
+        # construction doesn't fail and the legacy credential slot can't be
+        # selected.
+        kwargs.pop("consumer_mode", None)
+        kwargs.pop("project_id", None)
+        kwargs.pop("credential_slot", None)
         return GeminiOAuthCodeAssistLLM(
             **{k: v for k, v in kwargs.items() if v is not None}
         )

@@ -84,7 +84,7 @@ def test_openai_oauth_rejects_unsupported_codex_model() -> None:
 
 
 def test_gemini_oauth_rejects_unsupported_flash_3_5_model() -> None:
-    with pytest.raises(ValueError, match="not supported with Gemini OAuth"):
+    with pytest.raises(ValueError, match="deprecated gemini-cli Code Assist"):
         load_llm("gemini_oauth_code_assist", model="gemini-3.5-flash")
 
 

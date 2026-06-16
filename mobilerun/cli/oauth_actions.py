@@ -9,6 +9,7 @@ from mobilerun.agent.utils.oauth.anthropic_oauth_llm import (
     AnthropicOAuthLLM,
 )
 from mobilerun.agent.utils.oauth.gemini_oauth_code_assist_llm import (
+    DEFAULT_MODEL as GEMINI_OAUTH_DEFAULT_MODEL,
     GeminiOAuthCodeAssistLLM,
 )
 from mobilerun.agent.utils.oauth.openai_oauth_llm import (
@@ -52,7 +53,7 @@ def run_gemini_oauth_login(
     open_browser: bool = True,
 ) -> None:
     llm = GeminiOAuthCodeAssistLLM(
-        model=model or "gemini-3.1-pro-preview",
+        model=model or GEMINI_OAUTH_DEFAULT_MODEL,
         credential_path=credential_path,
     )
     llm.login(
@@ -62,6 +63,18 @@ def run_gemini_oauth_login(
         callback_port=callback_port,
         callback_path=callback_path,
     )
+    # Verify the Antigravity consumer entitlement resolves before declaring
+    # success (catches scope / header / endpoint problems at login time). Raise
+    # on failure so the caller does not print a misleading success message.
+    try:
+        models = llm.fetch_available_models()
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError(
+            "Gemini OAuth login saved a token, but the Antigravity entitlement "
+            f"check (fetchAvailableModels) failed: {exc}. The login is not "
+            "usable; verify your Google One / AI access and retry."
+        ) from exc
+    print(f"✓ Gemini (Antigravity) login OK — {len(models)} models available.")
 
 
 def run_anthropic_setup_token_oauth(

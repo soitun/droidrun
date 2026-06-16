@@ -33,23 +33,34 @@ from llama_index.core.llms.custom import CustomLLM
 
 from mobilerun.config_manager.credential_paths import GEMINI_OAUTH_CREDENTIAL_PATH
 
-DEFAULT_MODEL = "gemini-3.1-pro-preview"
-DEFAULT_CODE_ASSIST_ENDPOINT = "https://cloudcode-pa.googleapis.com"
+DEFAULT_MODEL = "gemini-3.5-flash-low"
+DEFAULT_CODE_ASSIST_ENDPOINT = "https://daily-cloudcode-pa.googleapis.com"
 DEFAULT_CODE_ASSIST_API_VERSION = "v1internal"
-DEFAULT_CODE_ASSIST_LOAD_METHOD = "loadCodeAssist"
-DEFAULT_CODE_ASSIST_ONBOARD_METHOD = "onboardUser"
+DEFAULT_CODE_ASSIST_MODELS_METHOD = "fetchAvailableModels"
 DEFAULT_TOKEN_URL = "https://oauth2.googleapis.com/token"
 DEFAULT_AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 DEFAULT_CREDENTIAL_PATH = str(GEMINI_OAUTH_CREDENTIAL_PATH)
 
-# Same installed-app OAuth client used by gemini-cli.
+# Antigravity CLI installed-app OAuth client.
 DEFAULT_CLIENT_ID = (
-    "681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com"
+    "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com"
 )
-DEFAULT_CLIENT_SECRET = "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"
+DEFAULT_CLIENT_SECRET = "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"
 
-# LlamaIndex-internal kwargs that must never be forwarded to Google's API.
-_IGNORED_REQUEST_KWARGS = {"formatted"}
+DEFAULT_OAUTH_SCOPES = (
+    "https://www.googleapis.com/auth/aicode",
+    "https://www.googleapis.com/auth/cclog",
+    "https://www.googleapis.com/auth/cloud-platform",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile",
+)
+
+# Credential slot in the shared auth-profiles.json.
+DEFAULT_CREDENTIAL_SLOT = "geminiAntigravityOauth"
+
+# Kwargs that must never be forwarded to Google's API (LlamaIndex-internal, and
+# project ids which the consumer entitlement does not use).
+_IGNORED_REQUEST_KWARGS = {"formatted", "project", "project_id"}
 
 
 def _b64_no_pad(raw: bytes) -> str:
@@ -121,23 +132,23 @@ class GeminiOAuthCodeAssistLLM(CustomLLM):
     """
 
     MODEL_PRESETS: ClassVar[Dict[str, str]] = {
-        "pro_preview": "gemini-3.1-pro-preview",
-        "flash": "gemini-2.5-flash",
-        "flash_lite": "gemini-2.5-flash-lite",
+        "flash": "gemini-3.5-flash-low",
+        "pro": "gemini-pro-agent",
+        "flash_lite": "gemini-3.5-flash-extra-low",
     }
 
     model: str = Field(default=DEFAULT_MODEL, description="Gemini model id.")
-    model_preset: str = Field(
-        default="pro_preview",
+    model_preset: Optional[str] = Field(
+        default=None,
         description="Quick model selector key from MODEL_PRESETS.",
     )
     custom_model: Optional[str] = Field(
         default=None,
         description="Optional custom model id; overrides model/model_preset.",
     )
-    project_id: Optional[str] = Field(
-        default=None,
-        description="Code Assist project id returned by loadCodeAssist onboarding.",
+    credential_slot: str = Field(
+        default=DEFAULT_CREDENTIAL_SLOT,
+        description="Nested key in the shared auth-profiles.json credential file.",
     )
     max_tokens: Optional[int] = Field(default=None, gt=0)
     temperature: float = Field(default=DEFAULT_TEMPERATURE, ge=0.0, le=2.0)
@@ -155,6 +166,7 @@ class GeminiOAuthCodeAssistLLM(CustomLLM):
 
     code_assist_endpoint: str = Field(default=DEFAULT_CODE_ASSIST_ENDPOINT)
     code_assist_api_version: str = Field(default=DEFAULT_CODE_ASSIST_API_VERSION)
+    scopes: tuple = Field(default=DEFAULT_OAUTH_SCOPES)
 
     credential_path: Optional[str] = Field(
         default=DEFAULT_CREDENTIAL_PATH,
@@ -169,11 +181,11 @@ class GeminiOAuthCodeAssistLLM(CustomLLM):
 
     def __init__(
         self,
-        model: str = DEFAULT_MODEL,
+        model: Optional[str] = None,
         *,
-        model_preset: str = "pro_preview",
+        model_preset: Optional[str] = None,
         custom_model: Optional[str] = None,
-        project_id: Optional[str] = None,
+        credential_slot: str = DEFAULT_CREDENTIAL_SLOT,
         max_tokens: Optional[int] = None,
         temperature: float = DEFAULT_TEMPERATURE,
         timeout: float = 30.0,
@@ -186,29 +198,29 @@ class GeminiOAuthCodeAssistLLM(CustomLLM):
         refresh_buffer_seconds: int = 300,
         code_assist_endpoint: str = DEFAULT_CODE_ASSIST_ENDPOINT,
         code_assist_api_version: str = DEFAULT_CODE_ASSIST_API_VERSION,
+        scopes: Optional[Sequence[str]] = None,
         credential_path: Optional[str] = DEFAULT_CREDENTIAL_PATH,
         additional_kwargs: Optional[Dict[str, Any]] = None,
         callback_manager: Optional[CallbackManager] = None,
     ) -> None:
+        # custom_model wins; then an explicit model (honored verbatim, even if it
+        # equals DEFAULT_MODEL); then a preset key; else the default model.
         selected_model = custom_model
         if not selected_model:
             if model in self.MODEL_PRESETS:
-                # Passed a preset key like "pro_preview" → resolve to actual id.
                 selected_model = self.MODEL_PRESETS[model]
-            elif model and model != DEFAULT_MODEL:
-                # Explicit model name from config/CLI → honor it verbatim.
+            elif model:
                 selected_model = model
             elif model_preset in self.MODEL_PRESETS:
-                # Fall back to preset only when no explicit model was provided.
                 selected_model = self.MODEL_PRESETS[model_preset]
             else:
-                selected_model = model
+                selected_model = DEFAULT_MODEL
 
         super().__init__(
             model=selected_model,
             model_preset=model_preset,
             custom_model=custom_model,
-            project_id=project_id,
+            credential_slot=credential_slot,
             max_tokens=max_tokens,
             temperature=temperature,
             timeout=timeout,
@@ -221,6 +233,7 @@ class GeminiOAuthCodeAssistLLM(CustomLLM):
             refresh_buffer_seconds=refresh_buffer_seconds,
             code_assist_endpoint=code_assist_endpoint,
             code_assist_api_version=code_assist_api_version,
+            scopes=tuple(scopes) if scopes else DEFAULT_OAUTH_SCOPES,
             credential_path=credential_path,
             additional_kwargs=additional_kwargs or {},
             callback_manager=callback_manager or CallbackManager([]),
@@ -251,8 +264,6 @@ class GeminiOAuthCodeAssistLLM(CustomLLM):
             is_function_calling_model=False,
         )
 
-    _NESTED_KEY = "geminiOauth"
-
     def _load_credentials_from_file(self, credential_path: str) -> None:
         path = Path(credential_path).expanduser()
         if not path.exists():
@@ -263,13 +274,15 @@ class GeminiOAuthCodeAssistLLM(CustomLLM):
         except Exception:
             return
 
-        nested = raw.get(self._NESTED_KEY)
-        payload = nested if isinstance(nested, dict) else raw
+        # Load only from the dedicated Antigravity slot. A bare/top-level or old
+        # "geminiOauth" credential set has the wrong client/scopes and is ignored.
+        payload = raw.get(self.credential_slot)
+        if not isinstance(payload, dict):
+            return
 
         file_access = payload.get("access_token")
         file_refresh = payload.get("refresh_token")
         expiry_ms = payload.get("expiry_date")
-        project_id = payload.get("project_id")
 
         if not self._cached_access_token and isinstance(file_access, str):
             self._cached_access_token = file_access
@@ -277,8 +290,6 @@ class GeminiOAuthCodeAssistLLM(CustomLLM):
             self._cached_refresh_token = file_refresh
         if isinstance(expiry_ms, (int, float)):
             self._access_token_expiry = float(expiry_ms) / 1000.0
-        if not self.project_id and isinstance(project_id, str) and project_id:
-            object.__setattr__(self, "project_id", project_id)
 
     def _persist_credentials(self) -> None:
         if not self.credential_path:
@@ -296,7 +307,7 @@ class GeminiOAuthCodeAssistLLM(CustomLLM):
             except Exception:
                 existing = {}
 
-        existing[self._NESTED_KEY] = {
+        existing[self.credential_slot] = {
             "access_token": self._cached_access_token,
             "refresh_token": self._cached_refresh_token,
             "token_type": "Bearer",
@@ -305,7 +316,6 @@ class GeminiOAuthCodeAssistLLM(CustomLLM):
                 if self._access_token_expiry
                 else None
             ),
-            "project_id": self.project_id,
         }
 
         tmp_path = path.with_suffix(path.suffix + ".tmp")
@@ -316,32 +326,6 @@ class GeminiOAuthCodeAssistLLM(CustomLLM):
         except OSError:
             pass
 
-    @staticmethod
-    def _extract_project_id(payload: Dict[str, Any]) -> Optional[str]:
-        project = payload.get("cloudaicompanionProject")
-        if isinstance(project, str) and project:
-            return project
-        if isinstance(project, dict):
-            project_id = project.get("id")
-            if isinstance(project_id, str) and project_id:
-                return project_id
-        return None
-
-    @staticmethod
-    def _default_tier_id(allowed_tiers: Any) -> str:
-        if isinstance(allowed_tiers, list):
-            for tier in allowed_tiers:
-                if (
-                    isinstance(tier, dict)
-                    and tier.get("isDefault")
-                    and isinstance(tier.get("id"), str)
-                ):
-                    return tier["id"]
-            for tier in allowed_tiers:
-                if isinstance(tier, dict) and isinstance(tier.get("id"), str):
-                    return tier["id"]
-        return "free-tier"
-
     def _metadata_payload(self) -> Dict[str, str]:
         return {
             "ideType": "IDE_UNSPECIFIED",
@@ -350,63 +334,52 @@ class GeminiOAuthCodeAssistLLM(CustomLLM):
         }
 
     def _build_headers(self, token: str) -> Dict[str, str]:
-        """Build Code Assist request headers matching gemini-cli expectations.
-
-        The private v1internal endpoint requires the X-Goog-Api-Client and
-        Client-Metadata headers to identify the caller as a gemini-cli-style
-        client; without them, requests return 400.
-        """
+        # Identify as the Antigravity CLI. The gemini-cli/vscode User-Agent +
+        # gl-node X-Goog-Api-Client make the backend 500 for an aicode token.
         return {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
-            "User-Agent": "google-cloud-sdk vscode_cloudshelleditor/0.1",
-            "X-Goog-Api-Client": "gl-node/22.17.0",
+            "User-Agent": "antigravity-cli",
             "Client-Metadata": json.dumps(self._metadata_payload()),
         }
 
-    def _ensure_project_id(self, token: str) -> Optional[str]:
-        if self.project_id:
-            return self.project_id
+    def fetch_available_models(self) -> list[Dict[str, Any]]:
+        """Agent-usable Gemini models for the current entitlement.
 
-        headers = self._build_headers(token)
-        metadata = self._metadata_payload()
+        Calls Code Assist ``fetchAvailableModels`` and returns dicts with
+        ``id``, ``display_name`` and ``supports_images``. Internal/tab/aux and
+        deprecated ids are filtered out. Used to verify login and to optionally
+        discover the live catalog. Requires the Antigravity client headers.
+        """
+        token = self._resolve_access_token()
         response = self._session.post(
-            self._method_url(DEFAULT_CODE_ASSIST_LOAD_METHOD),
-            headers=headers,
-            json={"metadata": metadata},
+            self._method_url(DEFAULT_CODE_ASSIST_MODELS_METHOD),
+            headers=self._build_headers(token),
+            json={},
             timeout=self.timeout,
         )
         response.raise_for_status()
         data = response.json()
-
-        project_id = self._extract_project_id(data)
-        if project_id:
-            object.__setattr__(self, "project_id", project_id)
-            self._persist_credentials()
-            return project_id
-
-        if data.get("currentTier"):
-            return None
-
-        tier_id = self._default_tier_id(data.get("allowedTiers"))
-        onboard_response = self._session.post(
-            self._method_url(DEFAULT_CODE_ASSIST_ONBOARD_METHOD),
-            headers=headers,
-            json={"tierId": tier_id, "metadata": metadata},
-            timeout=self.timeout,
-        )
-        onboard_response.raise_for_status()
-        onboard_data = onboard_response.json()
-
-        project_id = self._extract_project_id(
-            onboard_data.get("response") or onboard_data
-        )
-        if project_id:
-            object.__setattr__(self, "project_id", project_id)
-            self._persist_credentials()
-            return project_id
-
-        return None
+        models = data.get("models")
+        if not isinstance(models, dict):
+            return []
+        deprecated = set((data.get("deprecatedModelIds") or {}).keys())
+        out: list[Dict[str, Any]] = []
+        for model_id, meta in models.items():
+            if not isinstance(meta, dict) or model_id in deprecated:
+                continue
+            if meta.get("isInternal") or not meta.get("displayName"):
+                continue
+            if "GEMINI" not in str(meta.get("apiProvider") or ""):
+                continue
+            out.append(
+                {
+                    "id": model_id,
+                    "display_name": meta.get("displayName"),
+                    "supports_images": bool(meta.get("supportsImages")),
+                }
+            )
+        return out
 
     def _access_token_is_stale(self) -> bool:
         if not self._access_token_expiry:
@@ -504,13 +477,7 @@ class GeminiOAuthCodeAssistLLM(CustomLLM):
         prompt_consent: bool,
         code_challenge: Optional[str] = None,
     ) -> str:
-        scope = " ".join(
-            [
-                "https://www.googleapis.com/auth/cloud-platform",
-                "https://www.googleapis.com/auth/userinfo.email",
-                "https://www.googleapis.com/auth/userinfo.profile",
-            ]
-        )
+        scope = " ".join(self.scopes)
         query = {
             "client_id": self.client_id,
             "redirect_uri": redirect_uri,
@@ -830,6 +797,8 @@ class GeminiOAuthCodeAssistLLM(CustomLLM):
 
         request_extra = dict(self.additional_kwargs)
         request_extra.update(kwargs.pop("request_extra", {}))
+        for ignored in _IGNORED_REQUEST_KWARGS:
+            request_extra.pop(ignored, None)
         request.update(request_extra)
 
         payload: Dict[str, Any] = {
@@ -838,15 +807,14 @@ class GeminiOAuthCodeAssistLLM(CustomLLM):
             "userAgent": "droidrun",
             "requestId": f"droidrun-{int(time.time() * 1000)}-{secrets.token_hex(4)}",
         }
-        if self.project_id:
-            payload["project"] = self.project_id
 
-        # Strip LlamaIndex-internal kwargs (e.g. ``formatted``) that Google's
-        # Code Assist API rejects as unknown fields.
+        # Strip internal kwargs Google rejects; the consumer entitlement is
+        # project-less, so never send a project (also filtered by the ignore set).
         safe_kwargs = {
             k: v for k, v in kwargs.items() if k not in _IGNORED_REQUEST_KWARGS
         }
         payload.update(safe_kwargs)
+        payload.pop("project", None)
         return payload
 
     def _method_url(self, method: str) -> str:
@@ -879,7 +847,6 @@ class GeminiOAuthCodeAssistLLM(CustomLLM):
         # Route chat through streamGenerateContent and accumulate the stream,
         # matching the pattern used by gemini-cli / OpenClaw.
         token = self._resolve_access_token()
-        self._ensure_project_id(token)
         payload = self._to_code_assist_request(messages, **kwargs)
 
         response = self._session.post(
@@ -964,7 +931,6 @@ class GeminiOAuthCodeAssistLLM(CustomLLM):
         self, messages: Sequence[ChatMessage], **kwargs: Any
     ) -> ChatResponseGen:
         token = self._resolve_access_token()
-        self._ensure_project_id(token)
         payload = self._to_code_assist_request(messages, **kwargs)
 
         response = self._session.post(
