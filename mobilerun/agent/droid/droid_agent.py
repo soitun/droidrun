@@ -50,6 +50,7 @@ from mobilerun.agent.utils.llm_loader import (
 )
 from mobilerun.agent.utils.prompt_resolver import PromptResolver
 from mobilerun.agent.utils.signatures import build_tool_registry
+from mobilerun.agent.utils.vision_sizing import VisionResizePolicy
 from mobilerun.agent.utils.tracing_setup import (
     apply_session_context,
     record_langfuse_screenshot,
@@ -477,6 +478,37 @@ class MobileAgent(Workflow):
                 self.config.agent.vision_only or self.config.agent.fast_agent.vision
             )
 
+        # Resolve the model-facing screenshot size once, from every vision LLM
+        # that will receive a screenshot, so the declared coordinate space equals
+        # what each model actually grounds on after any provider-side downsize.
+        # Conservative: use the smallest effective size across all recipients.
+        if self.config.agent.reasoning:
+            vision_llms = [
+                llm
+                for use, llm in (
+                    (
+                        self.config.agent.vision_only
+                        or self.config.agent.manager.vision,
+                        self.manager_llm,
+                    ),
+                    (
+                        self.config.agent.vision_only
+                        or self.config.agent.executor.vision,
+                        self.executor_llm,
+                    ),
+                )
+                if use and llm is not None
+            ]
+        elif (
+            self.config.agent.vision_only or self.config.agent.fast_agent.vision
+        ) and self.fast_agent_llm is not None:
+            vision_llms = [self.fast_agent_llm]
+        else:
+            vision_llms = []
+        vision_resize_policy = VisionResizePolicy.from_llms(
+            vision_llms, max_side_cap=self.config.agent.model_screenshot_max_side
+        )
+
         is_ios = self.resolved_device_config.platform.lower() == "ios"
         control_backend = _normalize_control_backend(
             self.resolved_device_config.control_backend
@@ -543,12 +575,15 @@ class MobileAgent(Workflow):
         if self._injected_state_provider is not None:
             self.state_provider = self._injected_state_provider
         elif self.config.agent.vision_only or is_visual_remote:
-            self.state_provider = ScreenshotOnlyStateProvider(driver)
+            self.state_provider = ScreenshotOnlyStateProvider(
+                driver, vision_resize_policy=vision_resize_policy
+            )
         elif is_ios:
             self.state_provider = IOSStateProvider(
                 driver,
                 use_normalized=self.config.agent.use_normalized_coordinates,
                 vision_enabled=vision_enabled,
+                vision_resize_policy=vision_resize_policy,
             )
         else:
             tree_filter = ConciseFilter() if vision_enabled else DetailedFilter()
@@ -560,6 +595,7 @@ class MobileAgent(Workflow):
                 use_normalized=self.config.agent.use_normalized_coordinates,
                 stealth=stealth_enabled,
                 vision_enabled=vision_enabled,
+                vision_resize_policy=vision_resize_policy,
             )
 
         # ── 3. Build tool registry ────────────────────────────────────

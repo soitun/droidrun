@@ -27,14 +27,22 @@ from llama_index.core.base.llms.types import ChatMessage, ImageBlock, TextBlock
 
 from mobilerun.agent.utils.actions import _convert_action_point
 from mobilerun.agent.utils.llm_picker import load_llm
+from mobilerun.agent.utils.vision_sizing import VisionResizePolicy
 from mobilerun.tools.filters import ConciseFilter
 from mobilerun.tools.formatters import IndexedFormatter
-from mobilerun.tools.helpers.images import resize_image_to_max_side_with_grid
-from mobilerun.tools.ui.provider import AndroidStateProvider
+from mobilerun.tools.ui.provider import (
+    AndroidStateProvider,
+    resize_model_screenshot_with_grid,
+)
 
 PROVIDERS = [
     ("openai", "openai_oauth", "gpt-5.4-mini"),
     ("anthropic", "anthropic_oauth", "claude-opus-4-7"),
+    # claude-sonnet-4-6 uses Anthropic's standard 1568 visual-token budget, so it
+    # downsizes a 2048-declared screenshot and would undershoot ~23% without the
+    # per-model resize policy (issue #365). Keep it here so the eval covers an
+    # AFFECTED model, not just the high-res opus-4-7 that masked the bug.
+    ("anthropic", "anthropic_oauth", "claude-sonnet-4-6"),
     # gemini_oauth_code_assist quota is too tight for repeated vision calls;
     # add it back when evaluating Gemini support.
 ]
@@ -84,12 +92,9 @@ async def main(serial: str) -> None:
         tree_formatter=IndexedFormatter(),
         vision_enabled=True,
     )
-    state = await provider.get_state()
     screenshot = await driver.screenshot()
-    sent_image = resize_image_to_max_side_with_grid(screenshot)
-    ctx = SimpleNamespace(ui=state, state_provider=provider)
-
-    targets = _pick_targets(state)
+    # Device-pixel target bounds are model-independent; pick them once.
+    targets = _pick_targets(await provider.get_state())
     if not targets:
         print("No suitable targets on screen — open a list-style screen (e.g. Settings).")
         sys.exit(1)
@@ -101,7 +106,16 @@ async def main(serial: str) -> None:
         except Exception as e:
             print(f"--- {name}: SKIP ({type(e).__name__}: {e})")
             continue
-        print(f"--- {name} ({model}) ---")
+        # Declare + send this model's EFFECTIVE size, exactly like production, so
+        # the eval validates the fixed path (not the pre-fix fixed-2048 space).
+        provider.vision_resize_policy = VisionResizePolicy([model])
+        state = await provider.get_state()
+        sent_image = resize_model_screenshot_with_grid(provider, screenshot)
+        ctx = SimpleNamespace(ui=state, state_provider=provider)
+        print(
+            f"--- {name} ({model}) declared="
+            f"{provider.model_screenshot_width}x{provider.model_screenshot_height} ---"
+        )
         for text, (left, top, right, bottom) in targets:
             message = ChatMessage(
                 role="user",

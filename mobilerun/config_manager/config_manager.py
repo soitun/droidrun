@@ -116,6 +116,10 @@ class AgentConfig:
     after_sleep_action: float = 1.0
     wait_for_stable_ui: float = 0.3
     use_normalized_coordinates: bool = False
+    # Optional cap (px, long edge) on the model-facing screenshot size, applied
+    # on top of per-model effective-size resolution. Escape hatch for local
+    # vision models (e.g. Ollama) that downsize to an undocumented size.
+    model_screenshot_max_side: Optional[int] = None
 
     fast_agent: FastAgentConfig = field(default_factory=FastAgentConfig)
     manager: ManagerConfig = field(default_factory=ManagerConfig)
@@ -327,6 +331,7 @@ class MobileConfig:
             use_normalized_coordinates=agent_data.get(
                 "use_normalized_coordinates", False
             ),
+            model_screenshot_max_side=agent_data.get("model_screenshot_max_side"),
             fast_agent=fast_agent_config,
             manager=manager_config,
             executor=executor_config,

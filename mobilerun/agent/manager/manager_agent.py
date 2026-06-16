@@ -48,8 +48,10 @@ from mobilerun.app_cards.providers import (
     ServerAppCardProvider,
 )
 from mobilerun.config_manager.prompt_loader import PromptLoader
-from mobilerun.tools.helpers.images import resize_image_to_max_side_with_grid
-from mobilerun.tools.ui.provider import should_resize_model_screenshot
+from mobilerun.tools.ui.provider import (
+    resize_model_screenshot_with_grid,
+    should_resize_model_screenshot,
+)
 
 if TYPE_CHECKING:
     from mobilerun.agent.action_context import ActionContext
@@ -292,7 +294,9 @@ class ManagerAgent(Workflow):
             # Add screenshot if vision enabled
             if screenshot and self.vision:
                 if should_resize_model_screenshot(self.state_provider):
-                    screenshot = resize_image_to_max_side_with_grid(screenshot)
+                    screenshot = resize_model_screenshot_with_grid(
+                        self.state_provider, screenshot
+                    )
                 messages[last_user_idx].blocks.append(ImageBlock(image=screenshot))
 
             # Add previous device state to second-to-last user message

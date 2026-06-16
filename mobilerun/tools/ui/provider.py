@@ -13,7 +13,11 @@ from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, List, Optional
 
 from mobilerun_core_cli.driver.base import DeviceDisconnectedError
 
-from mobilerun.tools.helpers.images import fit_dimensions_to_max_side
+from mobilerun.tools.helpers.images import (
+    fit_dimensions_to_max_side,
+    resize_image_to_dimensions_with_grid,
+    resize_image_to_max_side_with_grid,
+)
 from mobilerun.tools.ui.state import UIState
 from mobilerun.tools.ui.stealth_state import StealthUIState
 
@@ -166,6 +170,21 @@ def should_resize_model_screenshot(state_provider: Any) -> bool:
     )
 
 
+def resize_model_screenshot_with_grid(state_provider: Any, screenshot: bytes) -> bytes:
+    """Resize a screenshot to the exact model-facing dims the provider declared.
+
+    The provider stores ``model_screenshot_width/height`` (resolved from the
+    active vision model's effective image size) on each ``get_state``. Resizing
+    to those exact dims keeps the image the model grounds on equal to the
+    declared coordinate space. Falls back to the legacy max-side resize when no
+    dims are available (e.g. injected screenshot-only providers)."""
+    width = getattr(state_provider, "model_screenshot_width", None)
+    height = getattr(state_provider, "model_screenshot_height", None)
+    if width and height:
+        return resize_image_to_dimensions_with_grid(screenshot, width, height)
+    return resize_image_to_max_side_with_grid(screenshot)
+
+
 class AndroidStateProvider(StateProvider):
     """Fetches state from an Android device via ``driver.get_ui_tree()``.
 
@@ -185,6 +204,7 @@ class AndroidStateProvider(StateProvider):
         stealth: bool = False,
         ui_cls: "type[UIState] | None" = None,
         vision_enabled: bool = False,
+        vision_resize_policy: Any = None,
     ) -> None:
         super().__init__(driver)
         self.tree_filter = tree_filter
@@ -192,6 +212,13 @@ class AndroidStateProvider(StateProvider):
         self.use_normalized = use_normalized
         self._ui_cls = ui_cls or (StealthUIState if stealth else UIState)
         self.vision_enabled = vision_enabled
+        # Resolves the exact screenshot dims the active vision model grounds on
+        # (duck-typed: needs ``effective_dims(w, h)``). None → legacy 2048 cap.
+        self.vision_resize_policy = vision_resize_policy
+        # Exact model-facing screenshot dims for the current state (set per
+        # get_state); read by resize_model_screenshot_with_grid.
+        self.model_screenshot_width: Optional[int] = None
+        self.model_screenshot_height: Optional[int] = None
         # Android screenshots and input taps share device-pixel coordinates,
         # but only when not in normalized mode. ``use_normalized=True`` makes
         # ``UIState.convert_point`` treat inputs as [0-1000] normalized
@@ -273,15 +300,23 @@ class AndroidStateProvider(StateProvider):
         display_width = None
         display_height = None
         if self._vision_contract_intent and screen_width and screen_height:
-            display_width, display_height = fit_dimensions_to_max_side(
-                screen_width, screen_height
-            )
+            if self.vision_resize_policy is not None:
+                display_width, display_height = self.vision_resize_policy.effective_dims(
+                    screen_width, screen_height
+                )
+            else:
+                display_width, display_height = fit_dimensions_to_max_side(
+                    screen_width, screen_height
+                )
             coordinate_scale_x = screen_width / display_width
             coordinate_scale_y = screen_height / display_height
         if self._vision_contract_intent:
             # Keep agent-side resizing paired with the contract this state
             # actually declares (screen bounds can be missing for a state).
             self.resize_model_screenshot = bool(display_width and display_height)
+        # Exact dims the model-facing screenshot must match for this state.
+        self.model_screenshot_width = display_width
+        self.model_screenshot_height = display_height
 
         self.tree_formatter.screen_width = screen_width
         self.tree_formatter.screen_height = screen_height
@@ -321,4 +356,6 @@ class AndroidStateProvider(StateProvider):
             coordinate_scale_x=coordinate_scale_x,
             coordinate_scale_y=coordinate_scale_y,
             coordinate_contract_active=bool(display_width and display_height),
+            model_screenshot_width=display_width,
+            model_screenshot_height=display_height,
         )

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from mobilerun_core_cli.driver.base import DeviceDisconnectedError, DeviceDriver
 
@@ -58,10 +58,16 @@ class IOSStateProvider(StateProvider):
         driver: DeviceDriver,
         use_normalized: bool = False,
         vision_enabled: bool = False,
+        vision_resize_policy: Any = None,
     ) -> None:
         super().__init__(driver)
         self.use_normalized = use_normalized
         self.vision_enabled = vision_enabled
+        # Resolves the exact screenshot dims the active vision model grounds on
+        # (duck-typed: needs ``effective_dims(w, h)``). None → legacy 2048 cap.
+        self.vision_resize_policy = vision_resize_policy
+        self.model_screenshot_width: Optional[int] = None
+        self.model_screenshot_height: Optional[int] = None
         # iOS screenshots are physical pixels while taps/bounds are points, so
         # without the contract a vision model answers in image space and taps
         # land wrong. Normalized [0-1000] coordinates are scale-invariant and
@@ -96,6 +102,8 @@ class IOSStateProvider(StateProvider):
             # screenshot they attach alongside it.
             if self._vision_contract_intent:
                 self.resize_model_screenshot = False
+            self.model_screenshot_width = None
+            self.model_screenshot_height = None
             return UIState(
                 elements=[],
                 formatted_text="No UI elements available — device may be loading.",
@@ -134,9 +142,16 @@ class IOSStateProvider(StateProvider):
             try:
                 screenshot = await self.driver.screenshot()
                 shot_width, shot_height = image_dimensions(screenshot)
-                display_width, display_height = fit_dimensions_to_max_side(
-                    shot_width, shot_height
-                )
+                if self.vision_resize_policy is not None:
+                    display_width, display_height = (
+                        self.vision_resize_policy.effective_dims(
+                            shot_width, shot_height
+                        )
+                    )
+                else:
+                    display_width, display_height = fit_dimensions_to_max_side(
+                        shot_width, shot_height
+                    )
                 # convert_point maps model output back to POINTS, not pixels
                 coordinate_scale_x = screen_width / display_width
                 coordinate_scale_y = screen_height / display_height
@@ -153,6 +168,9 @@ class IOSStateProvider(StateProvider):
             # Keep agent-side resizing paired with the contract this state
             # actually declares.
             self.resize_model_screenshot = bool(display_width and display_height)
+        # Exact dims the model-facing screenshot must match for this state.
+        self.model_screenshot_width = display_width
+        self.model_screenshot_height = display_height
 
         if display_width and display_height:
             # Model-facing bounds in display space; "bounds" (points) keep
@@ -204,6 +222,8 @@ class IOSStateProvider(StateProvider):
             coordinate_scale_x=coordinate_scale_x,
             coordinate_scale_y=coordinate_scale_y,
             coordinate_contract_active=bool(display_width and display_height),
+            model_screenshot_width=display_width,
+            model_screenshot_height=display_height,
         )
 
 
