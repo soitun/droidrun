@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 from mobilerun.tools.helpers.images import fit_dimensions_to_max_side, image_dimensions
 from mobilerun.tools.ui.provider import StateProvider
@@ -19,8 +19,15 @@ class ScreenshotOnlyStateProvider(StateProvider):
     requires_coordinate_tools = True
     resize_model_screenshot = True
 
-    def __init__(self, driver: "DeviceDriver") -> None:
+    def __init__(
+        self, driver: "DeviceDriver", vision_resize_policy: Any = None
+    ) -> None:
         super().__init__(driver)
+        # Resolves the exact screenshot dims the active vision model grounds on
+        # (duck-typed: needs ``effective_dims(w, h)``). None → legacy 2048 cap.
+        self.vision_resize_policy = vision_resize_policy
+        self.model_screenshot_width: Optional[int] = None
+        self.model_screenshot_height: Optional[int] = None
 
     async def get_state(self) -> UIState:
         screenshot = await self.driver.screenshot()
@@ -30,10 +37,17 @@ class ScreenshotOnlyStateProvider(StateProvider):
             input_width, input_height = native_width, native_height
         else:
             input_width, input_height = await input_size(native_width, native_height)
-        screen_width, screen_height = fit_dimensions_to_max_side(
-            native_width,
-            native_height,
-        )
+        if self.vision_resize_policy is not None:
+            screen_width, screen_height = self.vision_resize_policy.effective_dims(
+                native_width, native_height
+            )
+        else:
+            screen_width, screen_height = fit_dimensions_to_max_side(
+                native_width,
+                native_height,
+            )
+        self.model_screenshot_width = screen_width
+        self.model_screenshot_height = screen_height
         max_x = max(screen_width - 1, 0)
         max_y = max(screen_height - 1, 0)
 
@@ -69,4 +83,6 @@ class ScreenshotOnlyStateProvider(StateProvider):
             use_normalized=False,
             coordinate_scale_x=input_width / screen_width,
             coordinate_scale_y=input_height / screen_height,
+            model_screenshot_width=screen_width,
+            model_screenshot_height=screen_height,
         )

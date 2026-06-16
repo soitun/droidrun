@@ -110,6 +110,47 @@ def test_vision_enabled_declares_display_space_and_scales_back():
     assert state.get_element_coords(2) == (410, 434)
 
 
+def test_policy_declares_model_effective_dims_for_anthropic_standard():
+    # issue #365: a standard-budget Anthropic model grounds at 706x1568, so the
+    # contract must declare 706x1568 (not the 2048 default) and scale back from it.
+    from mobilerun.agent.utils.vision_sizing import VisionResizePolicy
+
+    provider = _provider(
+        vision_enabled=True,
+        vision_resize_policy=VisionResizePolicy(["claude-sonnet-4-6"]),
+    )
+    state = _get_state(provider)
+
+    assert (state.model_screenshot_width, state.model_screenshot_height) == (706, 1568)
+    assert provider.model_screenshot_width == 706
+    assert state.coordinate_scale_x == NATIVE_W / 706
+    assert state.coordinate_scale_y == NATIVE_H / 1568
+    assert "706x1568 coordinate space" in state.formatted_text
+    # ~center of the 706x1568 image maps back to the native screen center.
+    x, y = state.convert_point(353, 784)
+    assert abs(x - 540) <= 4 and abs(y - 1200) <= 6
+
+
+def test_no_policy_keeps_2048_default_dims():
+    state = _get_state(_provider(vision_enabled=True))
+    assert (state.model_screenshot_width, state.model_screenshot_height) == (922, 2048)
+
+
+def test_resize_helper_resizes_to_provider_dims():
+    from mobilerun.agent.utils.vision_sizing import VisionResizePolicy
+    from mobilerun.tools.ui.provider import resize_model_screenshot_with_grid
+
+    provider = _provider(
+        vision_enabled=True,
+        vision_resize_policy=VisionResizePolicy(["claude-sonnet-4-6"]),
+    )
+    _get_state(provider)
+    buf = BytesIO()
+    Image.new("RGB", (NATIVE_W, NATIVE_H), (10, 20, 30)).save(buf, "PNG")
+    out = resize_model_screenshot_with_grid(provider, buf.getvalue())
+    assert image_dimensions(out) == (706, 1568)
+
+
 def test_small_screens_keep_scale_one_but_still_declare_space():
     state = _get_state(_provider(height=1920, vision_enabled=True))
 
@@ -146,7 +187,7 @@ def test_resize_flags_pair_providers_with_agent_gating():
     for module in (fast_agent, executor_agent, manager_agent, stateless_manager_agent):
         source = inspect.getsource(module)
         assert "should_resize_model_screenshot" in source, module.__name__
-        assert "resize_image_to_max_side_with_grid" in source, module.__name__
+        assert "resize_model_screenshot_with_grid" in source, module.__name__
 
 
 def test_missing_screen_bounds_disables_resize_for_that_state():

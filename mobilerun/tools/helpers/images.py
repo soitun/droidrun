@@ -2,12 +2,54 @@
 
 from __future__ import annotations
 
+import math
 import struct
 from io import BytesIO
 
 from PIL import Image, ImageDraw, ImageFont
 
 MODEL_SCREENSHOT_MAX_SIDE = 2048
+
+
+def anthropic_resized_size(
+    width: int, height: int, max_edge: int, max_tokens: int
+) -> tuple[int, int]:
+    """Dimensions Anthropic will resize an image to before the model sees it.
+
+    Mirrors Anthropic's documented rule: images are split into 28x28 visual
+    tokens; the image is shrunk (preserving aspect) until every edge is
+    ``<= max_edge`` AND the token count ``<= max_tokens``. ``(max_edge,
+    max_tokens)`` is ``(1568, 1568)`` for standard models and ``(2576, 4784)``
+    for high-resolution models (Opus 4.7+, etc.).
+    """
+    if width <= 0 or height <= 0:
+        raise ValueError("Image dimensions must be positive.")
+
+    def tokens(w: int, h: int) -> int:
+        return math.ceil(w / 28) * math.ceil(h / 28)
+
+    def fits(w: int, h: int) -> bool:
+        return (
+            math.ceil(w / 28) * 28 <= max_edge
+            and math.ceil(h / 28) * 28 <= max_edge
+            and tokens(w, h) <= max_tokens
+        )
+
+    if fits(width, height):
+        return width, height
+    if height > width:
+        rw, rh = anthropic_resized_size(height, width, max_edge, max_tokens)
+        return rh, rw
+
+    aspect = width / height
+    lo, hi = 1, width
+    while lo + 1 < hi:
+        mid = (lo + hi) // 2
+        if fits(mid, max(round(mid / aspect), 1)):
+            lo = mid
+        else:
+            hi = mid
+    return lo, max(round(lo / aspect), 1)
 
 
 def image_dimensions(image: bytes) -> tuple[int, int]:
@@ -60,7 +102,20 @@ def resize_image_to_max_side_with_grid(
     """Resize image and overlay a model-only coordinate grid."""
     width, height = image_dimensions(image)
     target_width, target_height = fit_dimensions_to_max_side(width, height, max_side)
+    return resize_image_to_dimensions_with_grid(
+        image, target_width, target_height, divisions=divisions
+    )
 
+
+def resize_image_to_dimensions_with_grid(
+    image: bytes, target_width: int, target_height: int, divisions: int = 10
+) -> bytes:
+    """Resize image to exact ``target_width``x``target_height`` and overlay the grid.
+
+    Used by the vision coordinate contract so the image the model receives
+    matches the declared coordinate space exactly.
+    """
+    width, height = image_dimensions(image)
     with Image.open(BytesIO(image)) as source:
         screenshot = source.convert("RGBA")
         if (target_width, target_height) != (width, height):
