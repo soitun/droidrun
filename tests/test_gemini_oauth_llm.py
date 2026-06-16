@@ -128,3 +128,120 @@ def test_system_message_text_reaches_system_instruction():
 
     assert "be terse" in payload["request"]["systemInstruction"]["parts"][0]["text"]
     assert all(c["role"] != "system" for c in payload["request"]["contents"])
+
+
+def test_oauth_default_model_resolves_to_antigravity_flash():
+    from mobilerun.agent.utils.llm_picker import load_llm
+    # no model arg -> the Antigravity consumer default
+    assert load_llm("gemini_oauth_code_assist").model == "gemini-3.5-flash-low"
+
+
+def test_oauth_explicit_default_model_is_honored_not_preset():
+    from mobilerun.agent.utils.llm_picker import load_llm
+    # explicit model equal to DEFAULT_MODEL must NOT fall through to a preset
+    assert (
+        load_llm("gemini_oauth_code_assist", model="gemini-3.5-flash-low").model
+        == "gemini-3.5-flash-low"
+    )
+
+
+def test_oauth_explicit_agy_models_are_honored():
+    from mobilerun.agent.utils.llm_picker import load_llm
+    for m in ("gemini-3-flash", "gemini-pro-agent", "gemini-3.1-pro-low"):
+        assert load_llm("gemini_oauth_code_assist", model=m).model == m
+
+
+def test_oauth_preset_key_still_resolves():
+    from mobilerun.agent.utils.oauth.gemini_oauth_code_assist_llm import (
+        GeminiOAuthCodeAssistLLM,
+    )
+    assert (
+        GeminiOAuthCodeAssistLLM(model_preset="flash").model == "gemini-3.5-flash-low"
+    )
+
+
+def test_deprecated_models_are_rejected_with_reconfigure_error():
+    import pytest
+
+    from mobilerun.agent.utils.llm_picker import load_llm
+    for m in ("gemini-2.5-pro", "gemini-2.5-flash", "gemini-3.1-pro-preview"):
+        with pytest.raises(ValueError):
+            load_llm("gemini_oauth_code_assist", model=m)
+
+
+def test_never_sends_project_even_if_passed_as_kwarg():
+    from mobilerun.agent.utils.oauth.gemini_oauth_code_assist_llm import (
+        GeminiOAuthCodeAssistLLM,
+    )
+    llm = GeminiOAuthCodeAssistLLM(access_token="t", credential_path=None)
+    payload = llm._to_code_assist_request(
+        [ChatMessage(role=MessageRole.USER, content="hi")], project="proj-123"
+    )
+    assert "project" not in payload
+
+
+def test_consumer_default_credential_slot_is_antigravity():
+    from mobilerun.agent.utils.oauth.gemini_oauth_code_assist_llm import (
+        DEFAULT_CREDENTIAL_SLOT,
+        GeminiOAuthCodeAssistLLM,
+    )
+    llm = GeminiOAuthCodeAssistLLM(access_token="t", credential_path=None)
+    assert llm.credential_slot == DEFAULT_CREDENTIAL_SLOT == "geminiAntigravityOauth"
+
+
+def test_consumer_mode_uses_antigravity_client_and_aicode_scope():
+    from mobilerun.agent.utils.oauth.gemini_oauth_code_assist_llm import (
+        DEFAULT_CLIENT_ID,
+        GeminiOAuthCodeAssistLLM,
+    )
+    llm = GeminiOAuthCodeAssistLLM(access_token="t", credential_path=None)
+    assert llm.client_id == DEFAULT_CLIENT_ID
+    assert any("aicode" in s for s in llm.scopes)
+    assert "daily-cloudcode-pa" in llm.code_assist_endpoint
+
+
+def test_flash_lite_preset_resolves_to_picker_model():
+    from mobilerun.agent.utils.oauth.gemini_oauth_code_assist_llm import (
+        GeminiOAuthCodeAssistLLM,
+    )
+    assert (
+        GeminiOAuthCodeAssistLLM(model_preset="flash_lite").model
+        == "gemini-3.5-flash-extra-low"
+    )
+
+
+def test_consumer_mode_ignores_bare_credential_file(tmp_path):
+    import json
+
+    from mobilerun.agent.utils.oauth.gemini_oauth_code_assist_llm import (
+        GeminiOAuthCodeAssistLLM,
+    )
+    p = tmp_path / "bare.json"
+    p.write_text(json.dumps({"access_token": "raw-old", "refresh_token": "raw-r"}))
+    llm = GeminiOAuthCodeAssistLLM(credential_path=str(p))  # consumer mode default
+    assert llm._cached_access_token is None
+    assert llm._cached_refresh_token is None
+
+
+def test_wizard_oauth_detection_handles_provider_field_names(tmp_path):
+    import json
+
+    from mobilerun.cli.configure_wizard import _oauth_credentials_present
+    p = tmp_path / "auth.json"
+    p.write_text(
+        json.dumps(
+            {
+                "geminiAntigravityOauth": {"access_token": "a", "refresh_token": "b"},
+                "claudeAiOauth": {"accessToken": "a", "refreshToken": "b"},
+                "openaiOauth": {"access": "a", "refresh": "b"},
+            }
+        )
+    )
+    assert _oauth_credentials_present(str(p), "gemini_oauth_code_assist")
+    assert _oauth_credentials_present(str(p), "anthropic_oauth")
+    assert _oauth_credentials_present(str(p), "openai_oauth")
+
+    p2 = tmp_path / "auth2.json"
+    p2.write_text(json.dumps({"openaiOauth": {"access": "a"}}))
+    # gemini slot absent -> not detected as present
+    assert not _oauth_credentials_present(str(p2), "gemini_oauth_code_assist")

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -197,6 +198,40 @@ def _prompt_api_key_for_variant(variant: Any) -> tuple[str, str]:
     if source == "file":
         return resolve_env_key(env_slot, "file"), "file"
     return text_prompt("API key", secret=True), "file"
+
+
+# OAuth variants share one auth-profiles.json file but store tokens under
+# distinct nested slots. Detection must be slot-aware: the file existing (e.g.
+# from another provider, or the deprecated gemini "geminiOauth" slot) does NOT
+# mean THIS variant has usable credentials.
+_OAUTH_CREDENTIAL_SLOTS = {
+    "gemini_oauth_code_assist": "geminiAntigravityOauth",
+    "openai_oauth": "openaiOauth",
+    "anthropic_oauth": "claudeAiOauth",
+}
+
+
+def _oauth_credentials_present(credential_path: str, variant_id: str) -> bool:
+    path = Path(credential_path).expanduser()
+    if not path.exists():
+        return False
+    slot = _OAUTH_CREDENTIAL_SLOTS.get(variant_id)
+    if not slot:
+        return True  # unknown variant: fall back to file presence
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return False
+    nested = data.get(slot) if isinstance(data, dict) else None
+    if not isinstance(nested, dict):
+        return False
+    # Token field names vary by provider: gemini access_token/refresh_token,
+    # anthropic accessToken/refreshToken, openai access/refresh. Accept any.
+    for key, val in nested.items():
+        kl = key.lower()
+        if val and ("token" in kl or kl in ("access", "refresh")):
+            return True
+    return False
 
 
 def _prompt_oauth_credential_action(credential_path: str) -> str:
@@ -528,7 +563,7 @@ def _configure_provider_model(
             credential_path
             and variant.auth_mode == "oauth"
             and state.prepared_auth_variant_id != variant.id
-            and Path(credential_path).expanduser().exists()
+            and _oauth_credentials_present(credential_path, variant.id)
         ):
             if non_interactive:
                 state.prepared_auth_variant_id = variant.id

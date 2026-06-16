@@ -19,18 +19,24 @@ def test_gemini_api_key_catalog_uses_current_flash_models() -> None:
     assert "gemini-3.1-flash-lite-preview" not in models
 
 
-def test_gemini_oauth_catalog_hides_unsupported_flash_3_5_model() -> None:
+def test_gemini_oauth_catalog_uses_antigravity_consumer_models() -> None:
     variant = resolve_provider_variant("gemini", "oauth")
     models = list_models_for_variant("gemini", "oauth")
 
-    assert variant.default_model == "gemini-3.1-pro-preview"
+    assert variant.default_model == "gemini-3.5-flash-low"
     assert models == (
-        "gemini-3-flash-preview",
-        "gemini-3.1-pro-preview",
-        "gemini-3.1-flash-lite",
+        "gemini-3.5-flash-low",
+        "gemini-3.5-flash-extra-low",
+        "gemini-3-flash-agent",
+        "gemini-3-flash",
+        "gemini-pro-agent",
+        "gemini-3.1-pro-low",
     )
+    # Deprecated gemini-cli / Code-Assist-for-individuals models are gone.
+    assert "gemini-2.5-pro" not in models
+    assert "gemini-2.5-flash" not in models
+    assert "gemini-2.5-flash-lite" not in models
     assert "gemini-3.5-flash" not in models
-    assert "gemini-3.1-flash-lite-preview" not in models
 
 
 def test_anthropic_catalogs_include_opus_4_8_without_changing_defaults() -> None:
