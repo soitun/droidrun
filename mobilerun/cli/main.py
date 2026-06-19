@@ -818,14 +818,6 @@ async def doctor(device: str | None, debug: bool | None):
     await run_doctor(device, debug if debug is not None else False)
 
 
-@cli.command()
-def tui():
-    """Launch the Mobilerun Terminal User Interface."""
-    from mobilerun.cli.tui import run_tui
-
-    run_tui()
-
-
 @cli.command(name="setup-token")
 @click.option(
     "--timeout",

@@ -15,7 +15,6 @@ dependencies = [
     "llama-index-callbacks-arize-phoenix>=0.6.1",
     "llama-index-workflows>=2.16.0,<3.0.0",
     "aiofiles>=25.1.0",
-    "textual>=6.11.0",
     "mcp>=1.26.0",
     "llama-index-llms-openai>=0.6.0",
     "llama-index-llms-openai-like>=0.6.0",
