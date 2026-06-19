@@ -96,7 +96,7 @@ def _validate_gemini_oauth_model(model: object) -> None:
         raise ValueError(
             f"Model '{model_id}' is from the deprecated gemini-cli Code Assist "
             f"path, which stops serving Google One / individual tiers on "
-            f"2026-06-18. Re-run `mobilerun gemini login` and pick one of: "
+            f"2026-06-18. Re-run `mobilerun configure gemini` and pick one of: "
             f"{supported}."
         )
 
