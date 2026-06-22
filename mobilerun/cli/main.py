@@ -43,7 +43,12 @@ from mobilerun.cli.configure_wizard import (
     ConfigureWizardCallbacks,
     run_configure_wizard,
 )
-from mobilerun.cli.device_commands import device_cli
+from mobilerun.cli.device_commands import (
+    CLOUD_API_KEY_ENV,
+    DEFAULT_CLOUD_BASE_URL,
+    device_cli,
+    resolve_cloud_api_key,
+)
 from mobilerun.cli.event_handler import EventHandler
 from mobilerun.cli.oauth_actions import (
     run_anthropic_setup_token_oauth,
@@ -560,21 +565,100 @@ async def run(
     sys.exit(0 if success else 1)
 
 
-@cli.command()
-@coro
-async def devices():
-    """List connected Android devices."""
-    try:
-        devices = await adb.list()
-        if not devices:
-            console.print("[yellow]No devices connected.[/]")
-            return
+async def _list_cloud_devices(
+    base_url: str | None,
+    *,
+    silent_if_no_key: bool = False,
+) -> int:
+    """List Mobilerun cloud devices via the SDK.
 
-        console.print(f"[green]Found {len(devices)} connected device(s):[/]")
-        for device in devices:
-            console.print(f"  • [bold]{device.serial}[/]")
+    Returns the number of devices printed. With ``silent_if_no_key=True``
+    a missing credential is treated as "no cloud section" rather than an
+    error — useful for the unified ``mobilerun devices`` output.
+    """
+    api_key = resolve_cloud_api_key()
+    if not api_key:
+        if silent_if_no_key:
+            return 0
+        console.print(
+            f"[red]No cloud API key found. Set {CLOUD_API_KEY_ENV} or run "
+            "`mobilerun login`.[/]"
+        )
+        return 0
+
+    from mobilerun_sdk import AsyncMobilerun
+
+    client = AsyncMobilerun(
+        api_key=api_key,
+        base_url=base_url or DEFAULT_CLOUD_BASE_URL,
+        timeout=30.0,
+    )
+    try:
+        resp = await client.devices.list()
     except Exception as e:
-        console.print(f"[red]Error listing devices: {e}[/]")
+        console.print(f"[red]Error listing cloud devices: {e}[/]")
+        return 0
+
+    items = getattr(resp, "items", None) or []
+    if not items:
+        console.print("[yellow]No cloud devices found.[/]")
+        return 0
+
+    console.print(f"[green]Found {len(items)} cloud device(s):[/]")
+    for item in items:
+        data = item.model_dump() if hasattr(item, "model_dump") else dict(item)
+        device_id = data.get("id", "")
+        name = data.get("name", "")
+        state = data.get("state", "")
+        dtype = data.get("type", "")
+        state_color = "green" if state == "ready" else "yellow"
+        console.print(
+            f"  • [bold]{device_id}[/]  {name}  "
+            f"\\[[{state_color}]{state}[/]]  [dim]{dtype}[/]"
+        )
+    return len(items)
+
+
+@cli.command()
+@click.option(
+    "--cloud",
+    is_flag=True,
+    default=False,
+    help="Only list Mobilerun cloud devices",
+)
+@click.option(
+    "--base-url",
+    "base_url",
+    default=None,
+    help=f"Cloud API base URL (default {DEFAULT_CLOUD_BASE_URL})",
+)
+@coro
+async def devices(cloud: bool, base_url: str | None):
+    """List connected devices.
+
+    Without flags: shows local Android devices, plus cloud devices when
+    a Mobilerun credential is available. ``--cloud`` shows only cloud.
+    """
+    if cloud:
+        await _list_cloud_devices(base_url)
+        return
+
+    # Local section
+    try:
+        local = await adb.list()
+        if not local:
+            console.print("[yellow]No local devices connected.[/]")
+        else:
+            console.print(f"[green]Found {len(local)} local device(s):[/]")
+            for device in local:
+                console.print(f"  • [bold]{device.serial}[/]")
+    except Exception as e:
+        console.print(f"[red]Error listing local devices: {e}[/]")
+
+    # Cloud section (only when authenticated — silent otherwise).
+    if resolve_cloud_api_key():
+        console.print()
+        await _list_cloud_devices(base_url, silent_if_no_key=True)
 
 
 @cli.command()
