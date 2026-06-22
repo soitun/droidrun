@@ -11,7 +11,7 @@ from mobilerun.config_manager.credential_paths import (
 )
 
 # Canonical mapping from variant ID to env-key slot name.
-# Imported by setup_service, configure_wizard, config_manager, and TUI.
+# Imported by setup_service, configure_wizard, and config_manager.
 VARIANT_ENV_KEY_SLOT: dict[str, str] = {
     "GoogleGenAI": "google",
     "OpenAIResponses": "openai",

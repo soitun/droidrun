@@ -135,7 +135,7 @@ Read the full [framework documentation](https://docs.mobilerun.ai/framework/quic
 
 ## ⚙️ Features
 
-- **CLI and TUI:** Run one-off natural language tasks, inspect devices, replay macros, and debug from the terminal.
+- **CLI:** Run one-off natural language tasks, inspect devices, replay macros, and debug from the terminal.
 - **Python API:** Build custom mobile automation workflows with Python and use custom tools.
 - **Android and iOS support:** Control Android through the Portal app or target iOS through the iOS Portal flow.
 - **Portal-based control:** Use UI trees, screenshots, text input, gestures, app launching, and device state from the Portal runtime.
@@ -152,7 +152,7 @@ Read the full [framework documentation](https://docs.mobilerun.ai/framework/quic
 | --- | --- | --- |
 | Best for | Running agents locally on your own machine and devices | Ready-to-go local phone control, hosted real or virtual devices, API workflows, and managed device operations |
 | Runtime | Your machine  | Mobilerun-managed infrastructure |
-| Interface | CLI, TUI, Docker, and Python API | Dashboard, REST API, SDKs, and hosted devices |
+| Interface | CLI, Docker, and Python API | Dashboard, REST API, SDKs, and hosted devices |
 
 Use the framework when you want full local control of the agent runtime. Use [Mobilerun Cloud](https://cloud.mobilerun.ai) when you want managed devices, fleet workflows, or cloud APIs without running the agent locally. Learn more in the [framework overview](https://docs.mobilerun.ai/framework/overview) and the [cloud docs](https://docs.mobilerun.ai).
 

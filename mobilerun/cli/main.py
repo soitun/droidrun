@@ -569,6 +569,8 @@ async def _list_cloud_devices(
     base_url: str | None,
     *,
     silent_if_no_key: bool = False,
+    raise_on_error: bool = False,
+    silent_errors: bool = False,
 ) -> int:
     """List Mobilerun cloud devices via the SDK.
 
@@ -580,10 +582,13 @@ async def _list_cloud_devices(
     if not api_key:
         if silent_if_no_key:
             return 0
-        console.print(
-            f"[red]No cloud API key found. Set {CLOUD_API_KEY_ENV} or run "
-            "`mobilerun login`.[/]"
+        message = (
+            f"No cloud API key found. Set {CLOUD_API_KEY_ENV} or run "
+            "`mobilerun login`."
         )
+        if raise_on_error:
+            raise click.ClickException(message)
+        console.print(f"[red]{message}[/]")
         return 0
 
     from mobilerun_sdk import AsyncMobilerun
@@ -596,6 +601,10 @@ async def _list_cloud_devices(
     try:
         resp = await client.devices.list()
     except Exception as e:
+        if silent_errors:
+            return 0
+        if raise_on_error:
+            raise click.ClickException(f"Error listing cloud devices: {e}") from e
         console.print(f"[red]Error listing cloud devices: {e}[/]")
         return 0
 
@@ -640,7 +649,7 @@ async def devices(cloud: bool, base_url: str | None):
     a Mobilerun credential is available. ``--cloud`` shows only cloud.
     """
     if cloud:
-        await _list_cloud_devices(base_url)
+        await _list_cloud_devices(base_url, raise_on_error=True)
         return
 
     # Local section
@@ -658,7 +667,11 @@ async def devices(cloud: bool, base_url: str | None):
     # Cloud section (only when authenticated — silent otherwise).
     if resolve_cloud_api_key():
         console.print()
-        await _list_cloud_devices(base_url, silent_if_no_key=True)
+        await _list_cloud_devices(
+            base_url,
+            silent_if_no_key=True,
+            silent_errors=True,
+        )
 
 
 DEFAULT_AUTH_URL = "https://cloud.mobilerun.ai/api/auth"

@@ -7,8 +7,8 @@ from importlib.metadata import version
 
 __version__ = version("mobilerun")
 
-# Attach a default CLILogHandler so that every consumer (CLI, TUI, SDK,
-# tools-only) gets visible output without explicit setup.  CLI and TUI
+# Attach a default CLILogHandler so that every consumer (CLI, SDK,
+# tools-only) gets visible output without explicit setup.  CLI flows can
 # replace this with their own handler via ``configure_logging()``.
 from mobilerun.log_handlers import CLILogHandler
 

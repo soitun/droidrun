@@ -32,7 +32,7 @@ from mobilerun.tools.ui.provider import AndroidStateProvider
 console = Console()
 
 DEFAULT_CLOUD_BASE_URL = "https://api.mobilerun.ai/v1"
-CLOUD_API_KEY_ENV = "MOBILERUN_API_KEY"
+CLOUD_API_KEY_ENV = "MOBILERUN_CLOUD_API_KEY"
 
 # Cloud device ids are UUIDs (RFC 4122); ADB serials never are. Used to
 # auto-route `-d <id>` to the cloud driver when the user didn't pass `--cloud`.
@@ -49,7 +49,7 @@ def _looks_like_cloud_device_id(value: Optional[str]) -> bool:
 def resolve_cloud_api_key() -> Optional[str]:
     """Resolve the Mobilerun cloud API key for ``--cloud`` commands.
 
-    Order: the ``MOBILERUN_API_KEY`` env var, then the credential persisted by
+    Order: the ``MOBILERUN_CLOUD_API_KEY`` env var, then the credential persisted by
     ``mobilerun login`` (``<config dir>/credentials/mobilerun-cloud.json``).
     """
     env_key = os.environ.get(CLOUD_API_KEY_ENV)
