@@ -193,6 +193,7 @@ class IndexedFormatter(TreeFormatter):
                         self.display_scale_x,
                         self.display_scale_y,
                     ),
+                    strict=True,
                 )
             )
 

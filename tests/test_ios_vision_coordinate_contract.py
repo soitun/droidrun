@@ -102,7 +102,11 @@ def test_vision_enabled_declares_display_space_and_scales_to_points():
     scale_x, scale_y = state.coordinate_scale_x, state.coordinate_scale_y
     expected_display = ",".join(
         str(round(v / s))
-        for v, s in zip((20, 200, 420, 244), (scale_x, scale_y, scale_x, scale_y))
+        for v, s in zip(
+            (20, 200, 420, 244),
+            (scale_x, scale_y, scale_x, scale_y),
+            strict=True,
+        )
     )
     assert element["displayBounds"] == expected_display
     assert expected_display in state.formatted_text
@@ -325,7 +329,6 @@ def test_guard_reads_snapshot_not_mutable_provider_flag():
 
 def test_swipe_refused_on_dropped_contract_step():
     """swipe (default-enabled) routes through the same guard."""
-    import pytest
 
     from mobilerun.agent.utils.actions import swipe
 

@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 
 from mobilerun.agent.utils.llm_picker import load_llm, normalize_provider_name
@@ -164,9 +166,6 @@ def test_anthropic_current_catalog_models_have_metadata(model: str) -> None:
 
 
 # --- Ollama kwarg translation (max_tokens / context_window) ------------------
-
-
-import logging
 
 
 @pytest.fixture

@@ -174,8 +174,10 @@ contents = ["mobilerun.tools.cloud.MobileRunTools.*"]
 [dependency-groups]
 dev = [
     "arize-phoenix>=11.32.1",
+    "anthropic>=0.67.0",
     "bandit>=1.8.6",
     "llama-index-callbacks-arize-phoenix>=0.6.1",
+    "llama-index-llms-anthropic>=0.8.6,<0.9.0",
     "pytest>=8.0.0",
     "ruff>=0.13.0",
     "safety>=3.2.11",
