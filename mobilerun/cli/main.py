@@ -690,7 +690,7 @@ def login(auth_url: str | None, client_id: str):
     try:
         code = deviceauth.request_code(auth_url, client_id)
     except Exception as e:
-        raise click.ClickException(f"request device code: {e}")
+        raise click.ClickException(f"request device code: {e}") from e
 
     console.print(f"Visit: [bold]{code.verification_uri}[/]")
     console.print(f"Code:  [bold cyan]{code.user_code}[/]")
@@ -707,9 +707,9 @@ def login(auth_url: str | None, client_id: str):
     try:
         token = deviceauth.poll_token(auth_url, client_id, code)
     except deviceauth.DeviceAuthError as e:
-        raise click.ClickException(f"authorization failed: {e}")
+        raise click.ClickException(f"authorization failed: {e}") from e
     except KeyboardInterrupt:
-        raise click.ClickException("login cancelled")
+        raise click.ClickException("login cancelled") from None
 
     path = deviceauth.save_token(token, auth_url)
     email = None
@@ -747,7 +747,7 @@ def whoami():
     try:
         info = deviceauth.fetch_session(auth_url, token)
     except Exception as e:
-        raise click.ClickException(f"session check failed: {e}")
+        raise click.ClickException(f"session check failed: {e}") from e
     if info is None:
         raise click.ClickException(
             "Session not recognized (run `mobilerun login` again)."

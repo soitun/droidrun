@@ -50,13 +50,13 @@ from mobilerun.agent.utils.llm_loader import (
 )
 from mobilerun.agent.utils.prompt_resolver import PromptResolver
 from mobilerun.agent.utils.signatures import build_tool_registry
-from mobilerun.agent.utils.vision_sizing import VisionResizePolicy
 from mobilerun.agent.utils.tracing_setup import (
     apply_session_context,
     record_langfuse_screenshot,
     setup_tracing,
 )
 from mobilerun.agent.utils.trajectory import Trajectory
+from mobilerun.agent.utils.vision_sizing import VisionResizePolicy
 from mobilerun.config_manager.config_manager import (
     DEFAULT_DISABLED_TOOLS,
     AgentConfig,

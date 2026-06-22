@@ -189,6 +189,7 @@ class IOSStateProvider(StateProvider):
                             coordinate_scale_x,
                             coordinate_scale_y,
                         ),
+                        strict=True,
                     )
                 )
 

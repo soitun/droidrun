@@ -119,8 +119,8 @@ def test_image_only_message_is_sent_as_image_content():
 def test_jpeg_media_type_is_detected():
     from io import BytesIO
 
-    from PIL import Image
     from llama_index.core.base.llms.types import ImageBlock
+    from PIL import Image
 
     buf = BytesIO()
     Image.new("RGB", (2, 2)).save(buf, format="JPEG")

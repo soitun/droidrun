@@ -10,6 +10,8 @@ from mobilerun.agent.utils.oauth.anthropic_oauth_llm import (
 )
 from mobilerun.agent.utils.oauth.gemini_oauth_code_assist_llm import (
     DEFAULT_MODEL as GEMINI_OAUTH_DEFAULT_MODEL,
+)
+from mobilerun.agent.utils.oauth.gemini_oauth_code_assist_llm import (
     GeminiOAuthCodeAssistLLM,
 )
 from mobilerun.agent.utils.oauth.openai_oauth_llm import (
