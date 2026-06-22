@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -140,12 +141,32 @@ def credential_path() -> Path:
     return OAUTH_CREDENTIAL_DIR / "mobilerun-cloud.json"
 
 
+def _chmod_private(path: Path, mode: int) -> None:
+    if os.name != "nt":
+        os.chmod(path, mode)
+
+
 def save_token(token: str, auth_url: str) -> Path:
-    """Persist the session token to the credentials dir (chmod 600)."""
+    """Persist the session token to the credentials dir."""
     path = credential_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"access_token": token, "auth_url": auth_url}))
-    os.chmod(path, 0o600)
+    _chmod_private(path.parent, 0o700)
+
+    payload = json.dumps({"access_token": token, "auth_url": auth_url})
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w") as handle:
+            handle.write(payload)
+        _chmod_private(tmp_path, 0o600)
+        os.replace(tmp_path, path)
+        _chmod_private(path, 0o600)
+    except Exception:
+        try:
+            tmp_path.unlink()
+        except FileNotFoundError:
+            pass
+        raise
     return path
 
 
