@@ -7,6 +7,7 @@ and talk directly to the device driver.
 import asyncio
 import json
 import os
+import re
 import tempfile
 from functools import wraps
 from typing import Optional
@@ -32,6 +33,17 @@ console = Console()
 
 DEFAULT_CLOUD_BASE_URL = "https://api.mobilerun.ai/v1"
 CLOUD_API_KEY_ENV = "MOBILERUN_API_KEY"
+
+# Cloud device ids are UUIDs (RFC 4122); ADB serials never are. Used to
+# auto-route `-d <id>` to the cloud driver when the user didn't pass `--cloud`.
+_CLOUD_DEVICE_ID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+
+
+def _looks_like_cloud_device_id(value: Optional[str]) -> bool:
+    return bool(value and _CLOUD_DEVICE_ID_RE.match(value))
 
 
 def resolve_cloud_api_key() -> Optional[str]:
@@ -69,7 +81,8 @@ def device_options(f):
     f = click.option(
         "--device",
         "-d",
-        help="Device serial/IP (local), or cloud device id when --cloud is set",
+        help="Device serial/IP (local) or cloud device UUID "
+        "(auto-detected when authenticated)",
         default=None,
     )(f)
     f = click.option(
@@ -87,7 +100,7 @@ def device_options(f):
         "--device-id",
         "device_id",
         default=None,
-        help="Cloud device id (with --cloud; -d also works as a shorthand)",
+        help="Cloud device id (-d also works; auto-detected when value is a UUID)",
     )(f)
     f = click.option(
         "--base-url",
@@ -108,6 +121,14 @@ async def _create_driver(
     base_url: Optional[str] = None,
 ):
     """Create and connect a device driver based on CLI options."""
+    # Auto-route to cloud when -d/--device-id is a UUID and a credential exists.
+    # Mirrors `mobilerun devices` (which includes cloud when authenticated), so
+    # users don't have to remember `--cloud` on every per-action subcommand.
+    if not cloud and not ios:
+        candidate = device_id or device
+        if _looks_like_cloud_device_id(candidate) and resolve_cloud_api_key():
+            cloud = True
+
     if cloud:
         if ios:
             raise click.ClickException(
