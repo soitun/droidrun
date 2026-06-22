@@ -26,11 +26,22 @@ RUN_ID = str(uuid4())
 TELEMETRY_ENABLED_MESSAGE = "Anonymized telemetry enabled. See https://docs.mobilerun.ai/v3/guides/telemetry for more information."
 TELEMETRY_DISABLED_MESSAGE = "🛑 Anonymized telemetry disabled. Consider setting the DROIDRUN_TELEMETRY_ENABLED environment variable to 'true' to enable telemetry and help us improve Mobilerun."
 
-posthog = Posthog(
-    project_api_key=PROJECT_API_KEY,
-    host=HOST,
-    disable_geoip=False,
-)
+# Created lazily on first capture/flush. Constructing the PostHog client spawns
+# a consumer thread and registers a blocking atexit flush, which added ~5s to
+# the shutdown of EVERY command (incl. `mobilerun --help`) because importing
+# mobilerun imports this module. Deferring it keeps non-telemetry commands fast.
+_posthog: Posthog | None = None
+
+
+def _get_posthog() -> Posthog:
+    global _posthog
+    if _posthog is None:
+        _posthog = Posthog(
+            project_api_key=PROJECT_API_KEY,
+            host=HOST,
+            disable_geoip=False,
+        )
+    return _posthog
 
 
 def is_telemetry_enabled():
@@ -135,7 +146,7 @@ def capture(event: TelemetryEvent, user_id: str | None = None):
             **event_data,
         }
 
-        posthog.capture(
+        _get_posthog().capture(
             event_name, distinct_id=user_id or get_user_id(), properties=properties
         )
         logger.debug(f"Captured event: {event_name} with properties: {event}")
@@ -145,10 +156,10 @@ def capture(event: TelemetryEvent, user_id: str | None = None):
 
 async def flush():
     try:
-        if not is_telemetry_enabled():
+        if not is_telemetry_enabled() or _posthog is None:
             return
 
-        await asyncio.wait_for(asyncio.to_thread(posthog.flush), timeout=10)
+        await asyncio.wait_for(asyncio.to_thread(_posthog.flush), timeout=10)
     except asyncio.TimeoutError:
         logger.warning("PostHog flush timed out after 10 seconds")
     except Exception as e:

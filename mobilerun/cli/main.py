@@ -385,7 +385,7 @@ def _print_version(ctx, param, value):
     help="Show mobilerun version and exit",
 )
 def cli():
-    """Mobilerun - Control your Android device through LLM agents."""
+    """Mobilerun - Control your mobile devices through LLM agents."""
     pass
 
 
@@ -412,12 +412,6 @@ def _run_anthropic_oauth_login(credential_path: str, **kwargs) -> None:
     token = run_anthropic_setup_token_oauth(**kwargs)
     save_anthropic_setup_token(credential_path, token)
     _print_oauth_login_success("Anthropic", credential_path)
-
-
-def _prompt_anthropic_setup_token(token: str | None) -> str:
-    if token:
-        return token
-    return click.prompt("Paste your Anthropic setup token", hide_input=True)
 
 
 try:
@@ -818,65 +812,7 @@ async def doctor(device: str | None, debug: bool | None):
     await run_doctor(device, debug if debug is not None else False)
 
 
-@cli.command(name="setup-token")
-@click.option(
-    "--timeout",
-    type=float,
-    default=300.0,
-    show_default=True,
-    help="Max seconds to wait for the browser callback.",
-)
-@click.option(
-    "--callback-host",
-    default="127.0.0.1",
-    show_default=True,
-    help="Host to bind the local OAuth callback server.",
-)
-@click.option(
-    "--callback-port",
-    type=int,
-    default=0,
-    show_default=True,
-    help="Port to bind the local OAuth callback server. Use 0 for auto.",
-)
-@click.option(
-    "--callback-path",
-    default="/callback",
-    show_default=True,
-    help="Callback path for the local OAuth server.",
-)
-@click.option(
-    "--open-browser/--no-browser",
-    default=True,
-    show_default=True,
-    help="Open the authorization URL automatically.",
-)
-def setup_token(
-    timeout: float,
-    callback_host: str,
-    callback_port: int,
-    callback_path: str,
-    open_browser: bool,
-):
-    """Create a long-lived Anthropic setup token using Mobilerun's native OAuth flow."""
-    console.print(
-        "This will guide you through long-lived (1-year) auth token setup for your Claude account."
-    )
-    token = run_anthropic_setup_token_oauth(
-        timeout=timeout,
-        callback_host=callback_host,
-        callback_port=callback_port,
-        callback_path=callback_path,
-        open_browser=open_browser,
-    )
-    console.print("\n[green]Setup token created.[/]")
-    console.print(
-        "Paste this token into `mobilerun configure` or `mobilerun anthropic login`."
-    )
-    click.echo(token)
-
-
-@cli.command(name="configure")
+@cli.group(name="configure", invoke_without_command=True)
 @click.option(
     "--provider",
     type=str,
@@ -899,14 +835,22 @@ def setup_token(
     default=None,
     help="Base URL override for compatible providers.",
 )
+@click.pass_context
 def configure(
+    ctx: click.Context,
     provider: str | None,
     auth_mode: str | None,
     model: str | None,
     api_key: str | None,
     base_url: str | None,
 ):
-    """Configure LLM provider, auth mode, and model."""
+    """Configure LLM provider, auth mode, and model.
+
+    Run without a subcommand for the interactive wizard, or use a provider
+    subcommand (e.g. `mobilerun configure anthropic`) to log in via OAuth.
+    """
+    if ctx.invoked_subcommand is not None:
+        return
     run_configure_wizard(
         console,
         ConfigureWizardCallbacks(
@@ -922,13 +866,7 @@ def configure(
     )
 
 
-@cli.group()
-def openai():
-    """OpenAI OAuth commands."""
-    pass
-
-
-@openai.command("login")
+@configure.command("openai")
 @click.option(
     "--credential-path",
     default=str(DEFAULT_OPENAI_OAUTH_CREDENTIAL_PATH),
@@ -970,7 +908,7 @@ def openai():
     show_default=True,
     help="Open the authorization URL automatically.",
 )
-def openai_login(
+def configure_openai(
     credential_path: str,
     model: str | None,
     timeout: float,
@@ -979,7 +917,7 @@ def openai_login(
     callback_path: str,
     open_browser: bool,
 ):
-    """Login with ChatGPT/OpenAI OAuth and save credentials locally."""
+    """Log in to ChatGPT/OpenAI via OAuth and save credentials locally."""
     _run_openai_oauth_login(
         credential_path=credential_path,
         model=model,
@@ -991,26 +929,20 @@ def openai_login(
     )
 
 
-@cli.group()
-def anthropic():
-    """Anthropic authentication commands."""
-    pass
-
-
-@anthropic.command("login")
+@configure.command("anthropic")
 @click.option(
     "--credential-path",
     default=str(ANTHROPIC_OAUTH_CREDENTIAL_PATH),
     show_default=True,
-    help="Where to store the Anthropic setup-token.",
+    help="Where to store the Anthropic credentials.",
 )
 @click.option(
     "--token",
     default=None,
     help="Anthropic setup-token value. If provided, skips the OAuth flow.",
 )
-def anthropic_login(credential_path: str, token: str | None):
-    """Login with Anthropic OAuth. Pass --token to save a setup-token without OAuth."""
+def configure_anthropic(credential_path: str, token: str | None):
+    """Log in to Anthropic via OAuth (or pass --token to save a setup-token)."""
     if token:
         save_anthropic_setup_token(credential_path, token)
         _print_oauth_login_success("Anthropic", credential_path)
@@ -1018,31 +950,7 @@ def anthropic_login(credential_path: str, token: str | None):
         _run_anthropic_oauth_login(credential_path=credential_path)
 
 
-@anthropic.command("setup-token")
-@click.option(
-    "--credential-path",
-    default=str(ANTHROPIC_OAUTH_CREDENTIAL_PATH),
-    show_default=True,
-    help="Where to store the Anthropic setup-token.",
-)
-@click.option(
-    "--token",
-    default=None,
-    help="Setup-token value. If omitted, you will be prompted.",
-)
-def anthropic_setup_token(credential_path: str, token: str | None):
-    """Paste and save an Anthropic setup-token."""
-    save_anthropic_setup_token(credential_path, _prompt_anthropic_setup_token(token))
-    _print_oauth_login_success("Anthropic setup-token", credential_path)
-
-
-@cli.group(name="gemini")
-def gemini_group():
-    """Gemini OAuth commands."""
-    pass
-
-
-@gemini_group.command("login")
+@configure.command("gemini")
 @click.option(
     "--credential-path",
     default=str(GEMINI_OAUTH_CREDENTIAL_PATH),
@@ -1084,7 +992,7 @@ def gemini_group():
     show_default=True,
     help="Open the authorization URL automatically.",
 )
-def gemini_login(
+def configure_gemini(
     credential_path: str,
     model: str | None,
     timeout: float,
@@ -1093,7 +1001,7 @@ def gemini_login(
     callback_path: str,
     open_browser: bool,
 ):
-    """Login with Gemini Code Assist OAuth and save credentials locally."""
+    """Log in to Gemini Code Assist via OAuth and save credentials locally."""
     _run_gemini_oauth_login(
         credential_path=credential_path,
         model=model,
