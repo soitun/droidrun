@@ -385,7 +385,7 @@ def _print_version(ctx, param, value):
     help="Show mobilerun version and exit",
 )
 def cli():
-    """Mobilerun - Control your Android device through LLM agents."""
+    """Mobilerun - Control your mobile devices through LLM agents."""
     pass
 
 
