@@ -135,6 +135,8 @@ device:
   use_tcp: false
   # Platform: android or ios
   platform: android
+  # Android only: auto = ADB-first with optional Portal, required = fail without Portal, disabled = ADB-only.
+  portal_mode: auto
   # Android only: auto-install/update Portal APK and enable accessibility before each run.
   # iOS requires a running iOS Portal URL or discovery through iproxy.
   auto_setup: true

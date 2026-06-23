@@ -56,8 +56,8 @@ def test_cloud_uuid_auto_routes_only_with_cloud_credential(monkeypatch):
             pass
 
     class FakeAndroidDriver:
-        def __init__(self, serial, use_tcp):
-            android_calls.append((serial, use_tcp))
+        def __init__(self, serial, use_tcp, portal_mode="auto"):
+            android_calls.append((serial, use_tcp, portal_mode))
 
         async def connect(self):
             pass
@@ -87,6 +87,7 @@ def test_cloud_uuid_auto_routes_only_with_cloud_credential(monkeypatch):
                 use_tcp=False,
                 platform="android",
                 auto_setup=False,
+                portal_mode="auto",
             )
         ),
     )
@@ -98,7 +99,7 @@ def test_cloud_uuid_auto_routes_only_with_cloud_credential(monkeypatch):
     assert isinstance(driver, FakeAndroidDriver)
     assert is_ios is False
     assert cloud_calls == []
-    assert android_calls[-1] == (uuid, False)
+    assert android_calls[-1] == (uuid, False, "auto")
 
 
 def test_devices_cloud_missing_key_exits_nonzero(monkeypatch):

@@ -15,7 +15,7 @@ from pathlib import Path
 
 import click
 from async_adbutils import adb
-from mobilerun_core_cli.portal import (
+from mobilerun_core_local.driver.android.portal import (
     DOWNLOAD_BASE,
     PORTAL_PACKAGE_NAME,
     download_portal_apk,
@@ -334,7 +334,10 @@ async def _cleanup_android_keyboard(config: MobileConfig) -> None:
     try:
         device_obj = await adb.device(config.device.serial)
         if device_obj:
-            from mobilerun_core_cli.portal import PORTAL_PACKAGE_NAME, portal_ime_id
+            from mobilerun_core_local.driver.android.portal import (
+                PORTAL_PACKAGE_NAME,
+                portal_ime_id,
+            )
 
             ime = portal_ime_id(PORTAL_PACKAGE_NAME)
             await device_obj.shell(f"ime disable {ime}")

@@ -15,9 +15,9 @@ from typing import TYPE_CHECKING, Awaitable, Type, Union
 from async_adbutils import adb
 from llama_index.core.llms.llm import LLM
 from llama_index.core.workflow import Context, StartEvent, StopEvent, Workflow, step
-from mobilerun_core_cli.driver.android import AndroidDriver
-from mobilerun_core_cli.driver.base import DeviceDisconnectedError
-from mobilerun_core_cli.portal import ensure_portal_ready
+from mobilerun_core_local.driver.android import AndroidDriver
+from mobilerun_core_local.driver.android.portal import ensure_portal_ready
+from mobilerun_core_local.driver.base import DeviceDisconnectedError
 from opentelemetry import trace
 from pydantic import BaseModel
 from workflows.events import Event
@@ -95,7 +95,7 @@ from mobilerun.tools.ui.provider import AndroidStateProvider
 from mobilerun.tools.ui.screenshot_provider import ScreenshotOnlyStateProvider
 
 if TYPE_CHECKING:
-    from mobilerun_core_cli.driver.base import DeviceDriver
+    from mobilerun_core_local.driver.base import DeviceDriver
 
     from mobilerun.tools.ui.provider import StateProvider
 
@@ -548,13 +548,17 @@ class MobileAgent(Workflow):
                 device_serial = devices[0].serial
 
             # Auto-setup portal if enabled
-            if self.config.device.auto_setup:
+            if (
+                self.config.device.auto_setup
+                and self.resolved_device_config.portal_mode != "disabled"
+            ):
                 device_obj = await adb.device(serial=device_serial)
                 await ensure_portal_ready(device_obj, debug=self.config.logging.debug)
 
             driver = AndroidDriver(
                 serial=device_serial,
                 use_tcp=self.resolved_device_config.use_tcp,
+                portal_mode=self.resolved_device_config.portal_mode,
             )
             await driver.connect()
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Awaitable, Dict, List, Optional, TypeVar
 
-from mobilerun_core_cli.driver.base import DeviceDisconnectedError, DeviceDriver
+from mobilerun_core_local.driver.base import DeviceDisconnectedError, DeviceDriver
 from mobilerun_sdk import AsyncMobilerun
 from mobilerun_sdk._exceptions import APIConnectionError, APITimeoutError, ConflictError
 

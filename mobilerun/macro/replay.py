@@ -10,7 +10,7 @@ import logging
 import time
 from typing import Any, Dict, Optional
 
-from mobilerun_core_cli.driver.android import AndroidDriver
+from mobilerun_core_local.driver.android import AndroidDriver
 
 from mobilerun.agent.utils.trajectory import Trajectory
 from mobilerun.macro.handoff import run_agent_handoff

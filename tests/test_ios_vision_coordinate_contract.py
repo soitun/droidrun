@@ -36,7 +36,9 @@ def _png(width, height):
 
 
 class FakeIOSDriver:
-    def __init__(self, screenshot_bytes=None, screenshot_error=None, screenshot_plan=None):
+    def __init__(
+        self, screenshot_bytes=None, screenshot_error=None, screenshot_plan=None
+    ):
         # screenshot_plan: per-call behaviors (bytes or Exception); the last
         # entry repeats. Overrides screenshot_bytes/screenshot_error.
         self._plan = screenshot_plan or (
@@ -49,8 +51,13 @@ class FakeIOSDriver:
         if self.ui_tree_error:
             raise self.ui_tree_error
         return {
-            "phone_state": {"currentApp": "Settings", "packageName": "com.apple.Preferences"},
-            "device_context": {"screen_bounds": {"width": POINTS_W, "height": POINTS_H}},
+            "phone_state": {
+                "currentApp": "Settings",
+                "packageName": "com.apple.Preferences",
+            },
+            "device_context": {
+                "screen_bounds": {"width": POINTS_W, "height": POINTS_H}
+            },
             "a11y_tree": RAW_A11Y,
         }
 
@@ -150,15 +157,17 @@ def test_probe_failure_disables_resize_for_agent_captured_screenshot():
     """The review scenario, in the agents' real order: the agent's own
     capture succeeds, the provider's probe fails — that step must not be
     resized."""
-    driver = FakeIOSDriver(screenshot_plan=[
-        _png(PIXELS_W, PIXELS_H),          # 1: agent's capture (succeeds)
-        RuntimeError("transient hiccup"),  # 2: provider probe (fails)
-        _png(PIXELS_W, PIXELS_H),          # 3+: recovery
-    ])
+    driver = FakeIOSDriver(
+        screenshot_plan=[
+            _png(PIXELS_W, PIXELS_H),  # 1: agent's capture (succeeds)
+            RuntimeError("transient hiccup"),  # 2: provider probe (fails)
+            _png(PIXELS_W, PIXELS_H),  # 3+: recovery
+        ]
+    )
     provider = IOSStateProvider(driver, vision_enabled=True)
 
     agent_screenshot = asyncio.run(driver.screenshot())  # agents capture first
-    state = _state(provider)                             # probe fails inside
+    state = _state(provider)  # probe fails inside
 
     assert agent_screenshot is not None
     assert state.coordinate_scale_x == 1.0
@@ -250,10 +259,12 @@ def test_coordinate_actions_refused_when_contract_drops_for_a_step():
     """Registry exposes click_at under vision, but a step whose contract
     dropped (probe failure) must refuse coordinate actions rather than tap
     raw pixels at 1:1 into point space."""
-    driver = FakeIOSDriver(screenshot_plan=[
-        RuntimeError("probe failed this step"),  # contract drops
-        _png(PIXELS_W, PIXELS_H),                # recovers next step
-    ])
+    driver = FakeIOSDriver(
+        screenshot_plan=[
+            RuntimeError("probe failed this step"),  # contract drops
+            _png(PIXELS_W, PIXELS_H),  # recovers next step
+        ]
+    )
     provider = IOSStateProvider(driver, vision_enabled=True)
 
     state = _state(provider)  # fallback state, contract inactive
@@ -335,7 +346,9 @@ def test_swipe_refused_on_dropped_contract_step():
     driver = FakeIOSDriver(screenshot_error=RuntimeError("probe failed"))
     provider = IOSStateProvider(driver, vision_enabled=True)
     state = _state(provider)
-    ctx = SimpleNamespace(ui=state, state_provider=provider, driver=driver, macro_recorder=None)
+    ctx = SimpleNamespace(
+        ui=state, state_provider=provider, driver=driver, macro_recorder=None
+    )
 
     result = asyncio.run(swipe([100, 200], [100, 600], ctx=ctx))
     assert result.success is False
@@ -357,7 +370,9 @@ def test_click_at_end_to_end_refused_then_works(monkeypatch):
     state = _state(provider)
     from mobilerun.agent.utils.actions import click_at
 
-    ctx = SimpleNamespace(ui=state, state_provider=provider, driver=driver, macro_recorder=None)
+    ctx = SimpleNamespace(
+        ui=state, state_provider=provider, driver=driver, macro_recorder=None
+    )
     ok = asyncio.run(click_at(471, 1024, ctx=ctx))
     assert ok.success and taps == [(220, 478)]
 
@@ -366,7 +381,9 @@ def test_click_at_end_to_end_refused_then_works(monkeypatch):
     drop = _Driver(screenshot_error=RuntimeError("probe failed"))
     drop_provider = IOSStateProvider(drop, vision_enabled=True)
     drop_state = _state(drop_provider)
-    ctx2 = SimpleNamespace(ui=drop_state, state_provider=drop_provider, driver=drop, macro_recorder=None)
+    ctx2 = SimpleNamespace(
+        ui=drop_state, state_provider=drop_provider, driver=drop, macro_recorder=None
+    )
     refused = asyncio.run(click_at(100, 200, ctx=ctx2))
     assert refused.success is False and taps == []
 

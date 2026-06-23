@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from mobilerun_core_cli.driver.base import DeviceDriver
+from mobilerun_core_local.driver.base import DeviceDriver
 
 
 class RecordingDriver:

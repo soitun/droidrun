@@ -125,6 +125,7 @@ DeviceConfig(
     device_id="auto",     # Device id for backends that expose multiple devices
     use_tcp=False,        # TCP vs content provider communication
     platform="android",   # "android" or "ios"
+    portal_mode="auto",   # Android: "auto", "required", or "disabled"
     auto_setup=True,      # Android only: auto-install/fix Portal APK before each run
 )
 ```
@@ -538,6 +539,7 @@ device:
   serial: null
   platform: android
   use_tcp: false
+  portal_mode: auto
   auto_setup: true  # Android only: auto-install/fix Portal APK before each run
 
 tools:

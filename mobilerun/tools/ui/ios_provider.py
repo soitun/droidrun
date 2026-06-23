@@ -14,7 +14,7 @@ import logging
 import re
 from typing import Any, Dict, List, Optional
 
-from mobilerun_core_cli.driver.base import DeviceDisconnectedError, DeviceDriver
+from mobilerun_core_local.driver.base import DeviceDisconnectedError, DeviceDriver
 
 from mobilerun.tools.helpers.images import (
     fit_dimensions_to_max_side,

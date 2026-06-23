@@ -14,8 +14,8 @@ from typing import Optional
 
 import click
 from async_adbutils import adb
-from mobilerun_core_cli.driver.android import AndroidDriver
-from mobilerun_core_cli.portal import ensure_portal_ready
+from mobilerun_core_local.driver.android import AndroidDriver
+from mobilerun_core_local.driver.android.portal import ensure_portal_ready
 from rich.console import Console
 
 from mobilerun.config_manager import ConfigLoader
@@ -132,9 +132,7 @@ async def _create_driver(
 
     if cloud:
         if ios:
-            raise click.ClickException(
-                "--cloud and --ios are mutually exclusive."
-            )
+            raise click.ClickException("--cloud and --ios are mutually exclusive.")
         cloud_device_id = device_id or device
         if not cloud_device_id:
             raise click.ClickException(
@@ -183,11 +181,15 @@ async def _create_driver(
             raise click.ClickException("No connected Android devices found.")
         serial = devices[0].serial
 
-    if config.device.auto_setup:
+    if config.device.auto_setup and config.device.portal_mode != "disabled":
         device_obj = await adb.device(serial=serial)
         await ensure_portal_ready(device_obj, debug=False)
 
-    driver = AndroidDriver(serial=serial, use_tcp=config.device.use_tcp)
+    driver = AndroidDriver(
+        serial=serial,
+        use_tcp=config.device.use_tcp,
+        portal_mode=config.device.portal_mode,
+    )
     await driver.connect()
     return driver, False
 
@@ -195,7 +197,10 @@ async def _create_driver(
 async def _teardown_android(driver):
     """Disable Mobilerun keyboard after direct command execution."""
     if isinstance(driver, AndroidDriver) and driver.device:
-        from mobilerun_core_cli.portal import PORTAL_PACKAGE_NAME, portal_ime_id
+        from mobilerun_core_local.driver.android.portal import (
+            PORTAL_PACKAGE_NAME,
+            portal_ime_id,
+        )
 
         try:
             ime = portal_ime_id(PORTAL_PACKAGE_NAME)
@@ -225,7 +230,9 @@ def device_cli():
 @coro
 async def screenshot(device, config_path, tcp, ios, cloud, device_id, base_url):
     """Take a screenshot and print the saved file path to stdout."""
-    driver, _ = await _create_driver(device, config_path, tcp, ios, cloud, device_id, base_url)
+    driver, _ = await _create_driver(
+        device, config_path, tcp, ios, cloud, device_id, base_url
+    )
     try:
         png_bytes = await driver.screenshot()
         fd, path = tempfile.mkstemp(prefix="mobilerun_", suffix=".png")
@@ -243,7 +250,9 @@ async def screenshot(device, config_path, tcp, ios, cloud, device_id, base_url):
 @coro
 async def ui(device, config_path, tcp, ios, cloud, device_id, base_url):
     """Print the UI accessibility tree with element bounds for targeting."""
-    driver, is_ios = await _create_driver(device, config_path, tcp, ios, cloud, device_id, base_url)
+    driver, is_ios = await _create_driver(
+        device, config_path, tcp, ios, cloud, device_id, base_url
+    )
     try:
         if is_ios:
             provider = IOSStateProvider(driver)
@@ -268,7 +277,9 @@ async def ui(device, config_path, tcp, ios, cloud, device_id, base_url):
 @coro
 async def tap(x, y, device, config_path, tcp, ios, cloud, device_id, base_url):
     """Tap at screen coordinates."""
-    driver, _ = await _create_driver(device, config_path, tcp, ios, cloud, device_id, base_url)
+    driver, _ = await _create_driver(
+        device, config_path, tcp, ios, cloud, device_id, base_url
+    )
     try:
         await driver.tap(x, y)
         click.echo(f"Tapped ({x}, {y})")
@@ -286,9 +297,13 @@ async def tap(x, y, device, config_path, tcp, ios, cloud, device_id, base_url):
 )
 @device_options
 @coro
-async def swipe_cmd(x1, y1, x2, y2, duration, device, config_path, tcp, ios, cloud, device_id, base_url):
+async def swipe_cmd(
+    x1, y1, x2, y2, duration, device, config_path, tcp, ios, cloud, device_id, base_url
+):
     """Swipe from (x1, y1) to (x2, y2)."""
-    driver, _ = await _create_driver(device, config_path, tcp, ios, cloud, device_id, base_url)
+    driver, _ = await _create_driver(
+        device, config_path, tcp, ios, cloud, device_id, base_url
+    )
     try:
         await driver.swipe(x1, y1, x2, y2, duration_ms=int(duration * 1000))
         click.echo(f"Swiped ({x1}, {y1}) -> ({x2}, {y2})")
@@ -305,7 +320,9 @@ async def long_press(x, y, device, config_path, tcp, ios, cloud, device_id, base
     """Long press at screen coordinates."""
     if ios:
         raise click.ClickException("long-press is not supported on iOS")
-    driver, _ = await _create_driver(device, config_path, tcp, ios, cloud, device_id, base_url)
+    driver, _ = await _create_driver(
+        device, config_path, tcp, ios, cloud, device_id, base_url
+    )
     try:
         await driver.swipe(x, y, x, y, 1000)
         click.echo(f"Long pressed ({x}, {y})")
@@ -318,9 +335,13 @@ async def long_press(x, y, device, config_path, tcp, ios, cloud, device_id, base
 @click.option("--clear", is_flag=True, default=False, help="Clear field before typing")
 @device_options
 @coro
-async def type_text(text, clear, device, config_path, tcp, ios, cloud, device_id, base_url):
+async def type_text(
+    text, clear, device, config_path, tcp, ios, cloud, device_id, base_url
+):
     """Type text into the currently focused field. Use 'tap' first to focus."""
-    driver, _ = await _create_driver(device, config_path, tcp, ios, cloud, device_id, base_url)
+    driver, _ = await _create_driver(
+        device, config_path, tcp, ios, cloud, device_id, base_url
+    )
     try:
         success = await driver.input_text(text, clear)
         if success:
@@ -339,7 +360,9 @@ async def type_text(text, clear, device, config_path, tcp, ios, cloud, device_id
 @coro
 async def press(button, device, config_path, tcp, ios, cloud, device_id, base_url):
     """Press a system button."""
-    driver, _ = await _create_driver(device, config_path, tcp, ios, cloud, device_id, base_url)
+    driver, _ = await _create_driver(
+        device, config_path, tcp, ios, cloud, device_id, base_url
+    )
     try:
         await driver.press_button(button)
         click.echo(f"Pressed {button}")
@@ -353,7 +376,9 @@ async def press(button, device, config_path, tcp, ios, cloud, device_id, base_ur
 @coro
 async def apps(system, device, config_path, tcp, ios, cloud, device_id, base_url):
     """List installed apps."""
-    driver, _ = await _create_driver(device, config_path, tcp, ios, cloud, device_id, base_url)
+    driver, _ = await _create_driver(
+        device, config_path, tcp, ios, cloud, device_id, base_url
+    )
     try:
         app_list = await driver.get_apps(include_system=system)
         for app in app_list:
@@ -378,7 +403,9 @@ async def apps(system, device, config_path, tcp, ios, cloud, device_id, base_url
 @coro
 async def start(package, device, config_path, tcp, ios, cloud, device_id, base_url):
     """Launch an app by package name."""
-    driver, _ = await _create_driver(device, config_path, tcp, ios, cloud, device_id, base_url)
+    driver, _ = await _create_driver(
+        device, config_path, tcp, ios, cloud, device_id, base_url
+    )
     try:
         result = await driver.start_app(package)
         click.echo(result)

@@ -33,9 +33,9 @@ Every method raises `NotImplementedError` by default. Concrete drivers override 
 
 The tools architecture follows a multi-layer pattern:
 
-1. **DeviceDriver**: Base class for raw device I/O (provided by `mobilerun-core-cli`). Methods raise `NotImplementedError` by default.
+1. **DeviceDriver**: Base class for raw device I/O (provided by `mobilerun-core-local`). Methods raise `NotImplementedError` by default.
 2. **Driver Implementations**: Platform-specific drivers
-   - `AndroidDriver`: Android devices via ADB + Portal app (provided by `mobilerun-core-cli`)
+   - `AndroidDriver`: Android devices via ADB + Portal app (provided by `mobilerun-core-local`)
    - `IOSDriver` (`tools/driver/ios.py`): iOS devices via HTTP REST API to Portal app
    - `StealthDriver` (`tools/driver/stealth.py`): Wraps another driver, adds human-like timing jitter
    - `RecordingDriver` (`tools/driver/recording.py`): Wraps another driver with trajectory recording

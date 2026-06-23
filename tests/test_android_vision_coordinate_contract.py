@@ -54,7 +54,10 @@ def _combined_data(width=NATIVE_W, height=NATIVE_H):
             ],
         },
         "device_context": {"screen_bounds": {"width": width, "height": height}},
-        "phone_state": {"currentApp": "Settings", "packageName": "com.android.settings"},
+        "phone_state": {
+            "currentApp": "Settings",
+            "packageName": "com.android.settings",
+        },
     }
 
 

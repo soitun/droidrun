@@ -1,11 +1,11 @@
 """Compatibility shim for the iOS Portal driver.
 
-The implementation lives in ``mobilerun-core-cli`` so local drivers are
+The implementation lives in ``mobilerun-core-local`` so local drivers are
 owned by one package. This module preserves the historical
 ``mobilerun.tools.driver.ios`` import path used by the framework, CLI, and docs.
 """
 
-from mobilerun_core_cli.driver.ios import (
+from mobilerun_core_local.driver.ios.http import (
     SYSTEM_APP_LABELS,
     IOSDriver,
     IOSPortalDriver,

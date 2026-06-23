@@ -463,9 +463,7 @@ class ScreenshotOnlyStateProviderTest(unittest.TestCase):
             self.assertNotIn("destructive controls", description)
             self.assertNotIn("Do not tap toggles", description)
 
-        self.assertIn(
-            "Click at position", registry.tools["click_at"].description
-        )
+        self.assertIn("Click at position", registry.tools["click_at"].description)
         self.assertIn("Duration is in seconds", registry.tools["swipe"].description)
 
     def test_screenshot_only_agent_sources_resize_screenshots(self):
