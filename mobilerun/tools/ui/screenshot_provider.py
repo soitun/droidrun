@@ -9,7 +9,7 @@ from mobilerun.tools.ui.provider import StateProvider
 from mobilerun.tools.ui.state import UIState
 
 if TYPE_CHECKING:
-    from mobilerun_core_cli.driver.base import DeviceDriver
+    from mobilerun_core_local.driver.base import DeviceDriver
 
 
 class ScreenshotOnlyStateProvider(StateProvider):

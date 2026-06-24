@@ -11,7 +11,7 @@ import logging
 import time
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, List, Optional
 
-from mobilerun_core_cli.driver.base import DeviceDisconnectedError
+from mobilerun_core_local.driver.base import DeviceDisconnectedError
 
 from mobilerun.tools.helpers.images import (
     fit_dimensions_to_max_side,
@@ -22,7 +22,7 @@ from mobilerun.tools.ui.state import UIState
 from mobilerun.tools.ui.stealth_state import StealthUIState
 
 if TYPE_CHECKING:
-    from mobilerun_core_cli.driver.base import DeviceDriver
+    from mobilerun_core_local.driver.base import DeviceDriver
 
     from mobilerun.tools.filters import TreeFilter
     from mobilerun.tools.formatters import TreeFormatter
@@ -236,7 +236,7 @@ class AndroidStateProvider(StateProvider):
 
     async def _recover_portal(self) -> None:
         """Restart Portal's accessibility service and TCP socket server."""
-        from mobilerun_core_cli.driver.android import AndroidDriver
+        from mobilerun_core_local.driver.android import AndroidDriver
 
         if not isinstance(self.driver, AndroidDriver):
             return
@@ -244,7 +244,7 @@ class AndroidStateProvider(StateProvider):
         if device is None:
             return
 
-        from mobilerun_core_cli.portal import (
+        from mobilerun_core_local.driver.android.portal import (
             PORTAL_PACKAGE_NAME,
             portal_a11y_service,
             portal_content_uri,
@@ -301,8 +301,10 @@ class AndroidStateProvider(StateProvider):
         display_height = None
         if self._vision_contract_intent and screen_width and screen_height:
             if self.vision_resize_policy is not None:
-                display_width, display_height = self.vision_resize_policy.effective_dims(
-                    screen_width, screen_height
+                display_width, display_height = (
+                    self.vision_resize_policy.effective_dims(
+                        screen_width, screen_height
+                    )
                 )
             else:
                 display_width, display_height = fit_dimensions_to_max_side(

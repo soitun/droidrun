@@ -50,7 +50,9 @@ MAX_TARGETS = 4
 
 
 def _parse_xy(text: str):
-    m = re.search(r'"x"\s*:\s*(-?\d+(?:\.\d+)?)\s*,\s*"y"\s*:\s*(-?\d+(?:\.\d+)?)', text)
+    m = re.search(
+        r'"x"\s*:\s*(-?\d+(?:\.\d+)?)\s*,\s*"y"\s*:\s*(-?\d+(?:\.\d+)?)', text
+    )
     if m:
         return float(m.group(1)), float(m.group(2))
     nums = re.findall(r"-?\d+(?:\.\d+)?", text)
@@ -82,7 +84,7 @@ def _pick_targets(state):
 
 
 async def main(serial: str) -> None:
-    from mobilerun_core_cli.driver.android import AndroidDriver
+    from mobilerun_core_local.driver.android import AndroidDriver
 
     driver = AndroidDriver(serial=serial)
     await driver.connect()
@@ -96,7 +98,9 @@ async def main(serial: str) -> None:
     # Device-pixel target bounds are model-independent; pick them once.
     targets = _pick_targets(await provider.get_state())
     if not targets:
-        print("No suitable targets on screen — open a list-style screen (e.g. Settings).")
+        print(
+            "No suitable targets on screen — open a list-style screen (e.g. Settings)."
+        )
         sys.exit(1)
     print(f"targets: {[t for t, _ in targets]}")
 
@@ -135,7 +139,9 @@ async def main(serial: str) -> None:
             response = await llm.achat([message])
             xy = _parse_xy(str(response.message.content))
             if xy is None:
-                print(f"  {text[:32]:34} UNPARSEABLE: {str(response.message.content)[:60]!r}")
+                print(
+                    f"  {text[:32]:34} UNPARSEABLE: {str(response.message.content)[:60]!r}"
+                )
                 continue
             try:
                 device_x, device_y = _convert_action_point(xy[0], xy[1], ctx=ctx)

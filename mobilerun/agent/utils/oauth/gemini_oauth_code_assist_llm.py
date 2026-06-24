@@ -759,9 +759,7 @@ class GeminiOAuthCodeAssistLLM(CustomLLM):
         for msg in messages:
             parts = self._message_parts(msg)
             if msg.role == MessageRole.SYSTEM:
-                system_chunks.extend(
-                    part["text"] for part in parts if part.get("text")
-                )
+                system_chunks.extend(part["text"] for part in parts if part.get("text"))
                 continue
 
             role = "model" if msg.role == MessageRole.ASSISTANT else "user"

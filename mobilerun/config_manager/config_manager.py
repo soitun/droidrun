@@ -148,6 +148,7 @@ class DeviceConfig:
     device_id: str = "auto"
     use_tcp: bool = False
     platform: str = "android"  # "android" or "ios"
+    portal_mode: Literal["auto", "required", "disabled"] = "auto"
     auto_setup: bool = True  # auto-install/fix portal before each run
 
 

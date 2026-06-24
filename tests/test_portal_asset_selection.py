@@ -1,6 +1,6 @@
 import unittest
 
-from mobilerun_core_cli import portal
+from mobilerun_core_local.driver.android import portal
 
 _get_release_assets_by_tag = portal._get_release_assets_by_tag
 _normalize_download_base = portal._normalize_download_base

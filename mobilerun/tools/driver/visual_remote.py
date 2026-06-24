@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import quote, urlparse
 
 import httpx
-from mobilerun_core_cli.driver.base import DeviceDriver
+from mobilerun_core_local.driver.base import DeviceDriver
 
 from mobilerun.tools.helpers.images import image_dimensions
 

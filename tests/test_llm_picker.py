@@ -236,7 +236,9 @@ def test_ollama_invalid_max_tokens_warns_and_skips(bad, mobilerun_caplog) -> Non
 
     assert "max_tokens" not in out
     assert "num_predict" not in out.get("additional_kwargs", {})
-    assert any("Ignoring non-integer max_tokens" in r.message for r in mobilerun_caplog.records)
+    assert any(
+        "Ignoring non-integer max_tokens" in r.message for r in mobilerun_caplog.records
+    )
 
 
 def test_ollama_context_window_defaults_to_32k() -> None:
@@ -253,18 +255,14 @@ def test_ollama_explicit_context_window_is_preserved(explicit) -> None:
 
 
 def test_ollama_num_ctx_mirrors_into_context_window() -> None:
-    out = _prepare(
-        {"model": "qwen3:0.6b", "additional_kwargs": {"num_ctx": 16384}}
-    )
+    out = _prepare({"model": "qwen3:0.6b", "additional_kwargs": {"num_ctx": 16384}})
 
     assert out["context_window"] == 16384
     assert out["additional_kwargs"]["num_ctx"] == 16384
 
 
 def test_ollama_non_numeric_num_ctx_falls_back_to_default() -> None:
-    out = _prepare(
-        {"model": "qwen3:0.6b", "additional_kwargs": {"num_ctx": "max"}}
-    )
+    out = _prepare({"model": "qwen3:0.6b", "additional_kwargs": {"num_ctx": "max"}})
 
     assert out["context_window"] == 32768
 

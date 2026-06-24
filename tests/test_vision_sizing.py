@@ -60,7 +60,10 @@ def test_policy_max_side_cap_shrinks_further():
 
 
 def test_policy_from_llms_reads_model_attr():
-    llms = [SimpleNamespace(model="claude-sonnet-4-6"), SimpleNamespace(model="gpt-5.5")]
+    llms = [
+        SimpleNamespace(model="claude-sonnet-4-6"),
+        SimpleNamespace(model="gpt-5.5"),
+    ]
     policy = VisionResizePolicy.from_llms(llms)
     # min across sonnet(1568) and gpt(2048) → 1568.
     assert policy.effective_dims(1080, 2400) == (706, 1568)
