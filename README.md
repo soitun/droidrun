@@ -111,7 +111,7 @@ You should see confirmation that the Portal is installed and accessible.
 mobilerun configure
 ```
 
-The wizard walks you through choosing a provider, auth method, and model. You can also use provider environment variables such as `GOOGLE_API_KEY`, `OPENAI_API_KEY`, or `ANTHROPIC_API_KEY`.
+The wizard walks you through choosing a provider, auth method, and model. You can also use provider environment variables such as `GOOGLE_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `MINIMAX_API_KEY`. For MiniMax, choose the Global (`https://api.minimax.io/v1`) or Mainland China (`https://api.minimaxi.com/v1`) endpoint that matches the platform where the key was created. If a MiniMax key is already saved, choose **Use env key** to make `MINIMAX_API_KEY` override it.
 
 ### 4. Run your first command
 

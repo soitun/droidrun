@@ -14,6 +14,30 @@ logger = logging.getLogger("mobilerun")
 
 T = TypeVar("T", bound=BaseModel)
 
+_RETRYABLE_HTTP_CLIENT_STATUS_CODES = {408, 409, 425, 429}
+
+
+def _http_status_code(error: Exception) -> int | None:
+    status_code = getattr(error, "status_code", None)
+    if status_code is None:
+        status_code = getattr(getattr(error, "response", None), "status_code", None)
+    if isinstance(status_code, bool):
+        return None
+    try:
+        return int(status_code)
+    except (TypeError, ValueError):
+        return None
+
+
+def _is_permanent_http_client_error(error: Exception) -> bool:
+    """Return whether an HTTP client error should fail without another attempt."""
+    status_code = _http_status_code(error)
+    return (
+        status_code is not None
+        and 400 <= status_code < 500
+        and status_code not in _RETRYABLE_HTTP_CLIENT_STATUS_CODES
+    )
+
 
 async def acall_with_retries(
     llm,
@@ -68,6 +92,8 @@ async def acall_with_retries(
 
         except Exception as e:
             logger.warning(f"Attempt {attempt} failed with error: {e!r}")
+            if _is_permanent_http_client_error(e):
+                raise
             last_exception = e
 
         if attempt < retries:
@@ -170,6 +196,8 @@ async def acomplete_with_retries(
 
         except Exception as e:
             logger.warning(f"Attempt {attempt} failed with error: {e!r}")
+            if _is_permanent_http_client_error(e):
+                raise
             last_exception = e
 
         if attempt < retries:
@@ -266,6 +294,8 @@ async def astructured_predict_with_retries(
 
         except Exception as e:
             logger.warning(f"Attempt {attempt} failed with error: {e!r}")
+            if _is_permanent_http_client_error(e):
+                raise
             last_exception = e
 
         if attempt < retries:

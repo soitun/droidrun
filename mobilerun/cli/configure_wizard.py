@@ -9,6 +9,10 @@ import click
 from rich.console import Console
 from rich.panel import Panel
 
+from mobilerun.agent.providers.minimax import (
+    MINIMAX_CHINA_BASE_URL,
+    MINIMAX_GLOBAL_BASE_URL,
+)
 from mobilerun.agent.providers.registry import (
     VARIANT_ENV_KEY_SLOT,
     resolve_provider_variant,
@@ -29,6 +33,7 @@ from mobilerun.config_manager import ConfigLoader
 from mobilerun.config_manager.env_keys import load_env_key_sources, resolve_env_key
 
 _BACK = "__back__"
+_CUSTOM_MINIMAX_BASE_URL = "__custom_minimax_base_url__"
 
 _ALL_CONFIG_ROLES = (
     "manager",
@@ -198,6 +203,35 @@ def _prompt_api_key_for_variant(variant: Any) -> tuple[str, str]:
     if source == "file":
         return resolve_env_key(env_slot, "file"), "file"
     return text_prompt("API key", secret=True), "file"
+
+
+def _prompt_base_url_for_variant(variant: Any) -> str:
+    if variant.id != "MiniMax":
+        return text_prompt("Base URL", default=variant.base_url or "", secret=False)
+
+    selected = select_prompt(
+        "Choose MiniMax API region",
+        [
+            SelectChoice(
+                value=MINIMAX_GLOBAL_BASE_URL,
+                label="Global",
+                hint=MINIMAX_GLOBAL_BASE_URL,
+            ),
+            SelectChoice(
+                value=MINIMAX_CHINA_BASE_URL,
+                label="Mainland China",
+                hint=MINIMAX_CHINA_BASE_URL,
+            ),
+            SelectChoice(
+                value=_CUSTOM_MINIMAX_BASE_URL,
+                label="Custom endpoint",
+            ),
+        ],
+        default=MINIMAX_GLOBAL_BASE_URL,
+    )
+    if selected == _CUSTOM_MINIMAX_BASE_URL:
+        return text_prompt("Custom MiniMax base URL", secret=False)
+    return selected
 
 
 # OAuth variants share one auth-profiles.json file but store tokens under
@@ -556,9 +590,7 @@ def _configure_provider_model(
             if non_interactive and variant.base_url:
                 state.selected_base_url = variant.base_url
             else:
-                state.selected_base_url = text_prompt(
-                    "Base URL", default=variant.base_url or "", secret=False
-                )
+                state.selected_base_url = _prompt_base_url_for_variant(variant)
         if (
             credential_path
             and variant.auth_mode == "oauth"

@@ -3,6 +3,10 @@ from typing import TYPE_CHECKING, Any
 
 from llama_index.core.llms.llm import LLM
 
+from mobilerun.agent.providers.minimax import (
+    MINIMAX_GLOBAL_BASE_URL,
+    warn_if_legacy_minimax_endpoint,
+)
 from mobilerun.agent.usage import track_usage
 
 if TYPE_CHECKING:
@@ -288,9 +292,10 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
     if provider_name == "MiniMax":
         provider_name = "OpenAILike"
         kwargs.setdefault("is_chat_model", True)
-        kwargs.setdefault("api_base", "https://api.minimaxi.chat/v1")
-        if "base_url" in kwargs and "api_base" not in kwargs:
-            kwargs["api_base"] = kwargs.pop("base_url")
+        base_url = kwargs.pop("base_url", None)
+        if not kwargs.get("api_base"):
+            kwargs["api_base"] = base_url or MINIMAX_GLOBAL_BASE_URL
+        warn_if_legacy_minimax_endpoint(kwargs.get("api_base"))
 
     if provider_name == "ZAI":
         provider_name = "OpenAILike"
