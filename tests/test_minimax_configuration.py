@@ -167,6 +167,27 @@ def test_legacy_minimax_alias_defaults_to_global_endpoint() -> None:
     assert llm.api_base == MINIMAX_GLOBAL_BASE_URL
 
 
+def test_legacy_minimax_alias_uses_minimax_environment_key(monkeypatch) -> None:
+    monkeypatch.setenv("MINIMAX_API_KEY", "minimax-env-key")
+    monkeypatch.setenv("OPENAI_API_KEY", "wrong-openai-key")
+
+    llm = load_llm("MiniMax", model="MiniMax-M2.7")
+
+    assert llm.api_key == "minimax-env-key"
+
+
+def test_legacy_minimax_alias_prefers_explicit_api_key(monkeypatch) -> None:
+    monkeypatch.setenv("MINIMAX_API_KEY", "minimax-env-key")
+
+    llm = load_llm(
+        "MiniMax",
+        model="MiniMax-M2.7",
+        api_key="explicit-minimax-key",
+    )
+
+    assert llm.api_key == "explicit-minimax-key"
+
+
 def test_legacy_minimax_alias_honors_base_url_override() -> None:
     llm = load_llm(
         "MiniMax",

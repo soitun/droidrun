@@ -290,7 +290,10 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
 
     # Legacy aliases: MiniMax and DeepSeek route through OpenAILike.
     if provider_name == "MiniMax":
+        import os
+
         provider_name = "OpenAILike"
+        kwargs.setdefault("api_key", os.environ.get("MINIMAX_API_KEY"))
         kwargs.setdefault("is_chat_model", True)
         base_url = kwargs.pop("base_url", None)
         if not kwargs.get("api_base"):
