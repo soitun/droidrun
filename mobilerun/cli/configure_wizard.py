@@ -340,6 +340,13 @@ def _any_ollama_profile(config) -> bool:
     )
 
 
+def _any_minimax_profile(config) -> bool:
+    return any(
+        getattr(profile, "provider_family", "") == "minimax"
+        for profile in config.llm_profiles.values()
+    )
+
+
 def _toggle_label(enabled: bool) -> str:
     """Return a toggle indicator: ON/OFF."""
     return "[ON]" if enabled else "[OFF]"
@@ -420,7 +427,14 @@ def _configure_advanced_settings(
             )
         elif selected == "temperature":
             default_temp = config.llm_profiles[_ALL_CONFIG_ROLES[0]].temperature
-            value = _prompt_float(console, "Temperature", default=default_temp)
+            while True:
+                value = _prompt_float(console, "Temperature", default=default_temp)
+                if not _any_minimax_profile(config) or 0 < value <= 1:
+                    break
+                console.print(
+                    "[red]MiniMax temperature must be greater than 0 and no "
+                    "more than 1.[/red]"
+                )
             for role in _ALL_CONFIG_ROLES:
                 if role in config.llm_profiles:
                     config.llm_profiles[role].temperature = value

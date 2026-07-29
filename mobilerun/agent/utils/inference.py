@@ -18,15 +18,39 @@ _RETRYABLE_HTTP_CLIENT_STATUS_CODES = {408, 409, 425, 429}
 
 
 def _http_status_code(error: Exception) -> int | None:
-    status_code = getattr(error, "status_code", None)
-    if status_code is None:
-        status_code = getattr(getattr(error, "response", None), "status_code", None)
-    if isinstance(status_code, bool):
-        return None
-    try:
-        return int(status_code)
-    except (TypeError, ValueError):
-        return None
+    def read_attribute(value: object, name: str) -> object | None:
+        try:
+            return getattr(value, name, None)
+        except Exception:
+            return None
+
+    def parse_status(value: object) -> int | None:
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, int):
+            parsed = value
+        elif isinstance(value, str):
+            stripped = value.strip()
+            if not stripped.isascii() or not stripped.isdecimal():
+                return None
+            parsed = int(stripped)
+        else:
+            return None
+        return parsed if 100 <= parsed <= 599 else None
+
+    response = read_attribute(error, "response")
+    candidates = (
+        read_attribute(error, "status_code"),
+        read_attribute(response, "status_code"),
+        read_attribute(error, "code"),
+        read_attribute(error, "status"),
+        read_attribute(response, "status"),
+    )
+    for status_code in candidates:
+        parsed = parse_status(status_code)
+        if parsed is not None:
+            return parsed
+    return None
 
 
 def _is_permanent_http_client_error(error: Exception) -> bool:

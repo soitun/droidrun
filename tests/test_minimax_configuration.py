@@ -32,6 +32,12 @@ def test_minimax_registry_uses_current_global_endpoint() -> None:
     variant = resolve_provider_variant("minimax", "api_key")
 
     assert variant.base_url == MINIMAX_GLOBAL_BASE_URL
+    assert variant.default_model == "MiniMax-M3"
+    assert variant.models == (
+        "MiniMax-M3",
+        "MiniMax-M2.7",
+        "MiniMax-M2.5-highspeed",
+    )
     assert MINIMAX_CHINA_BASE_URL == "https://api.minimaxi.com/v1"
     assert MINIMAX_LEGACY_BASE_URL == "https://api.minimaxi.chat/v1"
 
@@ -188,6 +194,29 @@ def test_legacy_minimax_alias_prefers_explicit_api_key(monkeypatch) -> None:
     assert llm.api_key == "explicit-minimax-key"
 
 
+def test_legacy_minimax_alias_empty_explicit_key_uses_environment(monkeypatch) -> None:
+    monkeypatch.setenv("MINIMAX_API_KEY", "minimax-env-key")
+
+    llm = load_llm(
+        "MiniMax",
+        model="MiniMax-M2.7",
+        api_key="",
+    )
+
+    assert llm.api_key == "minimax-env-key"
+
+
+def test_legacy_minimax_alias_never_falls_back_to_openai_key(monkeypatch) -> None:
+    monkeypatch.delenv("MINIMAX_API_KEY", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "wrong-openai-key")
+
+    with pytest.raises(
+        ValueError,
+        match="Pass api_key explicitly or set MINIMAX_API_KEY",
+    ):
+        load_llm("MiniMax", model="MiniMax-M2.7")
+
+
 def test_legacy_minimax_alias_honors_base_url_override() -> None:
     llm = load_llm(
         "MiniMax",
@@ -259,6 +288,152 @@ def test_minimax_interactive_custom_endpoint(monkeypatch) -> None:
         )
         == custom_base_url
     )
+
+
+@pytest.mark.parametrize(
+    "selected_endpoint",
+    [MINIMAX_GLOBAL_BASE_URL, MINIMAX_CHINA_BASE_URL],
+)
+def test_minimax_wizard_defaults_to_m3_for_each_region(
+    monkeypatch, selected_endpoint: str
+) -> None:
+    config = MobileConfig()
+    state = ConfigureWizardState(family_id="minimax")
+    captured = {}
+
+    def choose_default_model(models, *, default_model, allow_back=True):
+        captured["models"] = models
+        captured["default_model"] = default_model
+        captured["allow_back"] = allow_back
+        return default_model
+
+    monkeypatch.setattr(
+        configure_wizard,
+        "_prompt_model_choice",
+        choose_default_model,
+    )
+    monkeypatch.setattr(
+        configure_wizard,
+        "_prompt_api_key_for_variant",
+        lambda variant: ("stub", "env"),
+    )
+    monkeypatch.setattr(
+        configure_wizard,
+        "_prompt_base_url_for_variant",
+        lambda variant: selected_endpoint,
+    )
+    callbacks = ConfigureWizardCallbacks(
+        run_openai_oauth_login=lambda **kwargs: None,
+        run_anthropic_oauth_login=lambda **kwargs: None,
+        run_gemini_oauth_login=lambda **kwargs: None,
+    )
+
+    configured = configure_wizard._configure_provider_model(
+        Console(file=StringIO(), force_terminal=False),
+        config,
+        callbacks,
+        state,
+        family_choices(),
+        {family.id: family.display_name for family in family_choices()},
+        provider_is_fixed=True,
+        auth_mode_is_fixed=False,
+        model_is_fixed=False,
+        api_key=None,
+        base_url=None,
+    )
+
+    assert configured is True
+    assert captured["models"][0] == "MiniMax-M3"
+    assert captured["default_model"] == "MiniMax-M3"
+    assert state.selected_model == "MiniMax-M3"
+    for profile in config.llm_profiles.values():
+        assert profile.model == "MiniMax-M3"
+        assert profile.base_url == selected_endpoint
+        assert profile.api_base == selected_endpoint
+
+
+@pytest.mark.parametrize(
+    "selected_endpoint",
+    [MINIMAX_GLOBAL_BASE_URL, MINIMAX_CHINA_BASE_URL],
+)
+def test_minimax_explicit_m27_remains_supported(
+    selected_endpoint: str,
+) -> None:
+    variant = resolve_provider_variant("minimax", "api_key")
+    profile = create_profile_for_variant(
+        variant,
+        SetupSelection(
+            family_id="minimax",
+            variant_id=variant.id,
+            auth_mode="api_key",
+            model="MiniMax-M2.7",
+            api_key_source="env",
+            base_url=selected_endpoint,
+        ),
+    )
+
+    assert "MiniMax-M2.7" in variant.models
+    assert profile.model == "MiniMax-M2.7"
+    assert profile.base_url == selected_endpoint
+    assert profile.api_base == selected_endpoint
+
+
+def _run_advanced_temperature_configuration(
+    monkeypatch,
+    config: MobileConfig,
+    temperatures: list[float],
+) -> str:
+    selections = iter(("temperature", "done"))
+    prompted_temperatures = iter(temperatures)
+    monkeypatch.setattr(
+        configure_wizard,
+        "_select_with_back",
+        lambda *args, **kwargs: next(selections),
+    )
+    monkeypatch.setattr(
+        configure_wizard,
+        "_prompt_float",
+        lambda *args, **kwargs: next(prompted_temperatures),
+    )
+    output = StringIO()
+    configure_wizard._configure_advanced_settings(
+        Console(file=output, force_terminal=False),
+        config,
+    )
+    return output.getvalue()
+
+
+def test_minimax_advanced_temperature_reprompts_until_valid(monkeypatch) -> None:
+    config = MobileConfig()
+    for profile in config.llm_profiles.values():
+        profile.provider_family = "minimax"
+
+    output = _run_advanced_temperature_configuration(
+        monkeypatch,
+        config,
+        [-0.1, 0.0, 1.1, 0.1],
+    )
+
+    assert output.count("MiniMax temperature must be greater than 0") == 3
+    assert all(profile.temperature == 0.1 for profile in config.llm_profiles.values())
+
+
+def test_minimax_advanced_temperature_accepts_one(monkeypatch) -> None:
+    config = MobileConfig()
+    for profile in config.llm_profiles.values():
+        profile.provider_family = "minimax"
+
+    _run_advanced_temperature_configuration(monkeypatch, config, [1.0])
+
+    assert all(profile.temperature == 1.0 for profile in config.llm_profiles.values())
+
+
+def test_non_minimax_advanced_temperature_preserves_zero(monkeypatch) -> None:
+    config = MobileConfig()
+
+    _run_advanced_temperature_configuration(monkeypatch, config, [0.0])
+
+    assert all(profile.temperature == 0.0 for profile in config.llm_profiles.values())
 
 
 def test_noninteractive_minimax_preserves_explicit_base_url(monkeypatch) -> None:

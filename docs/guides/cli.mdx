@@ -112,7 +112,7 @@ mobilerun run "Reply to latest email" \
 export MINIMAX_API_KEY=your-key
 mobilerun run "Open Settings" \
   --provider MiniMax \
-  --model MiniMax-M2.7 \
+  --model MiniMax-M3 \
   --base_url https://api.minimax.io/v1
 
 # Local Ollama (free)
@@ -171,8 +171,20 @@ the key was created:
 | Global | `https://api.minimax.io/v1` |
 | Mainland China | `https://api.minimaxi.com/v1` |
 
-The global endpoint is the default. For noninteractive setup, pass a regional
+The global endpoint is the default. `MiniMax-M3` is the first wizard choice and
+the default model for either region. For noninteractive setup, pass a regional
 override explicitly:
+
+```bash
+mobilerun configure \
+  --provider minimax \
+  --model MiniMax-M3 \
+  --base-url https://api.minimaxi.com/v1
+```
+
+The Mainland China model catalog can lag behind the global platform. If
+`MiniMax-M3` is not available for your China account, explicitly select the
+still-supported `MiniMax-M2.7` model:
 
 ```bash
 mobilerun configure \

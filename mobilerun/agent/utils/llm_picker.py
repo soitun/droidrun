@@ -292,8 +292,17 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
     if provider_name == "MiniMax":
         import os
 
+        api_key = kwargs.get("api_key")
+        if not isinstance(api_key, str) or not api_key.strip():
+            api_key = os.environ.get("MINIMAX_API_KEY")
+        if not isinstance(api_key, str) or not api_key.strip():
+            raise ValueError(
+                "MiniMax requires an API key. Pass api_key explicitly or set "
+                "MINIMAX_API_KEY."
+            )
+
         provider_name = "OpenAILike"
-        kwargs.setdefault("api_key", os.environ.get("MINIMAX_API_KEY"))
+        kwargs["api_key"] = api_key
         kwargs.setdefault("is_chat_model", True)
         base_url = kwargs.pop("base_url", None)
         if not kwargs.get("api_base"):
