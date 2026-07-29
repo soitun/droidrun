@@ -611,11 +611,11 @@ mobilerun run "Task" --config /path/to/config.yaml
 - `--config PATH` - Custom config file
 - `--device SERIAL` - Device serial/IP
 - `--agent NAME` - External agent to use. Not yet supported — reserved for future use.
-- `--provider PROVIDER` - LLM provider (OpenAI, Ollama, Anthropic, GoogleGenAI, DeepSeek)
+- `--provider PROVIDER` - LLM provider (OpenAI, Ollama, Anthropic, GoogleGenAI, DeepSeek, MiniMax)
 - `--model MODEL` - LLM model name
 - `--temperature FLOAT` - LLM temperature
 - `--steps INT` - Max steps
-- `--base_url URL` - API base URL (for Ollama/OpenRouter)
+- `--base_url URL` - API base URL (for Ollama/OpenRouter/MiniMax)
 - `--api_base URL` - API base URL (for OpenAI-like)
 - `--vision/--no-vision` - Enable/disable vision for all agents
 - `--reasoning/--no-reasoning` - Enable/disable reasoning mode
@@ -636,5 +636,29 @@ export GOOGLE_API_KEY=your-key
 export OPENAI_API_KEY=your-key
 export ANTHROPIC_API_KEY=your-key
 export DEEPSEEK_API_KEY=your-key
+export MINIMAX_API_KEY=your-key
 export MOBILERUN_CONFIG=/path/to/config.yaml  # Custom config path
 ```
+
+MiniMax uses `https://api.minimax.io/v1` for global accounts and
+`https://api.minimaxi.com/v1` for Mainland China accounts. The configure wizard
+asks for the matching region and selects `MiniMax-M3` by default:
+
+```bash
+mobilerun configure \
+  --provider minimax \
+  --model MiniMax-M3 \
+  --base-url https://api.minimax.io/v1
+```
+
+The Mainland China model catalog can lag behind the global platform. If
+`MiniMax-M3` is not available for a China account, explicitly use the supported
+`MiniMax-M2.7` model with `https://api.minimaxi.com/v1`.
+
+With `api_key_source: auto`, the saved
+`apiKeys.minimax` value takes precedence over `MINIMAX_API_KEY`. Select **Use env
+key** in the wizard to force the environment value, or replace/remove the saved
+entry. Keys pasted into the wizard are stored in the `apiKeys.minimax` entry of
+`credentials/auth-profiles.json` in the platform configuration directory; this
+file is separate from the device secrets file controlled by
+`credentials.enabled`.

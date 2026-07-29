@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Literal, Optional
 
 import yaml
 
+from mobilerun.agent.providers.minimax import warn_if_legacy_minimax_endpoint
 from mobilerun.agent.providers.registry import VARIANT_ENV_KEY_SLOT
 from mobilerun.config_manager.env_keys import API_KEY_ENV_VARS, load_env_key_sources
 from mobilerun.config_manager.path_resolver import PathResolver
@@ -32,6 +33,9 @@ class LLMProfile:
 
     def to_load_llm_kwargs(self) -> Dict[str, Any]:
         """Convert profile to kwargs for load_llm function."""
+        if self.provider_family == "minimax":
+            warn_if_legacy_minimax_endpoint(self.api_base or self.base_url)
+
         result = {
             "model": self.model,
             "temperature": self.temperature,

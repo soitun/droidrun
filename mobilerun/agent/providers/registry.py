@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from mobilerun.agent.providers.minimax import MINIMAX_GLOBAL_BASE_URL
 from mobilerun.agent.providers.types import (
     ProviderFamilySpec,
     ProviderVariantSpec,
@@ -165,14 +166,15 @@ PROVIDER_FAMILIES: tuple[ProviderFamilySpec, ...] = (
                 runtime_provider_name="MiniMax",
                 runtime_transport_provider_name="OpenAILike",
                 auth_mode="api_key",
-                default_model="MiniMax-M2.7",
+                default_model="MiniMax-M3",
                 models=(
+                    "MiniMax-M3",
                     "MiniMax-M2.7",
                     "MiniMax-M2.5-highspeed",
                 ),
                 requires_api_key=True,
                 requires_base_url=True,
-                base_url="https://api.minimaxi.chat/v1",
+                base_url=MINIMAX_GLOBAL_BASE_URL,
             ),
         ),
     ),

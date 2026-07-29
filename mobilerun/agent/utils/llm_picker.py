@@ -3,6 +3,10 @@ from typing import TYPE_CHECKING, Any
 
 from llama_index.core.llms.llm import LLM
 
+from mobilerun.agent.providers.minimax import (
+    MINIMAX_GLOBAL_BASE_URL,
+    warn_if_legacy_minimax_endpoint,
+)
 from mobilerun.agent.usage import track_usage
 
 if TYPE_CHECKING:
@@ -286,11 +290,24 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
 
     # Legacy aliases: MiniMax and DeepSeek route through OpenAILike.
     if provider_name == "MiniMax":
+        import os
+
+        api_key = kwargs.get("api_key")
+        if not isinstance(api_key, str) or not api_key.strip():
+            api_key = os.environ.get("MINIMAX_API_KEY")
+        if not isinstance(api_key, str) or not api_key.strip():
+            raise ValueError(
+                "MiniMax requires an API key. Pass api_key explicitly or set "
+                "MINIMAX_API_KEY."
+            )
+
         provider_name = "OpenAILike"
+        kwargs["api_key"] = api_key
         kwargs.setdefault("is_chat_model", True)
-        kwargs.setdefault("api_base", "https://api.minimaxi.chat/v1")
-        if "base_url" in kwargs and "api_base" not in kwargs:
-            kwargs["api_base"] = kwargs.pop("base_url")
+        base_url = kwargs.pop("base_url", None)
+        if not kwargs.get("api_base"):
+            kwargs["api_base"] = base_url or MINIMAX_GLOBAL_BASE_URL
+        warn_if_legacy_minimax_endpoint(kwargs.get("api_base"))
 
     if provider_name == "ZAI":
         provider_name = "OpenAILike"

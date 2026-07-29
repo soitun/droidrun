@@ -25,6 +25,7 @@ DEFAULT_KWARGS_BY_VARIANT: dict[str, dict[str, int]] = {
 }
 
 HIDDEN_ROLE_FALLBACKS: tuple[str, ...] = ("app_opener", "structured_output")
+_MINIMAX_DETERMINISTIC_TEMPERATURE = 0.1
 _ZAI_GLOBAL_BASE_URL = "https://api.z.ai/api/paas/v4"
 _ZAI_CODING_GLOBAL_BASE_URL = "https://api.z.ai/api/coding/paas/v4"
 
@@ -53,6 +54,12 @@ def auth_mode_choices(family_id: str) -> tuple[str, ...]:
 def variant_models(family_id: str, auth_mode: str) -> tuple[str, ...]:
     variant = resolve_provider_variant(family_id, auth_mode)
     return tuple(variant.models)
+
+
+def _normalize_generated_temperature(family_id: str, temperature: float) -> float:
+    if family_id == "minimax" and not 0 < temperature <= 1:
+        return _MINIMAX_DETERMINISTIC_TEMPERATURE
+    return temperature
 
 
 def _probe_zai_chat_completions(
@@ -151,6 +158,8 @@ def create_profile_for_variant(
     # OpenAI models require temperature=1
     if selection.family_id == "openai":
         temperature = 1.0
+    else:
+        temperature = _normalize_generated_temperature(selection.family_id, temperature)
 
     return LLMProfile(
         provider=runtime_provider_name,
@@ -206,7 +215,9 @@ def apply_selection_to_roles(
                 config.llm_profiles[hidden_role] = LLMProfile(
                     provider=fast_agent_profile.provider,
                     model=fast_agent_profile.model,
-                    temperature=current.temperature,
+                    temperature=_normalize_generated_temperature(
+                        selection.family_id, current.temperature
+                    ),
                     base_url=fast_agent_profile.base_url,
                     api_base=fast_agent_profile.api_base,
                     provider_family=fast_agent_profile.provider_family,

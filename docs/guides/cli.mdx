@@ -108,6 +108,13 @@ mobilerun run "Reply to latest email" \
   --provider Anthropic \
   --model claude-sonnet-4-5-latest
 
+# MiniMax (global API)
+export MINIMAX_API_KEY=your-key
+mobilerun run "Open Settings" \
+  --provider MiniMax \
+  --model MiniMax-M3 \
+  --base_url https://api.minimax.io/v1
+
 # Local Ollama (free)
 mobilerun run "Turn on dark mode" \
   --provider Ollama \
@@ -152,6 +159,48 @@ mobilerun run "Enable 2FA" \
 | Ollama | Included by default | None (local) |
 | Anthropic | `uv pip install 'mobilerun[anthropic]'` | `ANTHROPIC_API_KEY` |
 | DeepSeek | Included by default | `DEEPSEEK_API_KEY` |
+| MiniMax | Included by default | `MINIMAX_API_KEY` |
+
+### MiniMax endpoints and credentials
+
+Run `mobilerun configure`, choose MiniMax, and then select the API region where
+the key was created:
+
+| Region | Base URL |
+|--------|----------|
+| Global | `https://api.minimax.io/v1` |
+| Mainland China | `https://api.minimaxi.com/v1` |
+
+The global endpoint is the default. `MiniMax-M3` is the first wizard choice and
+the default model for either region. For noninteractive setup, pass a regional
+override explicitly:
+
+```bash
+mobilerun configure \
+  --provider minimax \
+  --model MiniMax-M3 \
+  --base-url https://api.minimaxi.com/v1
+```
+
+The Mainland China model catalog can lag behind the global platform. If
+`MiniMax-M3` is not available for your China account, explicitly select the
+still-supported `MiniMax-M2.7` model:
+
+```bash
+mobilerun configure \
+  --provider minimax \
+  --model MiniMax-M2.7 \
+  --base-url https://api.minimaxi.com/v1
+```
+
+Keys are regional; a valid key from one MiniMax platform can be rejected by the
+other endpoint. When a profile uses `api_key_source: auto`, a key saved under
+`apiKeys.minimax` takes precedence over `MINIMAX_API_KEY`. To force the shell
+key, choose **Use env key** in the wizard. You can instead replace or remove the
+saved `apiKeys.minimax` entry in `credentials/auth-profiles.json` inside
+Mobilerun's platform configuration directory. Pasting a new key in the wizard
+updates that saved entry. The top-level `credentials.enabled` setting controls
+device secrets and does not configure LLM provider authentication.
 
   </Tab>
 
@@ -503,6 +552,7 @@ mobilerun ping --tcp
 | `OPENAI_API_KEY` | OpenAI API key | None |
 | `ANTHROPIC_API_KEY` | Anthropic API key | None |
 | `DEEPSEEK_API_KEY` | DeepSeek API key | None |
+| `MINIMAX_API_KEY` | MiniMax API key | None |
 | `MOBILERUN_CLOUD_API_KEY` | Mobilerun Cloud API key for `devices --cloud` and cloud device actions | None |
 | `MOBILERUN_CONFIG` | Config file path | `~/.config/mobilerun/config.yaml` |
 

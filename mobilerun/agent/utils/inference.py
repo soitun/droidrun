@@ -14,6 +14,54 @@ logger = logging.getLogger("mobilerun")
 
 T = TypeVar("T", bound=BaseModel)
 
+_RETRYABLE_HTTP_CLIENT_STATUS_CODES = {408, 409, 425, 429}
+
+
+def _http_status_code(error: Exception) -> int | None:
+    def read_attribute(value: object, name: str) -> object | None:
+        try:
+            return getattr(value, name, None)
+        except Exception:
+            return None
+
+    def parse_status(value: object) -> int | None:
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, int):
+            parsed = value
+        elif isinstance(value, str):
+            stripped = value.strip()
+            if not stripped.isascii() or not stripped.isdecimal():
+                return None
+            parsed = int(stripped)
+        else:
+            return None
+        return parsed if 100 <= parsed <= 599 else None
+
+    response = read_attribute(error, "response")
+    candidates = (
+        read_attribute(error, "status_code"),
+        read_attribute(response, "status_code"),
+        read_attribute(error, "code"),
+        read_attribute(error, "status"),
+        read_attribute(response, "status"),
+    )
+    for status_code in candidates:
+        parsed = parse_status(status_code)
+        if parsed is not None:
+            return parsed
+    return None
+
+
+def _is_permanent_http_client_error(error: Exception) -> bool:
+    """Return whether an HTTP client error should fail without another attempt."""
+    status_code = _http_status_code(error)
+    return (
+        status_code is not None
+        and 400 <= status_code < 500
+        and status_code not in _RETRYABLE_HTTP_CLIENT_STATUS_CODES
+    )
+
 
 async def acall_with_retries(
     llm,
@@ -68,6 +116,8 @@ async def acall_with_retries(
 
         except Exception as e:
             logger.warning(f"Attempt {attempt} failed with error: {e!r}")
+            if _is_permanent_http_client_error(e):
+                raise
             last_exception = e
 
         if attempt < retries:
@@ -170,6 +220,8 @@ async def acomplete_with_retries(
 
         except Exception as e:
             logger.warning(f"Attempt {attempt} failed with error: {e!r}")
+            if _is_permanent_http_client_error(e):
+                raise
             last_exception = e
 
         if attempt < retries:
@@ -266,6 +318,8 @@ async def astructured_predict_with_retries(
 
         except Exception as e:
             logger.warning(f"Attempt {attempt} failed with error: {e!r}")
+            if _is_permanent_http_client_error(e):
+                raise
             last_exception = e
 
         if attempt < retries:

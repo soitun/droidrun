@@ -9,6 +9,10 @@ import click
 from rich.console import Console
 from rich.panel import Panel
 
+from mobilerun.agent.providers.minimax import (
+    MINIMAX_CHINA_BASE_URL,
+    MINIMAX_GLOBAL_BASE_URL,
+)
 from mobilerun.agent.providers.registry import (
     VARIANT_ENV_KEY_SLOT,
     resolve_provider_variant,
@@ -29,6 +33,7 @@ from mobilerun.config_manager import ConfigLoader
 from mobilerun.config_manager.env_keys import load_env_key_sources, resolve_env_key
 
 _BACK = "__back__"
+_CUSTOM_MINIMAX_BASE_URL = "__custom_minimax_base_url__"
 
 _ALL_CONFIG_ROLES = (
     "manager",
@@ -200,6 +205,35 @@ def _prompt_api_key_for_variant(variant: Any) -> tuple[str, str]:
     return text_prompt("API key", secret=True), "file"
 
 
+def _prompt_base_url_for_variant(variant: Any) -> str:
+    if variant.id != "MiniMax":
+        return text_prompt("Base URL", default=variant.base_url or "", secret=False)
+
+    selected = select_prompt(
+        "Choose MiniMax API region",
+        [
+            SelectChoice(
+                value=MINIMAX_GLOBAL_BASE_URL,
+                label="Global",
+                hint=MINIMAX_GLOBAL_BASE_URL,
+            ),
+            SelectChoice(
+                value=MINIMAX_CHINA_BASE_URL,
+                label="Mainland China",
+                hint=MINIMAX_CHINA_BASE_URL,
+            ),
+            SelectChoice(
+                value=_CUSTOM_MINIMAX_BASE_URL,
+                label="Custom endpoint",
+            ),
+        ],
+        default=MINIMAX_GLOBAL_BASE_URL,
+    )
+    if selected == _CUSTOM_MINIMAX_BASE_URL:
+        return text_prompt("Custom MiniMax base URL", secret=False)
+    return selected
+
+
 # OAuth variants share one auth-profiles.json file but store tokens under
 # distinct nested slots. Detection must be slot-aware: the file existing (e.g.
 # from another provider, or the deprecated gemini "geminiOauth" slot) does NOT
@@ -306,6 +340,13 @@ def _any_ollama_profile(config) -> bool:
     )
 
 
+def _any_minimax_profile(config) -> bool:
+    return any(
+        getattr(profile, "provider_family", "") == "minimax"
+        for profile in config.llm_profiles.values()
+    )
+
+
 def _toggle_label(enabled: bool) -> str:
     """Return a toggle indicator: ON/OFF."""
     return "[ON]" if enabled else "[OFF]"
@@ -386,7 +427,14 @@ def _configure_advanced_settings(
             )
         elif selected == "temperature":
             default_temp = config.llm_profiles[_ALL_CONFIG_ROLES[0]].temperature
-            value = _prompt_float(console, "Temperature", default=default_temp)
+            while True:
+                value = _prompt_float(console, "Temperature", default=default_temp)
+                if not _any_minimax_profile(config) or 0 < value <= 1:
+                    break
+                console.print(
+                    "[red]MiniMax temperature must be greater than 0 and no "
+                    "more than 1.[/red]"
+                )
             for role in _ALL_CONFIG_ROLES:
                 if role in config.llm_profiles:
                     config.llm_profiles[role].temperature = value
@@ -556,9 +604,7 @@ def _configure_provider_model(
             if non_interactive and variant.base_url:
                 state.selected_base_url = variant.base_url
             else:
-                state.selected_base_url = text_prompt(
-                    "Base URL", default=variant.base_url or "", secret=False
-                )
+                state.selected_base_url = _prompt_base_url_for_variant(variant)
         if (
             credential_path
             and variant.auth_mode == "oauth"
