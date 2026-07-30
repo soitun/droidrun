@@ -20,6 +20,7 @@ from rich.console import Console
 
 from mobilerun.config_manager import ConfigLoader
 from mobilerun_core_local.driver.ios import (
+    IOSPortalHttpDriver,
     create_ios_driver,
     discover_ios_device,
     validate_ios_portal_url,
@@ -256,7 +257,7 @@ async def ui(device, config_path, tcp, ios, cloud, device_id, base_url):
         device, config_path, tcp, ios, cloud, device_id, base_url
     )
     try:
-        if is_ios:
+        if is_ios and not isinstance(driver, IOSPortalHttpDriver):
             provider = IOSStateProvider(driver)
         else:
             provider = AndroidStateProvider(

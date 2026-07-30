@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import asyncio
 
-import httpx
-
 
 def run(coro):
     return asyncio.run(coro)
@@ -108,6 +106,36 @@ def test_android_state_provider_vision_contract_uses_point_space():
     assert state.coordinate_contract_active
     assert (state.model_screenshot_width, state.model_screenshot_height) == (393, 852)
     assert (state.coordinate_scale_x, state.coordinate_scale_y) == (1.0, 1.0)
+
+
+def test_device_commands_ui_pairs_portal_http_driver_with_android_provider(monkeypatch):
+    """`mobilerun device ui` must not pair IOSPortalHttpDriver with
+    IOSStateProvider: the latter regex-parses a legacy string tree and would
+    silently yield zero elements for the Android-shaped dict the --local
+    portal actually returns."""
+    from click.testing import CliRunner
+    from mobilerun_core_local.driver.ios import IOSPortalHttpDriver
+
+    from mobilerun.cli import device_commands
+
+    class FakePortalHttpDriver(IOSPortalHttpDriver):
+        def __init__(self):  # skip the httpx-client base __init__
+            pass
+
+        async def get_ui_tree(self):
+            return LOCAL_PORTAL_STATE
+
+    driver = FakePortalHttpDriver()
+
+    async def fake_create_driver(*args, **kwargs):
+        return driver, True
+
+    monkeypatch.setattr(device_commands, "_create_driver", fake_create_driver)
+
+    result = CliRunner().invoke(device_commands.device_cli, ["ui"])
+
+    assert result.exit_code == 0, result.output
+    assert "Privacy & Security" in result.output
 
 
 def test_device_commands_route_ios_through_factory(tmp_path, monkeypatch):
