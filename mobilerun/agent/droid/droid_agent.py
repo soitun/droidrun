@@ -81,7 +81,11 @@ from mobilerun.telemetry import (
     capture,
     flush,
 )
-from mobilerun_core_local.driver.ios import IOSDriver, discover_ios_portal
+from mobilerun_core_local.driver.ios import (
+    IOSPortalHttpDriver,
+    create_ios_driver,
+    discover_ios_device,
+)
 from mobilerun_core_local.driver.recording import RecordingDriver
 from mobilerun_core_local.driver.stealth import StealthDriver
 from mobilerun_core_local.driver.visual_remote import (
@@ -537,8 +541,11 @@ class MobileAgent(Workflow):
         elif is_ios:
             ios_url = self.resolved_device_config.serial
             if not ios_url:
-                ios_url = await discover_ios_portal()
-            driver = IOSDriver(url=ios_url)
+                ios_url = await discover_ios_device()
+            driver = await create_ios_driver(
+                ios_url,
+                token=self.resolved_device_config.resolve_auth_token(),
+            )
             await driver.connect()
         else:
             device_serial = self.resolved_device_config.serial
@@ -563,6 +570,10 @@ class MobileAgent(Workflow):
             )
             await driver.connect()
 
+        # Captured before the Stealth/Recording wraps: the provider pairing
+        # below must see the concrete driver class.
+        is_ios_portal_http = isinstance(driver, IOSPortalHttpDriver)
+
         # Wrap with StealthDriver if stealth mode enabled
         stealth_enabled = self.config.tools and self.config.tools.stealth
         if stealth_enabled and not is_ios and not is_visual_remote:
@@ -582,6 +593,20 @@ class MobileAgent(Workflow):
         elif self.config.agent.vision_only or is_visual_remote:
             self.state_provider = ScreenshotOnlyStateProvider(
                 driver, vision_resize_policy=vision_resize_policy
+            )
+        elif is_ios_portal_http:
+            # The --local portal serves the Android-shaped state (a11y_tree
+            # node JSON + point-space screen_bounds), so it pairs with the
+            # Android tree pipeline; coordinates stay in points end to end.
+            tree_filter = ConciseFilter() if vision_enabled else DetailedFilter()
+            self.state_provider = AndroidStateProvider(
+                driver,
+                tree_filter=tree_filter,
+                tree_formatter=IndexedFormatter(),
+                use_normalized=self.config.agent.use_normalized_coordinates,
+                stealth=False,
+                vision_enabled=vision_enabled,
+                vision_resize_policy=vision_resize_policy,
             )
         elif is_ios:
             self.state_provider = IOSStateProvider(
