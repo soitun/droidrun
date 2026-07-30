@@ -108,3 +108,80 @@ def test_android_state_provider_vision_contract_uses_point_space():
     assert state.coordinate_contract_active
     assert (state.model_screenshot_width, state.model_screenshot_height) == (393, 852)
     assert (state.coordinate_scale_x, state.coordinate_scale_y) == (1.0, 1.0)
+
+
+def test_device_commands_route_ios_through_factory(tmp_path, monkeypatch):
+    from mobilerun.cli import device_commands
+
+    created = {}
+
+    class FakeDriver:
+        platform = "iOS"
+
+        async def connect(self):
+            created["connected"] = True
+
+    async def fake_create_ios_driver(url, *, token=None, transport=None):
+        created["url"] = url
+        created["token"] = token
+        return FakeDriver()
+
+    monkeypatch.setattr(device_commands, "create_ios_driver", fake_create_ios_driver)
+    monkeypatch.setenv("MOBILERUN_DEVICE_TOKEN", "sekret")
+
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text("_version: 7\ndevice:\n  platform: ios\n")
+
+    driver, is_ios = run(
+        device_commands._create_driver(
+            device="http://127.0.0.1:8080",
+            config_path=str(cfg),
+            tcp=None,
+            ios=True,
+        )
+    )
+
+    assert is_ios is True
+    assert created == {
+        "url": "http://127.0.0.1:8080",
+        "token": "sekret",
+        "connected": True,
+    }
+
+
+def test_device_commands_discover_when_no_device(tmp_path, monkeypatch):
+    from mobilerun.cli import device_commands
+
+    created = {}
+
+    class FakeDriver:
+        platform = "iOS"
+
+        async def connect(self):
+            pass
+
+    async def fake_discover_ios_device():
+        return "http://127.0.0.1:8081"
+
+    async def fake_create_ios_driver(url, *, token=None, transport=None):
+        created["url"] = url
+        return FakeDriver()
+
+    monkeypatch.setattr(device_commands, "discover_ios_device", fake_discover_ios_device)
+    monkeypatch.setattr(device_commands, "create_ios_driver", fake_create_ios_driver)
+    monkeypatch.delenv("MOBILERUN_DEVICE_TOKEN", raising=False)
+
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text("_version: 7\ndevice:\n  platform: ios\n")
+
+    driver, is_ios = run(
+        device_commands._create_driver(
+            device=None,
+            config_path=str(cfg),
+            tcp=None,
+            ios=True,
+        )
+    )
+
+    assert is_ios is True
+    assert created["url"] == "http://127.0.0.1:8081"

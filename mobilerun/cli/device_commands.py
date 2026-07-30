@@ -20,8 +20,8 @@ from rich.console import Console
 
 from mobilerun.config_manager import ConfigLoader
 from mobilerun_core_local.driver.ios import (
-    IOSDriver,
-    discover_ios_portal,
+    create_ios_driver,
+    discover_ios_device,
     validate_ios_portal_url,
 )
 from mobilerun.tools.filters import ConciseFilter
@@ -169,8 +169,10 @@ async def _create_driver(
         if config.device.serial:
             url = validate_ios_portal_url(config.device.serial)
         else:
-            url = await discover_ios_portal()
-        driver = IOSDriver(url=url)
+            url = await discover_ios_device()
+        driver = await create_ios_driver(
+            url, token=config.device.resolve_auth_token()
+        )
         await driver.connect()
         return driver, True
 
