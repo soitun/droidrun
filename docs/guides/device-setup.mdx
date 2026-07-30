@@ -508,6 +508,31 @@ agent = MobileAgent(
 result = await agent.run()
 ```
 
+### Local mode with mobilerun-ios (macOS)
+
+`mobilerun-ios --local` serves the portal HTTP API directly on your Mac — no
+Portal app or iproxy needed:
+
+```bash
+mobilerun-ios --local <udid>          # serves http://127.0.0.1:8080
+mobilerun run --ios "Open Settings"   # auto-discovers the local portal
+```
+
+With several devices attached the port advances per device (8080, 8081, …);
+pass the URL explicitly to pick one:
+
+```bash
+mobilerun run --ios --device http://127.0.0.1:8081 "Open Settings"
+```
+
+Both portal generations are auto-detected from the URL, so the legacy Portal
+app keeps working unchanged.
+
+**Auth:** a loopback server needs no token. If `mobilerun-ios` was started
+with `--local-token` (required for non-loopback binds), set the matching
+token via the `MOBILERUN_DEVICE_TOKEN` env var or `device.auth_token` in
+config.yaml.
+
 ---
 
 ## Supported Features
