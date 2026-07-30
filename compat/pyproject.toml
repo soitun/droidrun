@@ -1,15 +1,15 @@
 [project]
 name = "droidrun"
-version = "0.6.12"
+version = "0.6.13"
 description = "Compatibility shim — droidrun has been renamed to mobilerun"
 requires-python = ">=3.11,<3.14"
-dependencies = ["mobilerun==0.6.12"]
+dependencies = ["mobilerun==0.6.13"]
 
 [project.optional-dependencies]
-anthropic = ["mobilerun[anthropic]==0.6.12"]
-deepseek = ["mobilerun[deepseek]==0.6.12"]
-langfuse = ["mobilerun[langfuse]==0.6.12"]
-dev = ["mobilerun[dev]==0.6.12"]
+anthropic = ["mobilerun[anthropic]==0.6.13"]
+deepseek = ["mobilerun[deepseek]==0.6.13"]
+langfuse = ["mobilerun[langfuse]==0.6.13"]
+dev = ["mobilerun[dev]==0.6.13"]
 
 [project.scripts]
 droidrun = "droidrun.cli_shim:main"
