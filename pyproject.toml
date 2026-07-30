@@ -5,7 +5,7 @@ description = "A framework for controlling mobile devices through LLM agents"
 authors = [{ name = "Niels Schmidt", email = "niels@droidrun.ai" }]
 dependencies = [
     "async_adbutils",
-    "llama-index==0.14.4",
+    "llama-index==0.14.23",
     "posthog>=6.7.6",
     "pydantic>=2.11.10",
     "rich>=14.1.0",
@@ -16,8 +16,8 @@ dependencies = [
     "llama-index-workflows>=2.16.0,<3.0.0",
     "aiofiles>=25.1.0",
     "mcp>=1.26.0",
-    "llama-index-llms-openai>=0.6.0",
-    "llama-index-llms-openai-like>=0.6.0",
+    "llama-index-llms-openai==0.7.10",
+    "llama-index-llms-openai-like==0.7.2",
     "llama-index-llms-google-genai>=0.8.5",
     "llama-index-llms-ollama>=0.7.2",
     "llama-index-llms-openrouter>=0.4.2",
