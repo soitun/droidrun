@@ -31,34 +31,66 @@ def test_normalize_provider_name_accepts_user_facing_aliases(
     assert normalize_provider_name(alias) == expected
 
 
-def test_openai_responses_omits_temperature_for_gpt_5_5() -> None:
+@pytest.mark.parametrize(
+    "model",
+    [
+        "gpt-5.5",
+        "gpt-5.4",
+        "gpt-5.4-mini",
+        "gpt-5.4-nano",
+    ],
+)
+def test_openai_responses_current_reasoning_models_omit_sampling_params(
+    model: str,
+) -> None:
     llm = load_llm(
         "OpenAIResponses",
-        model="gpt-5.5",
+        model=model,
         api_key="stub",
         temperature=0.4,
     )
 
     kwargs = llm._get_model_kwargs()
 
-    assert kwargs["model"] == "gpt-5.5"
+    assert kwargs["model"] == model
     assert "temperature" not in kwargs
     assert "top_p" not in kwargs
 
 
-def test_openai_responses_keeps_temperature_for_gpt_5_4() -> None:
+@pytest.mark.parametrize(
+    ("model", "context_window"),
+    [
+        ("gpt-5.5", 1_050_000),
+        ("gpt-5.4", 1_050_000),
+        ("gpt-5.4-mini", 400_000),
+        ("gpt-5.4-nano", 400_000),
+    ],
+)
+def test_openai_responses_current_catalog_models_have_metadata(
+    model: str, context_window: int
+) -> None:
     llm = load_llm(
         "OpenAIResponses",
-        model="gpt-5.4",
+        model=model,
         api_key="stub",
-        temperature=0.4,
     )
 
-    kwargs = llm._get_model_kwargs()
+    metadata = llm.metadata
 
-    assert kwargs["model"] == "gpt-5.4"
-    assert kwargs["temperature"] == 0.4
-    assert kwargs["top_p"] == 1.0
+    assert metadata.model_name == model
+    assert metadata.context_window == context_window
+    assert metadata.is_function_calling_model is True
+
+
+def test_openai_responses_preserves_explicit_context_window_override() -> None:
+    llm = load_llm(
+        "OpenAIResponses",
+        model="gpt-5.5",
+        api_key="stub",
+        context_window=123_456,
+    )
+
+    assert llm.metadata.context_window == 123_456
 
 
 def test_openai_alias_loads_openai_responses_without_temperature_for_gpt_5_5() -> None:
@@ -70,8 +102,25 @@ def test_openai_alias_loads_openai_responses_without_temperature_for_gpt_5_5() -
     )
 
     assert type(llm).__name__ == "MobilerunOpenAIResponses"
+    assert llm.metadata.context_window == 1_050_000
     assert "temperature" not in llm._get_model_kwargs()
     assert "top_p" not in llm._get_model_kwargs()
+
+
+def test_openai_responses_profile_loads_with_current_default_metadata() -> None:
+    llm = load_llms_from_profiles(
+        {
+            "manager": LLMProfile(
+                provider="OpenAIResponses",
+                model="gpt-5.5",
+                kwargs={"api_key": "stub"},
+            )
+        }
+    )["manager"]
+
+    assert type(llm).__name__ == "MobilerunOpenAIResponses"
+    assert llm.metadata.model_name == "gpt-5.5"
+    assert llm.metadata.context_window == 1_050_000
 
 
 def test_zai_alias_uses_openai_like_transport_defaults() -> None:
