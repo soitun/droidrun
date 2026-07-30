@@ -3,9 +3,18 @@ from typing import TYPE_CHECKING, Any
 
 from llama_index.core.llms.llm import LLM
 
+from mobilerun.agent.providers.anthropic import (
+    ANTHROPIC_UNSUPPORTED_SAMPLING_PARAMS,
+    anthropic_model_context_window,
+    anthropic_model_omits_sampling_params,
+)
 from mobilerun.agent.providers.minimax import (
     MINIMAX_GLOBAL_BASE_URL,
     warn_if_legacy_minimax_endpoint,
+)
+from mobilerun.agent.providers.registry import (
+    list_models_for_variant,
+    normalize_model_id_for_variant,
 )
 from mobilerun.agent.usage import track_usage
 
@@ -43,26 +52,32 @@ PROVIDER_ALIASES = {
 }
 
 ZAI_GLOBAL_API_BASE = "https://api.z.ai/api/paas/v4"
-# Models from the deprecated gemini-cli / Code-Assist-for-individuals path that
-# no longer apply to the Antigravity consumer entitlement. Caught early so we
-# never silently send a removed model and fail remotely.
+# Public Gemini Developer API ids that are not valid on the private
+# Antigravity OAuth catalog. Catch these locally so users get the applicable
+# OAuth choices instead of a remote model-not-found response.
 GEMINI_OAUTH_UNSUPPORTED_MODELS = {
+    "gemini-3.6-flash",
+    "gemini-3.5-flash-lite",
     "gemini-3.5-flash",
-    "gemini-2.5-pro",
-    "gemini-2.5-flash",
-    "gemini-2.5-flash-lite",
     "gemini-3-flash-preview",
     "gemini-3.1-pro-preview",
 }
 OPENAI_OAUTH_UNSUPPORTED_MODELS = {"gpt-5.3-codex"}
-OPENAI_RESPONSES_MODELS_WITHOUT_SAMPLING_PARAMS = {"gpt-5.5"}
-OPENAI_RESPONSES_UNSUPPORTED_SAMPLING_PARAMS = {"temperature", "top_p"}
-ANTHROPIC_CURRENT_MODEL_CONTEXT_WINDOWS = {
-    "claude-opus-4-8": 200_000,
-    "claude-sonnet-4-6": 200_000,
-    "claude-opus-4-6": 200_000,
-    "claude-haiku-4-5": 200_000,
+OPENAI_RESPONSES_MODELS_WITHOUT_SAMPLING_PARAMS = {
+    "gpt-5.5",
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "gpt-5.6-luna",
+    "gpt-5.4",
+    "gpt-5.4-mini",
+    "gpt-5.4-nano",
 }
+OPENAI_RESPONSES_UNSUPPORTED_SAMPLING_PARAMS = {"temperature", "top_p"}
+GOOGLE_GENAI_MODELS_WITHOUT_SAMPLING_PARAMS = {
+    "gemini-3.6-flash",
+    "gemini-3.5-flash-lite",
+}
+GOOGLE_GENAI_UNSUPPORTED_SAMPLING_PARAMS = {"temperature", "top_p", "top_k"}
 
 
 def normalize_provider_name(provider_name: str) -> str:
@@ -76,14 +91,10 @@ def _openai_responses_model_omits_sampling_params(model: object) -> bool:
     return str(model or "").strip() in OPENAI_RESPONSES_MODELS_WITHOUT_SAMPLING_PARAMS
 
 
-def _anthropic_model_omits_temperature(model: object) -> bool:
-    return str(model or "").strip().startswith("claude-opus-4")
-
-
 def _validate_openai_oauth_model(model: object) -> None:
     model_id = str(model or "").strip()
     if model_id in OPENAI_OAUTH_UNSUPPORTED_MODELS:
-        supported = "gpt-5.5, gpt-5.4, or gpt-5.4-mini"
+        supported = ", ".join(list_models_for_variant("openai", "oauth"))
         raise ValueError(
             f"Model '{model_id}' is not supported with OpenAI OAuth "
             f"ChatGPT-account credentials. Use {supported}."
@@ -93,15 +104,11 @@ def _validate_openai_oauth_model(model: object) -> None:
 def _validate_gemini_oauth_model(model: object) -> None:
     model_id = str(model or "").strip()
     if model_id in GEMINI_OAUTH_UNSUPPORTED_MODELS:
-        supported = (
-            "gemini-3.5-flash-low, gemini-3.5-flash-extra-low, gemini-3-flash-agent, "
-            "gemini-3-flash, gemini-pro-agent, or gemini-3.1-pro-low"
-        )
+        supported = ", ".join(list_models_for_variant("gemini", "oauth"))
         raise ValueError(
-            f"Model '{model_id}' is from the deprecated gemini-cli Code Assist "
-            f"path, which stops serving Google One / individual tiers on "
-            f"2026-06-18. Re-run `mobilerun configure gemini` and pick one of: "
-            f"{supported}."
+            f"Model '{model_id}' is a Gemini Developer API id and is not valid "
+            f"for the Antigravity OAuth catalog. Re-run "
+            f"`mobilerun configure gemini` and pick one of: {supported}."
         )
 
 
@@ -181,14 +188,44 @@ def _load_openai_responses(**kwargs: Any) -> LLM:
     from llama_index.llms.openai.responses import OpenAIResponses
 
     class MobilerunOpenAIResponses(OpenAIResponses):
-        def _get_model_kwargs(self, **kwargs: Any) -> dict[str, Any]:
-            model_kwargs = super()._get_model_kwargs(**kwargs)
-            if _openai_responses_model_omits_sampling_params(
-                model_kwargs.get("model", self.model)
-            ):
+        def _sanitize_call_kwargs(self, call_kwargs: dict[str, Any]) -> dict[str, Any]:
+            sanitized = dict(call_kwargs)
+            effective_model = sanitized.get("model", self.model)
+            if _openai_responses_model_omits_sampling_params(effective_model):
                 for param in OPENAI_RESPONSES_UNSUPPORTED_SAMPLING_PARAMS:
-                    model_kwargs.pop(param, None)
-            return model_kwargs
+                    sanitized.pop(param, None)
+            return sanitized
+
+        def _get_model_kwargs(self, **kwargs: Any) -> dict[str, Any]:
+            return self._sanitize_call_kwargs(super()._get_model_kwargs(**kwargs))
+
+        def structured_predict(
+            self,
+            output_cls: Any,
+            prompt: Any,
+            llm_kwargs: dict[str, Any] | None = None,
+            **prompt_args: Any,
+        ) -> Any:
+            return super().structured_predict(
+                output_cls,
+                prompt,
+                llm_kwargs=self._sanitize_call_kwargs(dict(llm_kwargs or {})),
+                **prompt_args,
+            )
+
+        async def astructured_predict(
+            self,
+            output_cls: Any,
+            prompt: Any,
+            llm_kwargs: dict[str, Any] | None = None,
+            **prompt_args: Any,
+        ) -> Any:
+            return await super().astructured_predict(
+                output_cls,
+                prompt,
+                llm_kwargs=self._sanitize_call_kwargs(dict(llm_kwargs or {})),
+                **prompt_args,
+            )
 
     filtered_kwargs = {k: v for k, v in kwargs.items() if v is not None}
     logger.debug(
@@ -196,6 +233,133 @@ def _load_openai_responses(**kwargs: Any) -> LLM:
         f"{list(filtered_kwargs.keys())}"
     )
     return MobilerunOpenAIResponses(**filtered_kwargs)
+
+
+def _load_google_genai(**kwargs: Any) -> LLM:
+    from llama_index.llms.google_genai import GoogleGenAI
+
+    class MobilerunGoogleGenAI(GoogleGenAI):
+        def __init__(self, **init_kwargs: Any) -> None:
+            super().__init__(**init_kwargs)
+            if self.model in GOOGLE_GENAI_MODELS_WITHOUT_SAMPLING_PARAMS:
+                for param in GOOGLE_GENAI_UNSUPPORTED_SAMPLING_PARAMS:
+                    self._generation_config.pop(param, None)
+
+        def _sanitize_call_kwargs(self, call_kwargs: dict[str, Any]) -> dict[str, Any]:
+            if self.model not in GOOGLE_GENAI_MODELS_WITHOUT_SAMPLING_PARAMS:
+                return call_kwargs
+
+            sanitized = dict(call_kwargs)
+            for param in GOOGLE_GENAI_UNSUPPORTED_SAMPLING_PARAMS:
+                sanitized.pop(param, None)
+
+            generation_config = sanitized.get("generation_config")
+            if generation_config is not None:
+                if hasattr(generation_config, "model_dump"):
+                    generation_config = generation_config.model_dump()
+                elif isinstance(generation_config, dict):
+                    generation_config = dict(generation_config)
+                else:
+                    return sanitized
+                for param in GOOGLE_GENAI_UNSUPPORTED_SAMPLING_PARAMS:
+                    generation_config.pop(param, None)
+                sanitized["generation_config"] = generation_config
+            return sanitized
+
+        def _chat(self, messages: Any, **kwargs: Any) -> Any:
+            return super()._chat(messages, **self._sanitize_call_kwargs(dict(kwargs)))
+
+        async def _achat(self, messages: Any, **kwargs: Any) -> Any:
+            return await super()._achat(
+                messages, **self._sanitize_call_kwargs(dict(kwargs))
+            )
+
+        def _stream_chat(self, messages: Any, **kwargs: Any) -> Any:
+            return super()._stream_chat(
+                messages, **self._sanitize_call_kwargs(dict(kwargs))
+            )
+
+        async def _astream_chat(self, messages: Any, **kwargs: Any) -> Any:
+            return await super()._astream_chat(
+                messages, **self._sanitize_call_kwargs(dict(kwargs))
+            )
+
+        def structured_predict_without_function_calling(
+            self,
+            output_cls: Any,
+            prompt: Any,
+            llm_kwargs: dict[str, Any] | None = None,
+            **prompt_args: Any,
+        ) -> Any:
+            return super().structured_predict_without_function_calling(
+                output_cls,
+                prompt,
+                llm_kwargs=self._sanitize_call_kwargs(dict(llm_kwargs or {})),
+                **prompt_args,
+            )
+
+        def structured_predict(
+            self,
+            output_cls: Any,
+            prompt: Any,
+            llm_kwargs: dict[str, Any] | None = None,
+            **prompt_args: Any,
+        ) -> Any:
+            return super().structured_predict(
+                output_cls,
+                prompt,
+                llm_kwargs=self._sanitize_call_kwargs(dict(llm_kwargs or {})),
+                **prompt_args,
+            )
+
+        async def astructured_predict(
+            self,
+            output_cls: Any,
+            prompt: Any,
+            llm_kwargs: dict[str, Any] | None = None,
+            **prompt_args: Any,
+        ) -> Any:
+            return await super().astructured_predict(
+                output_cls,
+                prompt,
+                llm_kwargs=self._sanitize_call_kwargs(dict(llm_kwargs or {})),
+                **prompt_args,
+            )
+
+        def stream_structured_predict(
+            self,
+            output_cls: Any,
+            prompt: Any,
+            llm_kwargs: dict[str, Any] | None = None,
+            **prompt_args: Any,
+        ) -> Any:
+            return super().stream_structured_predict(
+                output_cls,
+                prompt,
+                llm_kwargs=self._sanitize_call_kwargs(dict(llm_kwargs or {})),
+                **prompt_args,
+            )
+
+        async def astream_structured_predict(
+            self,
+            output_cls: Any,
+            prompt: Any,
+            llm_kwargs: dict[str, Any] | None = None,
+            **prompt_args: Any,
+        ) -> Any:
+            return await super().astream_structured_predict(
+                output_cls,
+                prompt,
+                llm_kwargs=self._sanitize_call_kwargs(dict(llm_kwargs or {})),
+                **prompt_args,
+            )
+
+    filtered_kwargs = {k: v for k, v in kwargs.items() if v is not None}
+    logger.debug(
+        "Initializing MobilerunGoogleGenAI with kwargs: "
+        f"{list(filtered_kwargs.keys())}"
+    )
+    return MobilerunGoogleGenAI(**filtered_kwargs)
 
 
 def _load_anthropic(**kwargs: Any) -> LLM:
@@ -206,27 +370,32 @@ def _load_anthropic(**kwargs: Any) -> LLM:
         @property
         def _model_kwargs(self) -> dict[str, Any]:
             model_kwargs = super()._model_kwargs
-            if _anthropic_model_omits_temperature(
+            if anthropic_model_omits_sampling_params(
                 model_kwargs.get("model", self.model)
             ) and "temperature" not in (self.additional_kwargs or {}):
                 model_kwargs.pop("temperature", None)
             return model_kwargs
 
+        def _get_all_kwargs(self, **kwargs: Any) -> dict[str, Any]:
+            model_kwargs = super()._get_all_kwargs(**kwargs)
+            effective_model = model_kwargs.get("model", self.model)
+            if anthropic_model_omits_sampling_params(effective_model):
+                for param in ANTHROPIC_UNSUPPORTED_SAMPLING_PARAMS:
+                    model_kwargs.pop(param, None)
+            return model_kwargs
+
         @property
         def metadata(self) -> LLMMetadata:
-            try:
+            context_window = anthropic_model_context_window(self.model)
+            if context_window is None:
                 return super().metadata
-            except ValueError:
-                context_window = ANTHROPIC_CURRENT_MODEL_CONTEXT_WINDOWS.get(self.model)
-                if context_window is None:
-                    raise
-                return LLMMetadata(
-                    context_window=context_window,
-                    num_output=self.max_tokens,
-                    is_chat_model=True,
-                    model_name=self.model,
-                    is_function_calling_model=True,
-                )
+            return LLMMetadata(
+                context_window=context_window,
+                num_output=self.max_tokens,
+                is_chat_model=True,
+                model_name=self.model,
+                is_function_calling_model=True,
+            )
 
     # The upstream adapter defaults to 512 output tokens, which is too small
     # for a manager response that includes a complete control result plus
@@ -248,7 +417,7 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
 
     Args:
         provider_name: Case-sensitive provider name (e.g. "OpenAIResponses", "Ollama").
-        model: Model name (e.g. "gpt-4", "gemini-3.1-flash-lite").
+        model: Model name (e.g. "gpt-5.5", "gemini-3.5-flash-lite").
         **kwargs: Keyword arguments for the LLM class constructor.
 
     Returns:
@@ -260,6 +429,10 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
     provider_name = normalize_provider_name(provider_name)
 
     if model is not None:
+        if provider_name == "OpenAIResponses":
+            model = normalize_model_id_for_variant("openai", "api_key", model)
+        elif provider_name == "openai_oauth":
+            model = normalize_model_id_for_variant("openai", "oauth", model)
         kwargs["model"] = model
 
     # --- OAuth providers ---
@@ -341,9 +514,7 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
         if "base_url" in kwargs and "api_base" not in kwargs:
             kwargs["api_base"] = kwargs.pop("base_url")
     elif provider_name == "GoogleGenAI":
-        from llama_index.llms.google_genai import GoogleGenAI
-
-        llm_class = GoogleGenAI
+        return _load_google_genai(**kwargs)
     elif provider_name == "Ollama":
         from llama_index.llms.ollama import Ollama
 
@@ -452,7 +623,7 @@ if __name__ == "__main__":
         },
         {
             "name": "GoogleGenAI",
-            "model": "gemini-3.1-flash-lite",
+            "model": "gemini-3.5-flash-lite",
         },
         {
             "name": "OpenAIResponses",

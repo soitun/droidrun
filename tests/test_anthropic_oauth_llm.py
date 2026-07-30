@@ -1,3 +1,4 @@
+import pytest
 from llama_index.core.base.llms.types import ChatMessage, MessageRole
 
 from mobilerun.agent.utils.oauth.anthropic_oauth_llm import (
@@ -59,6 +60,71 @@ def test_opus_4_8_payload_sends_max_tokens_without_temperature():
     assert payload["model"] == "claude-opus-4-8"
     assert payload["max_tokens"] == 8192
     assert "temperature" not in payload
+
+
+@pytest.mark.parametrize(
+    ("model", "context_window"),
+    [
+        ("claude-opus-5", 1_000_000),
+        ("claude-sonnet-5", 1_000_000),
+        ("claude-fable-5", 1_000_000),
+        ("claude-opus-4-8", 1_000_000),
+        ("claude-opus-4-7", 1_000_000),
+        ("claude-opus-4-6", 1_000_000),
+        ("claude-sonnet-4-6", 1_000_000),
+        ("claude-haiku-4-5", 200_000),
+    ],
+)
+def test_current_model_metadata_has_verified_context_window(model, context_window):
+    metadata = AnthropicOAuthLLM(model=model, credential_path=None).metadata
+
+    assert metadata.model_name == model
+    assert metadata.context_window == context_window
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        "claude-opus-5",
+        "claude-sonnet-5",
+        "claude-fable-5",
+        "claude-opus-4-8",
+        "claude-opus-4-7",
+    ],
+)
+def test_models_without_sampling_strip_all_final_payload_overrides(model):
+    llm = AnthropicOAuthLLM(
+        model=model,
+        access_token="test-token",
+        credential_path=None,
+        temperature=0.7,
+        additional_kwargs={"temperature": 0.6, "top_p": 0.5, "top_k": 10},
+    )
+    session = _CapturingSession()
+    llm._session = session
+
+    llm.chat(
+        [ChatMessage(role=MessageRole.USER, content="hello")],
+        temperature=0.4,
+        top_p=0.3,
+        top_k=5,
+    )
+
+    assert session.payload["model"] == model
+    assert {"temperature", "top_p", "top_k"}.isdisjoint(session.payload)
+
+
+@pytest.mark.parametrize("model", ["claude-opus-4-6", "claude-sonnet-4-6"])
+def test_4_6_models_keep_supported_sampling_fields(model):
+    payload = _payload_for(
+        model=model,
+        temperature=0.7,
+        additional_kwargs={"top_p": 0.5, "top_k": 10},
+    )
+
+    assert payload["temperature"] == 0.7
+    assert payload["top_p"] == 0.5
+    assert payload["top_k"] == 10
 
 
 def _chat_payload(messages):

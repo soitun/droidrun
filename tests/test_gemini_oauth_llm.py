@@ -1,3 +1,4 @@
+import pytest
 from llama_index.core.base.llms.types import ChatMessage, MessageRole
 
 from mobilerun.agent.providers.registry import resolve_provider_variant
@@ -8,7 +9,17 @@ from mobilerun.agent.providers.setup_service import (
 from mobilerun.agent.utils.llm_picker import load_llm
 
 
-def test_gemini_oauth_profile_sends_gemini_flash_lite_verbatim(tmp_path) -> None:
+@pytest.mark.parametrize(
+    "model",
+    (
+        "gemini-3.6-flash-low",
+        "gemini-3.6-flash-medium",
+        "gemini-3.6-flash-high",
+    ),
+)
+def test_gemini_oauth_profile_sends_new_effort_models_verbatim(
+    tmp_path, model: str
+) -> None:
     variant = resolve_provider_variant("gemini", "oauth")
     profile = create_profile_for_variant(
         variant,
@@ -16,7 +27,7 @@ def test_gemini_oauth_profile_sends_gemini_flash_lite_verbatim(tmp_path) -> None
             family_id="gemini",
             variant_id=variant.id,
             auth_mode="oauth",
-            model="gemini-3.1-flash-lite",
+            model=model,
             credential_path=str(tmp_path / "missing-auth-profiles.json"),
         ),
     )
@@ -32,8 +43,8 @@ def test_gemini_oauth_profile_sends_gemini_flash_lite_verbatim(tmp_path) -> None
     )
 
     assert profile.provider == "gemini_oauth_code_assist"
-    assert profile.model == "gemini-3.1-flash-lite"
-    assert payload["model"] == "gemini-3.1-flash-lite"
+    assert profile.model == model
+    assert payload["model"] == model
 
 
 def _gemini_llm():
@@ -154,7 +165,14 @@ def test_oauth_explicit_default_model_is_honored_not_preset():
 def test_oauth_explicit_agy_models_are_honored():
     from mobilerun.agent.utils.llm_picker import load_llm
 
-    for m in ("gemini-3-flash", "gemini-pro-agent", "gemini-3.1-pro-low"):
+    for m in (
+        "gemini-3-flash",
+        "gemini-pro-agent",
+        "gemini-3.1-pro-low",
+        "gemini-3.6-flash-low",
+        "gemini-3.6-flash-medium",
+        "gemini-3.6-flash-high",
+    ):
         assert load_llm("gemini_oauth_code_assist", model=m).model == m
 
 
@@ -168,14 +186,23 @@ def test_oauth_preset_key_still_resolves():
     )
 
 
-def test_deprecated_models_are_rejected_with_reconfigure_error():
-    import pytest
-
+def test_public_api_model_ids_are_rejected_with_reconfigure_error():
     from mobilerun.agent.utils.llm_picker import load_llm
 
-    for m in ("gemini-2.5-pro", "gemini-2.5-flash", "gemini-3.1-pro-preview"):
+    for m in (
+        "gemini-3.5-flash",
+        "gemini-3-flash-preview",
+        "gemini-3.1-pro-preview",
+    ):
         with pytest.raises(ValueError):
             load_llm("gemini_oauth_code_assist", model=m)
+
+
+def test_live_private_gemini_2_5_aliases_are_not_rejected():
+    from mobilerun.agent.utils.llm_picker import load_llm
+
+    for model in ("gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite"):
+        assert load_llm("gemini_oauth_code_assist", model=model).model == model
 
 
 def test_never_sends_project_even_if_passed_as_kwarg():

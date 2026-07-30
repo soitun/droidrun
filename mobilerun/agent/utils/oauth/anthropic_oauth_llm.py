@@ -31,9 +31,15 @@ from llama_index.core.constants import DEFAULT_TEMPERATURE
 from llama_index.core.llms.callbacks import llm_chat_callback, llm_completion_callback
 from llama_index.core.llms.custom import CustomLLM
 
+from mobilerun.agent.providers.anthropic import (
+    ANTHROPIC_OAUTH_DEFAULT_MODEL,
+    anthropic_model_context_window,
+    anthropic_model_omits_sampling_params,
+    strip_anthropic_sampling_params,
+)
 from mobilerun.config_manager.credential_paths import ANTHROPIC_OAUTH_CREDENTIAL_PATH
 
-DEFAULT_MODEL = "claude-opus-4-7"
+DEFAULT_MODEL = ANTHROPIC_OAUTH_DEFAULT_MODEL
 DEFAULT_MAX_TOKENS = 8192
 DEFAULT_API_BASE = "https://api.anthropic.com"
 DEFAULT_TOKEN_URL = "https://platform.claude.com/v1/oauth/token"
@@ -223,7 +229,7 @@ class AnthropicOAuthLLM(CustomLLM):
     @property
     def metadata(self) -> LLMMetadata:
         return LLMMetadata(
-            context_window=200_000,
+            context_window=anthropic_model_context_window(self.model) or 200_000,
             num_output=self.max_tokens or -1,
             model_name=self.model,
             is_chat_model=True,
@@ -742,13 +748,9 @@ class AnthropicOAuthLLM(CustomLLM):
 
     @staticmethod
     def _supports_temperature(model_id: str) -> bool:
-        """Anthropic deprecated `temperature` on the Claude 4 Opus family.
+        """Whether the model accepts Anthropic sampling controls."""
 
-        Sending it returns 400 "`temperature` is deprecated for this model."
-        Callers that explicitly want to override this can still pass
-        `temperature` via `additional_kwargs` or per-call kwargs.
-        """
-        return not model_id.startswith("claude-opus-4")
+        return not anthropic_model_omits_sampling_params(model_id)
 
     def _system_blocks(
         self, user_system_lines: Sequence[str], model_id: str
@@ -792,6 +794,7 @@ class AnthropicOAuthLLM(CustomLLM):
 
         payload.update(self.additional_kwargs)
         payload.update(request_kwargs)
+        strip_anthropic_sampling_params(payload)
 
         headers = {
             "Authorization": f"Bearer {token}",

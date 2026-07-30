@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import Any, Optional, Sequence
 
+from mobilerun.agent.providers.anthropic import ANTHROPIC_HIGHRES_MODELS
 from mobilerun.tools.helpers.images import (
     MODEL_SCREENSHOT_MAX_SIDE,
     anthropic_resized_size,
@@ -21,12 +22,6 @@ from mobilerun.tools.helpers.images import (
 # Anthropic models with the high-resolution budget (2576 px / 4784 tokens).
 # Unknown Anthropic ids fall back to the standard 1568 budget — never assume
 # high-res, since that would re-introduce the undershoot bug.
-_ANTHROPIC_HIGHRES_MODELS = {
-    "claude-opus-4-7",
-    "claude-opus-4-8",
-    "claude-fable-5",
-    "claude-mythos-5",
-}
 _ANTHROPIC_STANDARD = (1568, 1568)  # (max_edge, max_tokens)
 _ANTHROPIC_HIGHRES = (2576, 4784)
 
@@ -47,7 +42,7 @@ def model_effective_dims(model_id: str, width: int, height: int) -> tuple[int, i
     if _is_anthropic(model_id):
         edge, tokens = (
             _ANTHROPIC_HIGHRES
-            if model_id in _ANTHROPIC_HIGHRES_MODELS
+            if model_id in ANTHROPIC_HIGHRES_MODELS
             else _ANTHROPIC_STANDARD
         )
         return anthropic_resized_size(base_w, base_h, edge, tokens)

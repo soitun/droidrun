@@ -40,6 +40,7 @@ from llama_index.llms.openai import OpenAI
 from llama_index.llms.openai.base import llm_retry_decorator
 from llama_index.llms.openai.utils import to_openai_message_dicts
 
+from mobilerun.agent.providers.registry import normalize_model_id_for_variant
 from mobilerun.config_manager.credential_paths import OPENAI_OAUTH_CREDENTIAL_PATH
 
 DEFAULT_OPENAI_OAUTH_ISSUER = "https://auth.openai.com"
@@ -543,17 +544,30 @@ class OpenAIOAuth(OpenAI):
         model: Optional[str],
     ) -> str:
         if custom_model and custom_model.strip():
-            return custom_model.strip()
-        if model and model.strip():
-            return model.strip()
+            selected_model = custom_model.strip()
+        elif model and model.strip():
+            selected_model = model.strip()
+        else:
+            selected_model = auth_model.strip() or "gpt-5.4"
 
-        alias = auth_model.strip()
-        if "/" in alias:
-            return alias.split("/", 1)[1].strip()
-        if alias:
-            return alias
+        normalized_model = normalize_model_id_for_variant(
+            "openai",
+            "oauth",
+            selected_model,
+        )
+        if normalized_model != selected_model:
+            return normalized_model
 
-        return "gpt-5.4"
+        # Preserve the historical auth_model behavior for custom Codex aliases
+        # that are not part of the advertised catalog. Explicit model and
+        # custom_model values remain untouched.
+        if not (custom_model and custom_model.strip()) and not (
+            model and model.strip()
+        ):
+            if "/" in selected_model:
+                return selected_model.split("/", 1)[1].strip()
+
+        return selected_model
 
     @staticmethod
     def _build_auth_url(

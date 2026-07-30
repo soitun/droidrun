@@ -12,6 +12,7 @@ from mobilerun.agent.providers import (
     list_provider_families,
     resolve_provider_variant,
 )
+from mobilerun.agent.providers.registry import normalize_model_id_for_variant
 from mobilerun.config_manager.config_manager import LLMProfile, MobileConfig
 from mobilerun.config_manager.env_keys import load_env_keys, save_env_keys
 
@@ -143,6 +144,11 @@ def create_profile_for_variant(
 ) -> LLMProfile:
     base_url = selection.base_url or variant.base_url
     base_url, resolved_model = _resolve_zai_selection(selection, base_url)
+    resolved_model = normalize_model_id_for_variant(
+        selection.family_id,
+        selection.auth_mode,
+        resolved_model,
+    )
     kwargs: dict[str, str | int] = dict(DEFAULT_KWARGS_BY_VARIANT.get(variant.id, {}))
     env_slot = VARIANT_ENV_KEY_SLOT.get(variant.id)
     runtime_provider_name = (
