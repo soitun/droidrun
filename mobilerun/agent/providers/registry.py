@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+from mobilerun.agent.providers.anthropic import (
+    ANTHROPIC_API_DEFAULT_MODEL,
+    ANTHROPIC_API_MODELS,
+    ANTHROPIC_OAUTH_DEFAULT_MODEL,
+    ANTHROPIC_OAUTH_MODELS,
+)
 from mobilerun.agent.providers.minimax import MINIMAX_GLOBAL_BASE_URL
 from mobilerun.agent.providers.types import (
     ProviderFamilySpec,
@@ -22,6 +28,10 @@ VARIANT_ENV_KEY_SLOT: dict[str, str] = {
     "MiniMax": "minimax",
 }
 
+OPENAI_MODEL_ALIASES: dict[str, str] = {
+    "gpt-5.6": "gpt-5.6-sol",
+}
+
 
 PROVIDER_FAMILIES: tuple[ProviderFamilySpec, ...] = (
     ProviderFamilySpec(
@@ -35,9 +45,10 @@ PROVIDER_FAMILIES: tuple[ProviderFamilySpec, ...] = (
                 default_model="gemini-3.1-pro-preview",
                 models=(
                     "gemini-3.5-flash",
+                    "gemini-3.6-flash",
+                    "gemini-3.5-flash-lite",
                     "gemini-3-flash-preview",
                     "gemini-3.1-pro-preview",
-                    "gemini-3.1-flash-lite",
                 ),
                 requires_api_key=True,
             ),
@@ -54,6 +65,9 @@ PROVIDER_FAMILIES: tuple[ProviderFamilySpec, ...] = (
                     "gemini-3-flash",
                     "gemini-pro-agent",
                     "gemini-3.1-pro-low",
+                    "gemini-3.6-flash-low",
+                    "gemini-3.6-flash-medium",
+                    "gemini-3.6-flash-high",
                 ),
                 credential_path=str(GEMINI_OAUTH_CREDENTIAL_PATH),
             ),
@@ -70,6 +84,9 @@ PROVIDER_FAMILIES: tuple[ProviderFamilySpec, ...] = (
                 default_model="gpt-5.5",
                 models=(
                     "gpt-5.5",
+                    "gpt-5.6-sol",
+                    "gpt-5.6-terra",
+                    "gpt-5.6-luna",
                     "gpt-5.4",
                     "gpt-5.4-mini",
                     "gpt-5.4-nano",
@@ -83,6 +100,9 @@ PROVIDER_FAMILIES: tuple[ProviderFamilySpec, ...] = (
                 default_model="gpt-5.5",
                 models=(
                     "gpt-5.5",
+                    "gpt-5.6-sol",
+                    "gpt-5.6-terra",
+                    "gpt-5.6-luna",
                     "gpt-5.4",
                     "gpt-5.4-mini",
                 ),
@@ -99,27 +119,16 @@ PROVIDER_FAMILIES: tuple[ProviderFamilySpec, ...] = (
                 id="Anthropic",
                 runtime_provider_name="Anthropic",
                 auth_mode="api_key",
-                default_model="claude-sonnet-4-6",
-                models=(
-                    "claude-sonnet-4-6",
-                    "claude-opus-4-8",
-                    "claude-opus-4-6",
-                    "claude-haiku-4-5",
-                ),
+                default_model=ANTHROPIC_API_DEFAULT_MODEL,
+                models=ANTHROPIC_API_MODELS,
                 requires_api_key=True,
             ),
             ProviderVariantSpec(
                 id="anthropic_oauth",
                 runtime_provider_name="anthropic_oauth",
                 auth_mode="oauth",
-                default_model="claude-opus-4-7",
-                models=(
-                    "claude-opus-4-7",
-                    "claude-opus-4-8",
-                    "claude-sonnet-4-6",
-                    "claude-opus-4-6",
-                    "claude-haiku-4-5",
-                ),
+                default_model=ANTHROPIC_OAUTH_DEFAULT_MODEL,
+                models=ANTHROPIC_OAUTH_MODELS,
                 credential_path=str(ANTHROPIC_OAUTH_CREDENTIAL_PATH),
             ),
         ),
@@ -261,8 +270,6 @@ def normalize_model_id_for_variant(
     """Normalize accepted model aliases to the canonical model id for a variant."""
     variant = resolve_provider_variant(family_id, auth_mode)
     allowed_model_ids = set(variant.models)
-    if model_id in allowed_model_ids:
-        return model_id
 
     alias_prefixes: tuple[str, ...] = ()
     if family_id == "openai" and auth_mode == "api_key":
@@ -270,10 +277,16 @@ def normalize_model_id_for_variant(
     elif family_id == "openai" and auth_mode == "oauth":
         alias_prefixes = ("openai-codex/", "openai/")
 
+    candidate = model_id
     for prefix in alias_prefixes:
-        if model_id.startswith(prefix):
-            normalized = model_id[len(prefix) :]
-            if normalized in allowed_model_ids:
-                return normalized
+        if candidate.startswith(prefix):
+            candidate = candidate[len(prefix) :]
+            break
+
+    if family_id == "openai":
+        candidate = OPENAI_MODEL_ALIASES.get(candidate, candidate)
+
+    if candidate in allowed_model_ids:
+        return candidate
 
     return model_id

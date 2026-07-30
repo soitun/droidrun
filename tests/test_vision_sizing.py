@@ -31,6 +31,15 @@ def test_model_effective_dims_per_provider():
     assert model_effective_dims("claude-future-9", 1080, 2400) == (706, 1568)
 
 
+def test_claude_5_models_use_high_resolution_budget():
+    for model in ("claude-opus-5", "claude-sonnet-5", "claude-fable-5"):
+        assert model_effective_dims(model, 1080, 2400) == (922, 2048)
+
+
+def test_unregistered_mythos_model_retains_high_resolution_budget():
+    assert model_effective_dims("claude-mythos-5", 1080, 2400) == (922, 2048)
+
+
 def test_policy_single_model():
     assert VisionResizePolicy(["claude-sonnet-4-6"]).effective_dims(1080, 2400) == (
         706,

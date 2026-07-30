@@ -10,6 +10,7 @@ from mobilerun.agent.providers.registry import (
     list_auth_modes,
     list_models_for_variant,
     list_provider_families,
+    normalize_model_id_for_variant,
     resolve_provider_variant,
 )
 from mobilerun.agent.providers.types import (
@@ -28,6 +29,7 @@ __all__ = [
     "list_auth_modes",
     "list_models_for_variant",
     "list_provider_families",
+    "normalize_model_id_for_variant",
     "resolve_provider_variant",
     "warn_if_legacy_minimax_endpoint",
 ]
