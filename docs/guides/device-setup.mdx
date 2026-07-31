@@ -327,17 +327,12 @@ iOS support is currently **experimental**. Functionality is limited compared to 
 
 ## Prerequisites
 
-- **macOS** with **Xcode 15+** installed (iOS Portal must be built from source)
-- **Apple Developer account** (free or paid — needed for code signing)
-- **iOS device** (iPhone or iPad) with **Developer Mode** enabled
-- **USB cable** to connect the device to your Mac (for initial build and deployment)
-- **`iproxy`** from `libimobiledevice` (for USB port forwarding)
-
-### Install `iproxy`
-
-```bash
-brew install libimobiledevice
-```
+- **macOS** with **Xcode** installed
+- **Apple ID** with signing capability (a personal team is sufficient)
+- **iPhone** with **Developer Mode** enabled
+- **USB data cable** to connect the iPhone to your Mac
+- **Mobilerun WebDriverAgent** installed and signed on the iPhone
+- **`mobilerun-ios`** installed on your Mac
 
 ### Enable Developer Mode on your device
 
@@ -346,133 +341,98 @@ brew install libimobiledevice
 3. Restart the device when prompted
 4. After restart, confirm the prompt to enable Developer Mode
 
+For the complete device preparation and WebDriverAgent signing instructions, follow the [Connect an iPhone guide](https://docs.mobilerun.ai/guides/connect-iphone). You only need to complete the device, WebDriverAgent, and `mobilerun-ios` installation steps; logging in is not required for local mode.
+
 ---
 
-## Build and Install the iOS Portal
+## Install and Run `mobilerun-ios`
 
-The iOS Portal is an Xcode project that runs as a UI test — it launches an HTTP server on port **6643** that Mobilerun communicates with.
+`mobilerun-ios --local` connects to WebDriverAgent over USB and exposes the device API on your Mac. The framework discovers that API automatically.
 
 <Steps>
-  <Step title="Clone the iOS Portal repository">
+  <Step title="Install the CLI">
+    Choose either Homebrew or the installation script:
+
+    <CodeGroup>
+
+    ```bash Homebrew
+    brew install droidrun/tap/mobilerun-ios
+    ```
+
+    ```bash Installation script
+    curl -fsSL https://media.mobilerun.ai/releases/mobilerun-ios/install.sh | sh
+    ```
+
+    </CodeGroup>
+
+    Verify the installation:
+
     ```bash
-    git clone https://github.com/droidrun/ios-portal.git
-    cd ios-portal
+    mobilerun-ios --version
     ```
   </Step>
 
-  <Step title="Open the project in Xcode">
-    ```bash
-    open mobilerun-ios-portal.xcodeproj
-    ```
-  </Step>
-
-  <Step title="Configure code signing">
-    You must change the signing team and bundle identifier to your own:
-
-    1. In Xcode, select the **mobilerun-ios-portal** project in the navigator
-    2. For **each target** (`mobilerun-ios-portal`, `mobilerun-ios-portalUITests`):
-       - Select the target
-       - Go to the **Signing & Capabilities** tab
-       - Set **Team** to your Apple Developer account
-       - Change the **Bundle Identifier** to something unique, e.g.:
-         - `com.yourname.mobilerun-ios-portal`
-         - `com.yourname.mobilerun-ios-portalUITests`
-    3. Let Xcode automatically manage provisioning profiles
-
-    <Warning>
-    You **must** change the bundle identifiers — the default ones are tied to the Mobilerun team's signing certificate and will fail to build on your machine.
-    </Warning>
-  </Step>
-
-  <Step title="Select your device and run the test">
-    1. Connect your iOS device via USB
-    2. In Xcode, select your device from the device dropdown (top bar)
-    3. If this is your first time deploying to the device, trust the developer certificate:
-       - On the device: **Settings** > **General** > **VPN & Device Management** > tap your developer profile > **Trust**
-    4. Run the portal using either method:
-
-    **Option A — Xcode UI:**
-    - Go to **Product** > **Test** (or press `Cmd + U`)
-    - This builds the app, installs it, and starts the "Mobilerun Server" UI test
-
-    **Option B — Command line:**
-    ```bash
-    # Find your device ID
-    xcrun xctrace list devices
-
-    # Run the portal server
-    ./device.sh YOUR_DEVICE_UDID
-    ```
-
-    The HTTP server starts on port **6643** and keeps running until the test session ends.
-  </Step>
-
-  <Step title="Set up port forwarding with iproxy">
-    The portal server runs on the device's localhost. To reach it from your Mac, forward the port over USB:
+  <Step title="Find the iPhone UDID">
+    Connect and unlock the iPhone, accept the **Trust This Computer** prompt, then run:
 
     ```bash
-    iproxy 6643 6643
+    mobilerun-ios list
     ```
 
-    Keep this running in a separate terminal. The portal is now accessible at `http://127.0.0.1:6643`.
+    Copy the UDID shown for the iPhone you want to control.
+  </Step>
 
-    <Note>
-    `iproxy` forwards over USB, so you don't need WiFi connectivity between your Mac and the device.
-    </Note>
+  <Step title="Start local mode">
+    ```bash
+    mobilerun-ios --local <udid>
+    ```
+
+    Keep this command running. By default, it serves the device API at `http://127.0.0.1:8080`.
   </Step>
 
   <Step title="Verify the connection">
     ```bash
-    # Quick health check
-    curl http://127.0.0.1:6643/device/date
-
-    # Should return something like: {"date": "2026-03-31 10:30:00"}
+    curl http://127.0.0.1:8080/ping
     ```
 
-    Then test with Mobilerun:
+    The response should contain `"result":"pong"`. Then test the framework:
+
     ```bash
-    mobilerun run "take a screenshot" --ios
+    mobilerun run "Take a screenshot" --ios
     ```
 
-    Mobilerun will auto-discover the portal on port 6643. If it's on a different port, pass the URL explicitly:
+    To select the server explicitly, pass its URL:
+
     ```bash
-    mobilerun run "take a screenshot" --ios --device http://127.0.0.1:6643
+    mobilerun run "Take a screenshot" --ios --device http://127.0.0.1:8080
     ```
   </Step>
 </Steps>
 
----
+<Note>
+When several iPhones are attached, ports advance per device (`8080`, `8081`, and so on). Each device URL is printed when `mobilerun-ios` starts. Framework auto-discovery scans ports `8080` through `8089`.
+</Note>
 
-## Running on the Simulator
-
-You can also run the portal on the iOS Simulator (no code signing or physical device needed):
-
-```bash
-# List available simulators
-xcrun simctl list devices available
-
-# Run the portal on a simulator by name
-./simulator.sh "iPhone 16 Pro"
-```
-
-The simulator portal is accessible at `http://127.0.0.1:6643` directly (no `iproxy` needed).
+<Warning>
+Loopback local mode does not require authentication. If you bind to a non-loopback address, `mobilerun-ios` requires `--local-token`. Set the same token in `MOBILERUN_DEVICE_TOKEN` or `device.auth_token` in the framework configuration.
+</Warning>
 
 ---
 
 ## Architecture
 
-iOS Portal uses a different architecture than Android:
+The iOS local driver uses a different architecture than Android:
 
 | Feature | Android | iOS |
 |---------|---------|-----|
-| Communication | ADB + TCP/Content Provider | HTTP server (port 6643) |
-| Portal type | APK (auto-installed) | Xcode UI test (built from source) |
-| Setup tool | `mobilerun setup` | Xcode build + `iproxy` |
-| Accessibility | Android Accessibility API | iOS XCUITest framework |
+| Communication | ADB + TCP/Content Provider | Local HTTP API (port 8080 by default) |
+| Device bridge | Portal APK | `mobilerun-ios` backed by WebDriverAgent |
+| Setup tool | `mobilerun setup` | `mobilerun-ios --local <udid>` |
+| Accessibility | Android Accessibility API | WebDriverAgent / XCUITest |
 | Text Input | Custom keyboard IME | Direct XCUITest text input |
-| Connection | ADB over USB/TCP | USB via `iproxy` or WiFi |
+| Connection | ADB over USB/TCP | USB through `mobilerun-ios` |
 
-The iOS Portal leverages XCUITest to extract accessibility trees, perform gestures, and capture screenshots — all exposed through a REST API.
+`mobilerun-ios` uses WebDriverAgent to extract accessibility trees, perform gestures, manage apps, and capture screenshots. Local mode exposes these operations through the portal HTTP contract used by the framework.
 
 ---
 
@@ -481,11 +441,11 @@ The iOS Portal leverages XCUITest to extract accessibility trees, perform gestur
 ### CLI
 
 ```bash
-# Auto-discovers portal on port 6643
+# Auto-discovers mobilerun-ios on ports 8080-8089
 mobilerun run "your command" --ios
 
-# Explicit portal URL
-mobilerun run "your command" --ios --device http://127.0.0.1:6643
+# Explicit local server URL
+mobilerun run "your command" --ios --device http://127.0.0.1:8080
 ```
 
 ### Python API
@@ -496,7 +456,7 @@ from mobilerun import MobileAgent, MobileConfig, DeviceConfig
 config = MobileConfig(
     device=DeviceConfig(
         platform="ios",
-        serial="http://127.0.0.1:6643",  # optional, auto-discovered if omitted
+        serial="http://127.0.0.1:8080",  # optional, auto-discovered if omitted
     )
 )
 
@@ -507,31 +467,6 @@ agent = MobileAgent(
 
 result = await agent.run()
 ```
-
-### Local mode with mobilerun-ios (macOS)
-
-`mobilerun-ios --local` serves the portal HTTP API directly on your Mac — no
-Portal app or iproxy needed:
-
-```bash
-mobilerun-ios --local <udid>          # serves http://127.0.0.1:8080
-mobilerun run --ios "Open Settings"   # auto-discovers the local portal
-```
-
-With several devices attached the port advances per device (8080, 8081, …);
-pass the URL explicitly to pick one:
-
-```bash
-mobilerun run --ios --device http://127.0.0.1:8081 "Open Settings"
-```
-
-Both portal generations are auto-detected from the URL, so the legacy Portal
-app keeps working unchanged.
-
-**Auth:** a loopback server needs no token. If `mobilerun-ios` was started
-with `--local-token` (required for non-loopback binds), set the matching
-token via the `MOBILERUN_DEVICE_TOKEN` env var or `device.auth_token` in
-config.yaml.
 
 ---
 
@@ -545,48 +480,55 @@ config.yaml.
 | `screenshot()` | ✅ | |
 | `get_state()` | ✅ | Accessibility tree extraction |
 | `start_app()` | ✅ | By bundle identifier |
+| `stop_app()` | ✅ | By bundle identifier |
+| `get_apps()` | ✅ | Includes system-app filtering |
 | `get_date()` | ✅ | |
-| `press_button()` | ✅ | `home` only |
+| `press_button()` | ✅ | `home`, `back`, `enter`, `delete`, and `app_switch` |
 | `drag()` | ❌ | |
-| `install_app()` | ❌ | |
+| `install_app()` | ✅ | From a path or URL accessible to `mobilerun-ios` |
+| `uninstall_app()` | ❌ | Not exposed by the local API |
 
 ---
 
 ## Troubleshooting
 
 <AccordionGroup>
-  <Accordion title="Build fails with signing error">
-    **Symptoms:** Xcode shows "Signing for target requires a development team"
+  <Accordion title="`mobilerun-ios list` shows no devices">
+    **Symptoms:** The connected iPhone does not appear in the device list
 
     **Solutions:**
-    1. Make sure you changed the **Team** and **Bundle Identifier** for both targets
-    2. If using a free Apple Developer account, you may need to re-trust the certificate on the device every 7 days (**Settings** > **General** > **VPN & Device Management**)
+    1. Unlock the iPhone and accept the **Trust This Computer** prompt
+    2. Confirm the USB cable supports data, not only charging
+    3. Open Xcode once with the device connected and verify it appears as a run destination
   </Accordion>
 
-  <Accordion title="Portal not reachable">
-    **Symptoms:** `curl http://127.0.0.1:6643/device/date` times out or connection refused
+  <Accordion title="WebDriverAgent does not start">
+    **Symptoms:** `mobilerun-ios --local` times out while waiting for WebDriverAgent
 
     **Solutions:**
-    1. Verify `iproxy 6643 6643` is running
-    2. Check the Xcode test is still running (the portal stops when the test ends)
-    3. Re-run the test with `Cmd + U` in Xcode or `./device.sh UDID`
+    1. Re-sign and build `WebDriverAgentRunner` in Xcode
+    2. Trust the developer certificate under **Settings** > **General** > **VPN & Device Management**
+    3. Keep the device unlocked and run `mobilerun-ios --local <udid>` again
+    4. Review the [Connect an iPhone guide](https://docs.mobilerun.ai/guides/connect-iphone) for the complete signing procedure
   </Accordion>
 
-  <Accordion title="Auto-discovery fails">
-    **Symptoms:** `mobilerun run ... --ios` says "Could not find iOS portal"
+  <Accordion title="Local server not reachable">
+    **Symptoms:** `curl http://127.0.0.1:8080/ping` times out or is refused
 
     **Solutions:**
-    1. Auto-discovery scans ports 6643-6652. Make sure `iproxy` is forwarding to one of these.
-    2. Pass the URL explicitly: `--device http://127.0.0.1:6643`
+    1. Confirm `mobilerun-ios --local <udid>` is still running
+    2. Check its startup output for the actual server URL
+    3. If another process uses port 8080, start with `--local-addr 127.0.0.1:9100`
+    4. Test the printed URL with `/ping`
   </Accordion>
 
-  <Accordion title="Test session keeps stopping">
-    **Symptoms:** The portal server stops after a few minutes
+  <Accordion title="Framework auto-discovery fails">
+    **Symptoms:** `mobilerun run ... --ios` cannot find the iPhone
 
     **Solutions:**
-    1. Keep Xcode open and the test running — closing Xcode ends the test session
-    2. Disable auto-lock on the device (**Settings** > **Display & Brightness** > **Auto-Lock** > **Never**)
-    3. Keep the device plugged in to prevent sleep
+    1. Confirm the local server is on one of the automatically scanned ports, `8080` through `8089`
+    2. Pass the URL explicitly: `--device http://127.0.0.1:8080`
+    3. If the server uses a token, export `MOBILERUN_DEVICE_TOKEN` before starting the framework
   </Accordion>
 </AccordionGroup>
 
