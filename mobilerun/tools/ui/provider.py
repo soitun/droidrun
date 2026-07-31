@@ -233,6 +233,11 @@ class AndroidStateProvider(StateProvider):
         # space from convert_point.
         self._vision_contract_intent = vision_enabled and not use_normalized
         self.resize_model_screenshot = self._vision_contract_intent
+        # Hybrid vision exposes click_at when a coordinate contract is
+        # expected, but individual states can still arrive with missing or
+        # zero screen bounds. Refuse coordinate actions for those snapshots
+        # instead of treating model coordinates as native device pixels.
+        self.requires_active_contract_for_coords = self._vision_contract_intent
 
     async def _recover_portal(self) -> None:
         """Restart Portal's accessibility service and TCP socket server."""
