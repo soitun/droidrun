@@ -195,7 +195,9 @@ def test_device_commands_discover_when_no_device(tmp_path, monkeypatch):
         created["url"] = url
         return FakeDriver()
 
-    monkeypatch.setattr(device_commands, "discover_ios_device", fake_discover_ios_device)
+    monkeypatch.setattr(
+        device_commands, "discover_ios_device", fake_discover_ios_device
+    )
     monkeypatch.setattr(device_commands, "create_ios_driver", fake_create_ios_driver)
     monkeypatch.delenv("MOBILERUN_DEVICE_TOKEN", raising=False)
 

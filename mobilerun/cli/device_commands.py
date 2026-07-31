@@ -171,9 +171,7 @@ async def _create_driver(
             url = validate_ios_portal_url(config.device.serial)
         else:
             url = await discover_ios_device()
-        driver = await create_ios_driver(
-            url, token=config.device.resolve_auth_token()
-        )
+        driver = await create_ios_driver(url, token=config.device.resolve_auth_token())
         await driver.connect()
         return driver, True
 
