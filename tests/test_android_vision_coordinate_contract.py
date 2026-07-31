@@ -215,6 +215,27 @@ def test_missing_screen_bounds_disables_resize_for_that_state():
     assert should_resize_model_screenshot(provider) is True
 
 
+def test_hybrid_vision_zero_bounds_refuses_click_at():
+    from mobilerun.agent.utils.actions import click_at
+
+    provider = _provider(width=0, height=0, vision_enabled=True)
+    provider.driver.tap = AsyncMock()
+    state = _get_state(provider)
+    ctx = SimpleNamespace(
+        ui=state,
+        state_provider=provider,
+        driver=provider.driver,
+        macro_recorder=None,
+    )
+
+    assert state.coordinate_contract_active is False
+    result = asyncio.run(click_at(10, 20, ctx=ctx))
+
+    assert result.success is False
+    assert "unavailable for this step" in result.summary
+    provider.driver.tap.assert_not_awaited()
+
+
 def test_legacy_injected_screenshot_providers_keep_getting_resized():
     """Injected providers that only implement the pre-existing
     ``requires_coordinate_tools`` contract must still get resized screenshots:

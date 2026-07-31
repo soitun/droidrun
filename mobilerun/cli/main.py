@@ -64,7 +64,7 @@ from mobilerun.config_manager.credential_paths import (
 from mobilerun.log_handlers import CLILogHandler, configure_logging
 from mobilerun.macro.cli import macro_cli
 from mobilerun.telemetry import print_telemetry_message
-from mobilerun_core_local.driver.ios import discover_ios_portal, validate_ios_portal_url
+from mobilerun_core_local.driver.ios import discover_ios_device, validate_ios_portal_url
 from mobilerun_core_local.driver.visual_remote import VISUAL_REMOTE_CONNECTION
 
 # Suppress all warnings
@@ -233,7 +233,7 @@ async def run_command(
                 config.device.serial = validate_ios_portal_url(config.device.serial)
             else:
                 logger.info("🔍 Searching for iOS portal...")
-                config.device.serial = await discover_ios_portal()
+                config.device.serial = await discover_ios_device()
 
         # ================================================================
         # STEP 2: Initialize MobileAgent with config

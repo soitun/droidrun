@@ -106,7 +106,7 @@ class RunCliVisionOnlyTest(unittest.TestCase):
                 return_value=MobileConfig(),
             ),
             patch("mobilerun.cli.main.MobileAgent", FakeAgent),
-            patch("mobilerun.cli.main.discover_ios_portal", AsyncMock()) as discover,
+            patch("mobilerun.cli.main.discover_ios_device", AsyncMock()) as discover,
             patch("mobilerun.cli.main.validate_ios_portal_url") as validate,
         ):
             success = asyncio.run(

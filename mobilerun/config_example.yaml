@@ -141,6 +141,10 @@ device:
   # Android only: auto-install/update Portal APK and enable accessibility before each run.
   # iOS requires a running iOS Portal URL or discovery through iproxy.
   auto_setup: true
+  # Bearer token for portal-HTTP device URLs (e.g. a `mobilerun-ios --local`
+  # server started with --local-token). Loopback servers need no token.
+  # The MOBILERUN_DEVICE_TOKEN env var overrides this value.
+  auth_token: null
 
 # === Telemetry Settings ===
 telemetry:

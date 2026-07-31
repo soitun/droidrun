@@ -1760,7 +1760,7 @@ requires-dist = [
     { name = "llama-index-workflows", specifier = ">=2.16.0,<3.0.0" },
     { name = "mcp", specifier = ">=1.26.0" },
     { name = "mobilerun", extras = ["langfuse"], marker = "extra == 'dev'" },
-    { name = "mobilerun-core-local", extras = ["cloud"], specifier = ">=0.5.0" },
+    { name = "mobilerun-core-local", extras = ["cloud"], specifier = ">=0.6.0" },
     { name = "mobilerun-sdk", specifier = ">=3.2.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.0.0" },
     { name = "openinference-instrumentation-llama-index", marker = "extra == 'langfuse'", specifier = ">=3.0.0" },
@@ -1787,7 +1787,7 @@ dev = [
 
 [[package]]
 name = "mobilerun-core-local"
-version = "0.5.0"
+version = "0.6.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "async-adbutils" },
@@ -1795,9 +1795,9 @@ dependencies = [
     { name = "requests" },
     { name = "rich" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/26/08/673a58a645c5b1e4087beed98c79bd92fea247a1f9370f34df6436eb1d91/mobilerun_core_local-0.5.0.tar.gz", hash = "sha256:1c9dafb5d963ca5a1eb0c9d989f58e32d6f4c1f8dad5f54bf3a9a967599c19d9", size = 66006, upload-time = "2026-07-15T10:17:59.011Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b9/1a/17331235836f85ebfc7ef652ed392d051c9e8dfbb3f2c224e2f4122100e2/mobilerun_core_local-0.6.0.tar.gz", hash = "sha256:6ee483d1c325c2a9ebd577d05291aacc87ad9bb9483eebd4a7028643f1c4417f", size = 71100, upload-time = "2026-07-31T20:07:15.473Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/61/a6/37836c1417fd97b4ae633ca618366d364631406afd71d5e50f44bbb88b1a/mobilerun_core_local-0.5.0-py3-none-any.whl", hash = "sha256:2f42f1bc73f5eea482abf43ea16a264fbbd0ec1bdaec500068e03e886988f9be", size = 46187, upload-time = "2026-07-15T10:17:57.684Z" },
+    { url = "https://files.pythonhosted.org/packages/d5/7f/be52c36593c6350bda1f1e78b959b915682790e54c6c28467f57386a246d/mobilerun_core_local-0.6.0-py3-none-any.whl", hash = "sha256:fb67820a44dacef84b6a1baa96817b69e4de13a99ba80338cff85eda41e70cf1", size = 50896, upload-time = "2026-07-31T20:07:14.197Z" },
 ]
 
 [package.optional-dependencies]

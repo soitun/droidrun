@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Literal, Optional
 
@@ -169,6 +170,13 @@ class DeviceConfig:
     platform: str = "android"  # "android" or "ios"
     portal_mode: Literal["auto", "required", "disabled"] = "auto"
     auto_setup: bool = True  # auto-install/fix portal before each run
+    # Bearer token for portal-HTTP device URLs (a mobilerun-ios --local server
+    # started with --local-token). Loopback servers need no token. The
+    # MOBILERUN_DEVICE_TOKEN env var overrides this value.
+    auth_token: Optional[str] = None
+
+    def resolve_auth_token(self) -> Optional[str]:
+        return os.environ.get("MOBILERUN_DEVICE_TOKEN") or self.auth_token
 
 
 @dataclass
