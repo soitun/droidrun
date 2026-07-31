@@ -518,8 +518,8 @@ result = await agent.run()
     **Solutions:**
     1. Confirm `mobilerun-ios --local <udid>` is still running
     2. Check its startup output for the actual server URL
-    3. If another process uses port 8080, start with `--local-addr 127.0.0.1:9100`
-    4. Test the printed URL with `/ping`
+    3. If another process uses port 8080, choose an available high port, for example: `mobilerun-ios --local --local-addr 127.0.0.1:18080 <udid>`
+    4. Test the printed URL with `/ping`. Because custom ports are not auto-discovered, pass it to the framework explicitly with `--device http://127.0.0.1:18080`
   </Accordion>
 
   <Accordion title="Framework auto-discovery fails">
