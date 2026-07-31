@@ -107,6 +107,16 @@ class ConfigLoader:
     def _save_dict(cls, config_dict: Dict[str, Any], path: Path) -> Path:
         """Save config dict to path."""
         path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            yaml.dump(config_dict, f, default_flow_style=False, sort_keys=False)
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT, 0o600)
+        try:
+            if os.name != "nt":
+                os.fchmod(fd, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                fd = -1  # fdopen owns the descriptor from here.
+                f.seek(0)
+                f.truncate()
+                yaml.dump(config_dict, f, default_flow_style=False, sort_keys=False)
+        finally:
+            if fd != -1:
+                os.close(fd)
         return path
