@@ -33,11 +33,12 @@ from mobilerun.agent.fast_agent.events import (
     FastAgentToolCallEvent,
 )
 from mobilerun.agent.fast_agent.xml_parser import (
+    ToolCallParseStatus,
     ToolResult,
     extract_add_memory,
     format_tool_calls,
     format_tool_results,
-    parse_tool_calls,
+    parse_tool_calls_detailed,
 )
 from mobilerun.agent.usage import get_usage_from_response
 from mobilerun.agent.utils.chat_utils import limit_history
@@ -58,6 +59,24 @@ if TYPE_CHECKING:
     from mobilerun.tools.ui.provider import StateProvider
 
 logger = logging.getLogger("mobilerun")
+
+_MALFORMED_TOOL_CALL_LIMIT = 3
+
+
+def _malformed_tool_call_correction(attempt: int) -> str:
+    """Build a focused retry instruction without echoing malformed model output."""
+    return (
+        "Your previous response contained tool-call markup that could not be parsed "
+        f"(attempt {attempt}/{_MALFORMED_TOOL_CALL_LIMIT}). No tool was executed.\n\n"
+        "Repeat the intended call using only the ASCII XML tags shown below. Replace "
+        "the placeholder names and value with the intended tool and arguments. Do not "
+        "use provider-specific markers, full-width punctuation, or alternate tag names.\n\n"
+        "<function_calls>\n"
+        '<invoke name="tool_name">\n'
+        '<parameter name="parameter_name">value</parameter>\n'
+        "</invoke>\n"
+        "</function_calls>"
+    )
 
 
 class FastAgent(Workflow):
@@ -108,6 +127,7 @@ class FastAgent(Workflow):
 
         self.system_prompt: ChatMessage | None = None
         self.tool_call_counter = 0
+        self._consecutive_malformed_tool_calls = 0
 
         # Build tool descriptions and param types from registry
         self.tool_descriptions = self.registry.get_tool_descriptions_xml()
@@ -180,6 +200,7 @@ class FastAgent(Workflow):
     async def prepare_chat(self, ctx: Context, ev: StartEvent) -> FastAgentInputEvent:
         """Initialize message history with goal."""
         logger.debug("Preparing chat for task execution...")
+        self._consecutive_malformed_tool_calls = 0
 
         # Get available secrets (only if type_secret is actually in the registry)
         if (
@@ -373,7 +394,9 @@ class FastAgent(Workflow):
         response_text = response.message.content
 
         # Parse tool calls from response
-        thought, tool_calls = parse_tool_calls(response_text, self.param_types)
+        parse_result = parse_tool_calls_detailed(response_text, self.param_types)
+        thought = parse_result.thought
+        tool_calls = parse_result.calls
 
         # Extract <add_memory> from thought text and append to unified memory
         memory_update = extract_add_memory(thought)
@@ -396,6 +419,7 @@ class FastAgent(Workflow):
             thought=thought,
             code=tool_calls_xml,
             usage=usage,
+            tool_call_status=parse_result.status,
         )
         ctx.write_event_to_stream(event)
         return event
@@ -403,9 +427,54 @@ class FastAgent(Workflow):
     @step
     async def handle_llm_output(
         self, ctx: Context, ev: FastAgentResponseEvent
-    ) -> FastAgentToolCallEvent | FastAgentInputEvent:
+    ) -> FastAgentToolCallEvent | FastAgentInputEvent | FastAgentEndEvent:
         """Route to execution or request tool call if missing."""
         has_tool_calls = ev.code is not None
+
+        if ev.tool_call_status == ToolCallParseStatus.MALFORMED and not has_tool_calls:
+            self._consecutive_malformed_tool_calls += 1
+            attempt = self._consecutive_malformed_tool_calls
+            logger.warning(
+                "Malformed tool-call markup detected (%d/%d)",
+                attempt,
+                _MALFORMED_TOOL_CALL_LIMIT,
+            )
+
+            if attempt >= _MALFORMED_TOOL_CALL_LIMIT:
+                pending = self.shared_state.drain_user_messages()
+                if pending:
+                    logger.warning(
+                        "⚠️ Dropping %d external user message(s) at malformed tool-call limit",
+                        len(pending),
+                    )
+                    ctx.write_event_to_stream(
+                        ExternalUserMessageDroppedEvent(
+                            message_ids=[message.id for message in pending],
+                            reason="malformed_tool_call_limit_reached",
+                            step_number=self.shared_state.step_number,
+                        )
+                    )
+                event = FastAgentEndEvent(
+                    success=False,
+                    reason=(
+                        "Model produced malformed tool-call markup "
+                        f"{_MALFORMED_TOOL_CALL_LIMIT} consecutive times; stopped to prevent "
+                        "a retry loop. Switch models or verify tool-call protocol compatibility."
+                    ),
+                    tool_call_count=self.tool_call_counter,
+                )
+                ctx.write_event_to_stream(event)
+                return event
+
+            self.shared_state.message_history.append(
+                ChatMessage(
+                    role="user",
+                    content=_malformed_tool_call_correction(attempt),
+                )
+            )
+            return FastAgentInputEvent()
+
+        self._consecutive_malformed_tool_calls = 0
 
         if not ev.thought:
             logger.warning("LLM provided tool calls without reasoning.")

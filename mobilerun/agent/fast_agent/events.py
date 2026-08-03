@@ -8,6 +8,7 @@ from typing import Optional
 
 from llama_index.core.workflow import Event
 
+from mobilerun.agent.fast_agent.xml_parser import ToolCallParseStatus
 from mobilerun.agent.usage import UsageResult
 
 
@@ -23,6 +24,7 @@ class FastAgentResponseEvent(Event):
     thought: str
     code: Optional[str] = None
     usage: Optional[UsageResult] = None
+    tool_call_status: ToolCallParseStatus = ToolCallParseStatus.NO_MARKUP
 
 
 class FastAgentToolCallEvent(Event):
