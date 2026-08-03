@@ -1,13 +1,228 @@
 import unittest
 
 from mobilerun.agent.fast_agent.xml_parser import (
+    ToolCallParseStatus,
     extract_add_memory,
     format_tool_calls,
     parse_tool_calls,
+    parse_tool_calls_detailed,
 )
 
 
 class FastAgentXmlParserTest(unittest.TestCase):
+    def test_classifies_plain_text_as_no_markup(self):
+        result = parse_tool_calls_detailed("I need to inspect the current screen.")
+
+        self.assertEqual(result.status, ToolCallParseStatus.NO_MARKUP)
+        self.assertEqual(result.thought, "I need to inspect the current screen.")
+        self.assertEqual(result.calls, [])
+
+    def test_classifies_discord_dsml_fixture_as_malformed(self):
+        text = """I'm still on the main feed. I need to tap on the Profile tab.
+
+<function_calls>
+<invoke name="click">
+<｜DSML｜ name="index">189</｜DSML｜>
+</invoke>
+</function_calls>"""
+
+        result = parse_tool_calls_detailed(text, {"index": "number"})
+
+        self.assertEqual(result.status, ToolCallParseStatus.MALFORMED)
+        self.assertIn("Profile tab", result.thought)
+        self.assertEqual(result.calls, [])
+
+    def test_classifies_captured_hybrid_dsml_as_malformed(self):
+        text = """I will return to Settings home.
+<function_calls>
+<invoke name="system_button">
+<｜｜DSML｜｜rameter name="button">back</｜｜DSML｜｜rameter>
+</｜｜DSML｜｜invoke>
+</function_calls>"""
+
+        result = parse_tool_calls_detailed(text)
+
+        self.assertEqual(result.status, ToolCallParseStatus.MALFORMED)
+        self.assertEqual(result.calls, [])
+
+    def test_rejects_dsml_corruption_inside_parameter_value(self):
+        text = """Settings home is visible. Marking the task complete.
+<function_calls>
+<invoke name="complete">
+<parameter name="success">true</｜｜DSML｜｜>
+<parameter name="message">Completed 20 verified cycles.</parameter>
+</invoke>
+</function_calls>"""
+
+        result = parse_tool_calls_detailed(text, {"success": "boolean"})
+
+        self.assertEqual(result.status, ToolCallParseStatus.MALFORMED)
+        self.assertEqual(result.calls, [])
+
+    def test_allows_ordinary_dsml_text_inside_parameter_value(self):
+        text = """I will type the literal markup.
+<function_calls>
+<invoke name="type_text">
+<parameter name="text"><span title="DSML">literal payload</span></parameter>
+</invoke>
+</function_calls>"""
+
+        result = parse_tool_calls_detailed(text)
+
+        self.assertEqual(result.status, ToolCallParseStatus.VALID)
+        self.assertEqual(len(result.calls), 1)
+        self.assertEqual(
+            result.calls[0].parameters,
+            {"text": '<span title="DSML">literal payload</span>'},
+        )
+
+    def test_allows_unmatched_tool_like_text_inside_parameter_value(self):
+        text = """I will type the literal snippet.
+<function_calls>
+<invoke name="type_text">
+<parameter name="text">literal <invoke name="example"> token</parameter>
+</invoke>
+</function_calls>"""
+
+        result = parse_tool_calls_detailed(text)
+
+        self.assertEqual(result.status, ToolCallParseStatus.VALID)
+        self.assertEqual(len(result.calls), 1)
+        self.assertEqual(
+            result.calls[0].parameters,
+            {"text": 'literal <invoke name="example"> token'},
+        )
+
+    def test_classifies_dsml_without_xml_wrapper_as_malformed(self):
+        text = """I will tap the target.
+<｜DSML｜tool_calls>
+<｜DSML｜invoke name="click">
+<｜DSML｜parameter name="index">12</｜DSML｜parameter>
+</｜DSML｜invoke>
+</｜DSML｜tool_calls>"""
+
+        result = parse_tool_calls_detailed(text, {"index": "number"})
+
+        self.assertEqual(result.status, ToolCallParseStatus.MALFORMED)
+        self.assertEqual(result.thought, "I will tap the target.")
+        self.assertEqual(result.calls, [])
+
+    def test_classifies_standalone_invoke_as_malformed(self):
+        text = """I will tap the target.
+<invoke name="click"><parameter name="index">12</parameter></invoke>"""
+
+        result = parse_tool_calls_detailed(text, {"index": "number"})
+
+        self.assertEqual(result.status, ToolCallParseStatus.MALFORMED)
+        self.assertEqual(result.calls, [])
+
+    def test_classifies_noncanonical_wrapper_as_malformed(self):
+        text = """I will tap the target.
+<function_calls >
+<invoke name="click"><parameter name="index">12</parameter></invoke>
+</function_calls>"""
+
+        result = parse_tool_calls_detailed(text, {"index": "number"})
+
+        self.assertEqual(result.status, ToolCallParseStatus.MALFORMED)
+        self.assertEqual(result.calls, [])
+
+    def test_classifies_missing_close_tag_as_malformed(self):
+        text = """I will tap the target.
+<function_calls>
+<invoke name="click"><parameter name="index">12</parameter></invoke>"""
+
+        result = parse_tool_calls_detailed(text, {"index": "number"})
+
+        self.assertEqual(result.status, ToolCallParseStatus.MALFORMED)
+        self.assertEqual(result.calls, [])
+
+    def test_classifies_empty_wrapper_as_malformed(self):
+        result = parse_tool_calls_detailed("<function_calls>\n</function_calls>")
+
+        self.assertEqual(result.status, ToolCallParseStatus.MALFORMED)
+        self.assertEqual(result.calls, [])
+
+    def test_classifies_wrapper_without_named_invoke_as_malformed(self):
+        text = """<function_calls>
+<invoke><parameter name="index">12</parameter></invoke>
+</function_calls>"""
+
+        result = parse_tool_calls_detailed(text, {"index": "number"})
+
+        self.assertEqual(result.status, ToolCallParseStatus.MALFORMED)
+        self.assertEqual(result.calls, [])
+
+    def test_classifies_valid_xml_as_valid(self):
+        text = """I will tap the target.
+<function_calls>
+<invoke name="click"><parameter name="index">12</parameter></invoke>
+</function_calls>"""
+
+        result = parse_tool_calls_detailed(text, {"index": "number"})
+
+        self.assertEqual(result.status, ToolCallParseStatus.VALID)
+        self.assertEqual(len(result.calls), 1)
+        self.assertEqual(result.calls[0].parameters, {"index": 12})
+
+    def test_valid_sibling_block_wins_over_malformed_block(self):
+        text = """I will retry and then complete.
+<function_calls>
+<｜｜DSML｜｜ name="click">
+<parameter name="index">12</parameter>
+</｜｜DSML｜｜>
+</function_calls>
+<function_calls>
+<invoke name="complete">
+<parameter name="success">true</parameter>
+<parameter name="message">Done</parameter>
+</invoke>
+</function_calls>"""
+
+        result = parse_tool_calls_detailed(text, {"success": "boolean"})
+
+        self.assertEqual(result.status, ToolCallParseStatus.VALID)
+        self.assertEqual([call.name for call in result.calls], ["complete"])
+        self.assertEqual(
+            result.calls[0].parameters,
+            {"success": True, "message": "Done"},
+        )
+
+    def test_argument_error_is_valid_markup(self):
+        text = """<function_calls>
+<invoke name="click"><parameter name="index">not-a-number</parameter></invoke>
+</function_calls>"""
+
+        result = parse_tool_calls_detailed(text, {"index": "number"})
+
+        self.assertEqual(result.status, ToolCallParseStatus.VALID)
+        self.assertEqual(len(result.calls), 1)
+        self.assertIsNotNone(result.calls[0].error)
+
+    def test_public_tuple_parser_remains_compatible(self):
+        text = """I will tap the target.
+<function_calls>
+<invoke name="click"><parameter name="index">12</parameter></invoke>
+</function_calls>"""
+
+        thought, calls = parse_tool_calls(text, {"index": "number"})
+        detailed = parse_tool_calls_detailed(text, {"index": "number"})
+
+        self.assertEqual((thought, calls), (detailed.thought, detailed.calls))
+
+    def test_public_tuple_parser_preserves_marker_only_text(self):
+        cases = [
+            "I will tap.\n<｜DSML｜tool_calls></｜DSML｜tool_calls>",
+            'I will tap.\n<invoke name="click"></invoke>',
+            "I will tap.\n<function_calls ></function_calls>",
+        ]
+
+        for text in cases:
+            with self.subTest(text=text):
+                thought, calls = parse_tool_calls(text)
+                self.assertEqual(thought, text.strip())
+                self.assertEqual(calls, [])
+
     def test_drops_adjacent_exact_duplicate_tool_calls(self):
         text = """
 I will tap the target.
