@@ -23,6 +23,7 @@ _PARAM_RE = re.compile(
     r'(<parameter\s+name="[^"]*">)(.*?)(</parameter>)',
     re.DOTALL,
 )
+_PARAM_OPEN_RE = re.compile(r"<parameter(?=[\s>/])")
 
 _DSML_MARKUP_PATTERN = r"(?:<|＜)\s*/?\s*｜+DSML｜+"
 _DSML_MARKUP_RE = re.compile(_DSML_MARKUP_PATTERN, re.IGNORECASE)
@@ -121,9 +122,9 @@ def parse_tool_calls_detailed(
             continue
 
         # Parameter-value sanitization intentionally preserves raw text such as
-        # code, but it must never turn provider-specific tool markup into an
-        # executable XML call. A separate valid wrapper can still win below.
-        if _DSML_MARKUP_RE.search(block):
+        # code and literal DSML. Provider-specific markup is malformed only
+        # when it occurs outside a trustworthy canonical parameter payload.
+        if _has_structural_dsml_markup(block):
             continue
 
         calls = _parse_tool_call_block(block, param_types)
@@ -224,6 +225,27 @@ def _parse_tool_call_block(
 
         calls.append(ToolCall(name=name, parameters=params, error=error))
     return calls
+
+
+def _has_structural_dsml_markup(block: str) -> bool:
+    """Return whether DSML occurs outside a trustworthy parameter payload."""
+    payload_spans: List[Tuple[int, int]] = []
+    for parameter in _PARAM_RE.finditer(block):
+        payload = parameter.group(2)
+        # A nested parameter opener means the regex may have crossed
+        # from a missing close tag into a later parameter. Do not hide DSML in
+        # that span from structural validation.
+        if _PARAM_OPEN_RE.search(payload):
+            continue
+        payload_spans.append(parameter.span(2))
+
+    for marker in _DSML_MARKUP_RE.finditer(block):
+        if not any(
+            start <= marker.start() and marker.end() <= end
+            for start, end in payload_spans
+        ):
+            return True
+    return False
 
 
 def _drop_adjacent_duplicate_blocks(

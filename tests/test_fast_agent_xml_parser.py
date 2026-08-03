@@ -59,6 +59,20 @@ class FastAgentXmlParserTest(unittest.TestCase):
         self.assertEqual(result.status, ToolCallParseStatus.MALFORMED)
         self.assertEqual(result.calls, [])
 
+    def test_rejects_dsml_corruption_crossing_xml_parameter_variant(self):
+        text = """Settings home is visible. Marking the task complete.
+<function_calls>
+<invoke name="complete">
+<parameter name="success">true</｜｜DSML｜｜>
+<parameter name = "message">Completed 20 verified cycles.</parameter>
+</invoke>
+</function_calls>"""
+
+        result = parse_tool_calls_detailed(text, {"success": "boolean"})
+
+        self.assertEqual(result.status, ToolCallParseStatus.MALFORMED)
+        self.assertEqual(result.calls, [])
+
     def test_allows_ordinary_dsml_text_inside_parameter_value(self):
         text = """I will type the literal markup.
 <function_calls>
@@ -75,6 +89,42 @@ class FastAgentXmlParserTest(unittest.TestCase):
             result.calls[0].parameters,
             {"text": '<span title="DSML">literal payload</span>'},
         )
+
+    def test_allows_literal_dsml_syntax_inside_parameter_value(self):
+        text = """I will type the literal DSML syntax.
+<function_calls>
+<invoke name="type_text">
+<parameter name="text">before <｜DSML｜tool_calls>literal</｜DSML｜tool_calls> after</parameter>
+</invoke>
+</function_calls>"""
+
+        result = parse_tool_calls_detailed(text)
+
+        self.assertEqual(result.status, ToolCallParseStatus.VALID)
+        self.assertEqual(len(result.calls), 1)
+        self.assertEqual(
+            result.calls[0].parameters,
+            {"text": "before <｜DSML｜tool_calls>literal</｜DSML｜tool_calls> after"},
+        )
+        thought, calls = parse_tool_calls(text)
+        self.assertEqual(thought, result.thought)
+        self.assertEqual(calls, result.calls)
+
+    def test_literal_dsml_payload_does_not_hide_structural_dsml(self):
+        text = """I will type text and then tap.
+<function_calls>
+<invoke name="type_text">
+<parameter name="text">literal <｜DSML｜payload></parameter>
+</invoke>
+<｜DSML｜ name="click">
+<parameter name="index">12</parameter>
+</｜DSML｜>
+</function_calls>"""
+
+        result = parse_tool_calls_detailed(text, {"index": "number"})
+
+        self.assertEqual(result.status, ToolCallParseStatus.MALFORMED)
+        self.assertEqual(result.calls, [])
 
     def test_allows_unmatched_tool_like_text_inside_parameter_value(self):
         text = """I will type the literal snippet.
