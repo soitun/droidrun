@@ -14,6 +14,8 @@
 <a href="https://docs.mobilerun.ai">📕 Documentation</a>
 ·
 <a href="https://cloud.mobilerun.ai">☁️ Mobilerun Cloud</a>
+·
+<a href="https://github.com/droidrun/mobile-harness">🛡️ Mobile Harness</a>
 
 [![GitHub stars](https://img.shields.io/github/stars/droidrun/mobilerun?style=social)](https://github.com/droidrun/mobilerun/stargazers)
 [![mobilerun.ai](https://img.shields.io/badge/mobilerun.ai-white)](https://mobilerun.ai)
