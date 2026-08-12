@@ -102,6 +102,12 @@ mobilerun run "Create shopping list" \
   --provider OpenAI \
   --model gpt-4o
 
+# xAI Grok
+export XAI_API_KEY=your-key
+mobilerun run "Open Settings" \
+  --provider XAI \
+  --model grok-4.5
+
 # Anthropic Claude
 export ANTHROPIC_API_KEY=your-key
 mobilerun run "Reply to latest email" \
@@ -154,12 +160,53 @@ mobilerun run "Enable 2FA" \
 |----------|---------|---------------------|
 | GoogleGenAI | Included by default | `GOOGLE_API_KEY` |
 | OpenAI | Included by default | `OPENAI_API_KEY` |
+| XAI | Included by default | `XAI_API_KEY` |
+| grok_oauth | Included by default | Mobilerun-managed xAI OAuth credentials |
 | OpenAILike | Included by default | Varies by provider |
 | OpenRouter | Included by default | `OPENROUTER_API_KEY` |
 | Ollama | Included by default | None (local) |
 | Anthropic | `uv pip install 'mobilerun[anthropic]'` | `ANTHROPIC_API_KEY` |
 | DeepSeek | Included by default | `DEEPSEEK_API_KEY` |
 | MiniMax | Included by default | `MINIMAX_API_KEY` |
+
+### Grok API key and OAuth
+
+Grok 4.5 is available through the public xAI API and through a Grok account.
+For public API billing, set `XAI_API_KEY` or paste the key in the configure
+wizard:
+
+```bash
+mobilerun configure \
+  --provider grok \
+  --auth-mode api_key \
+  --model grok-4.5
+```
+
+For Grok OAuth, let Mobilerun run its native xAI login flow and save the result
+in the shared `auth-profiles.json` store:
+
+```bash
+# Browser login
+mobilerun configure grok
+
+# Device-code login for SSH/headless hosts
+mobilerun configure grok --device-code --no-browser
+```
+
+You can also choose **Grok** and **oauth** in `mobilerun configure`. The
+resulting profile uses provider `grok_oauth`; API-key profiles use provider
+`XAI`. OAuth credentials are stored under `grokOauth` with owner-only file
+permissions. This credential is separate from `~/.grok/auth.json`: Mobilerun
+does not invoke the Grok CLI, read its credential file, or treat an OAuth
+failure as permission to fall back to `XAI_API_KEY`.
+
+<Warning>
+  Grok OAuth currently interoperates with xAI's public Grok Build OAuth client
+  and subscription proxy contract. xAI does not document that contract as a
+  stable third-party integration, so xAI may require a fresh login or a
+  compatibility update in a future release. Use `XAI` with an API key when you
+  need the documented public API boundary.
+</Warning>
 
 ### MiniMax endpoints and credentials
 
@@ -551,6 +598,7 @@ mobilerun ping --tcp
 | `GOOGLE_API_KEY` | Google Gemini API key | None |
 | `OPENAI_API_KEY` | OpenAI API key | None |
 | `ANTHROPIC_API_KEY` | Anthropic API key | None |
+| `XAI_API_KEY` | xAI API key for Grok | None |
 | `DEEPSEEK_API_KEY` | DeepSeek API key | None |
 | `MINIMAX_API_KEY` | MiniMax API key | None |
 | `MOBILERUN_CLOUD_API_KEY` | Mobilerun Cloud API key for `devices --cloud` and cloud device actions | None |

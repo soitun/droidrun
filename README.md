@@ -49,7 +49,7 @@
 </p>
 
 - 🤖 Control Android and iOS devices with natural language commands
-- 🔀 Use OpenAI, Anthropic, Gemini, Ollama, DeepSeek, OpenRouter, and OpenAI-compatible models
+- 🔀 Use OpenAI, Anthropic, Gemini, Grok, Ollama, DeepSeek, OpenRouter, and OpenAI-compatible models
 - 🧠 Run direct tasks or enable reasoning mode for complex multi-step automation
 - 💻 Automate from the CLI, a terminal UI, Docker, or Python code
 - 🐍 Extend agents with custom tools, structured output, app cards, and credentials
@@ -113,7 +113,22 @@ You should see confirmation that the Portal is installed and accessible.
 mobilerun configure
 ```
 
-The wizard walks you through choosing a provider, auth method, and model. You can also use provider environment variables such as `GOOGLE_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `MINIMAX_API_KEY`.
+The wizard walks you through choosing a provider, auth method, and model. You can also use provider environment variables such as `GOOGLE_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY`, or `MINIMAX_API_KEY`.
+
+Grok supports either an xAI API key or a native xAI OAuth login managed by
+Mobilerun:
+
+```bash
+# Direct xAI API
+export XAI_API_KEY=your-key
+mobilerun configure --provider grok --auth-mode api_key --model grok-4.5
+
+# Native Grok OAuth (use --device-code on SSH/headless machines)
+mobilerun configure grok
+```
+
+Mobilerun stores this login in its own `grokOauth` credential slot. It does not
+invoke the Grok CLI or read `~/.grok/auth.json`.
 
 ### 4. Run your first command
 

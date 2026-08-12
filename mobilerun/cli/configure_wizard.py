@@ -49,6 +49,7 @@ class ConfigureWizardCallbacks:
     run_openai_oauth_login: Callable[..., None]
     run_anthropic_oauth_login: Callable[..., None]
     run_gemini_oauth_login: Callable[..., None]
+    run_grok_oauth_login: Callable[..., None] | None = None
 
 
 @dataclass
@@ -242,6 +243,7 @@ _OAUTH_CREDENTIAL_SLOTS = {
     "gemini_oauth_code_assist": "geminiAntigravityOauth",
     "openai_oauth": "openaiOauth",
     "anthropic_oauth": "claudeAiOauth",
+    "grok_oauth": "grokOauth",
 }
 
 
@@ -320,6 +322,13 @@ def _prepare_variant_auth(
     elif variant.id == "gemini_oauth_code_assist" and credential_path:
         callbacks.run_gemini_oauth_login(
             credential_path=credential_path, model=selected_model
+        )
+    elif variant.id == "grok_oauth" and credential_path:
+        if callbacks.run_grok_oauth_login is None:
+            raise RuntimeError("Grok OAuth login callback is not configured.")
+        callbacks.run_grok_oauth_login(
+            credential_path=credential_path,
+            model=selected_model,
         )
 
 
@@ -682,10 +691,11 @@ def run_configure_wizard(
     if model_is_fixed:
         state.selected_model = model
 
-    # When CLI flags fully specify provider+model, run the flow automatically
-    # and save without showing the menu.
+    # A fixed provider should enter that provider's flow immediately. Missing
+    # auth/model/key values remain interactive, but the supplied provider (and
+    # auth mode, when present) must not be discarded by the top-level menu.
     provider_configured = False
-    if provider_is_fixed and model_is_fixed:
+    if provider_is_fixed:
         provider_configured = _configure_provider_model(
             console,
             config,

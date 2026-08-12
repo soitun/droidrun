@@ -26,6 +26,8 @@ from mobilerun_core_local.driver.android.portal import (
     ping_portal_tcp,
     setup_portal,
 )
+from mobilerun_core_local.driver.ios import discover_ios_device, validate_ios_portal_url
+from mobilerun_core_local.driver.visual_remote import VISUAL_REMOTE_CONNECTION
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
@@ -53,6 +55,7 @@ from mobilerun.cli.event_handler import EventHandler
 from mobilerun.cli.oauth_actions import (
     run_anthropic_setup_token_oauth,
     run_gemini_oauth_login,
+    run_grok_oauth_login,
     run_openai_oauth_login,
     save_anthropic_setup_token,
 )
@@ -60,12 +63,11 @@ from mobilerun.config_manager import ConfigLoader, MobileConfig
 from mobilerun.config_manager.credential_paths import (
     ANTHROPIC_OAUTH_CREDENTIAL_PATH,
     GEMINI_OAUTH_CREDENTIAL_PATH,
+    GROK_OAUTH_CREDENTIAL_PATH,
 )
 from mobilerun.log_handlers import CLILogHandler, configure_logging
 from mobilerun.macro.cli import macro_cli
 from mobilerun.telemetry import print_telemetry_message
-from mobilerun_core_local.driver.ios import discover_ios_device, validate_ios_portal_url
-from mobilerun_core_local.driver.visual_remote import VISUAL_REMOTE_CONNECTION
 
 # Suppress all warnings
 warnings.filterwarnings("ignore")
@@ -422,6 +424,17 @@ def _run_anthropic_oauth_login(credential_path: str, **kwargs) -> None:
     _print_oauth_login_success("Anthropic", credential_path)
 
 
+def _run_grok_oauth_login(
+    credential_path: str, model: str | None = None, **kwargs
+) -> None:
+    run_grok_oauth_login(
+        credential_path=credential_path,
+        model=model,
+        **kwargs,
+    )
+    _print_oauth_login_success("Grok", credential_path)
+
+
 try:
     _available_agents = list_agents()
 except Exception:
@@ -447,7 +460,7 @@ except Exception:
 @click.option(
     "--provider",
     "-p",
-    help="LLM provider (OpenAI, openai_oauth, Ollama, Anthropic, anthropic_oauth, GoogleGenAI, gemini_oauth_code_assist, DeepSeek)",
+    help="LLM provider (OpenAI, openai_oauth, XAI, grok_oauth, Ollama, Anthropic, anthropic_oauth, GoogleGenAI, gemini_oauth_code_assist, DeepSeek)",
     default=None,
 )
 @click.option(
@@ -1012,7 +1025,7 @@ async def doctor(device: str | None, debug: bool | None):
     "--provider",
     type=str,
     default=None,
-    help="Provider family (gemini, openai, anthropic, ollama, openai_like, minimax, zai).",
+    help="Provider family (gemini, openai, anthropic, grok, ollama, openai_like, minimax, zai).",
 )
 @click.option(
     "--auth-mode",
@@ -1052,6 +1065,7 @@ def configure(
             run_openai_oauth_login=_run_openai_oauth_login,
             run_anthropic_oauth_login=_run_anthropic_oauth_login,
             run_gemini_oauth_login=_run_gemini_oauth_login,
+            run_grok_oauth_login=_run_grok_oauth_login,
         ),
         provider=provider,
         auth_mode=auth_mode,
@@ -1205,6 +1219,52 @@ def configure_gemini(
         callback_port=callback_port,
         callback_path=callback_path,
         open_browser=open_browser,
+    )
+
+
+@configure.command("grok")
+@click.option(
+    "--credential-path",
+    default=str(GROK_OAUTH_CREDENTIAL_PATH),
+    show_default=True,
+    help="Where to store Mobilerun's Grok OAuth credentials.",
+)
+@click.option(
+    "--model", default=None, help="Optional model override for later API calls."
+)
+@click.option(
+    "--timeout",
+    type=float,
+    default=300.0,
+    show_default=True,
+    help="Max seconds to wait for xAI OAuth authentication.",
+)
+@click.option(
+    "--open-browser/--no-browser",
+    default=True,
+    show_default=True,
+    help="Open the xAI authorization URL automatically.",
+)
+@click.option(
+    "--device-code",
+    is_flag=True,
+    default=False,
+    help="Use Grok's device-code flow for SSH or other headless environments.",
+)
+def configure_grok(
+    credential_path: str,
+    model: str | None,
+    timeout: float,
+    open_browser: bool,
+    device_code: bool,
+):
+    """Log in to Grok with Mobilerun's native xAI OAuth flow."""
+    _run_grok_oauth_login(
+        credential_path=credential_path,
+        model=model,
+        timeout=timeout,
+        open_browser=open_browser,
+        device_code=device_code,
     )
 
 

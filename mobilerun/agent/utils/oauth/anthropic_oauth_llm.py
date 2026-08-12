@@ -37,6 +37,7 @@ from mobilerun.agent.providers.anthropic import (
     anthropic_model_omits_sampling_params,
     strip_anthropic_sampling_params,
 )
+from mobilerun.config_manager.auth_profile_store import AuthProfileStore
 from mobilerun.config_manager.credential_paths import ANTHROPIC_OAUTH_CREDENTIAL_PATH
 
 DEFAULT_MODEL = ANTHROPIC_OAUTH_DEFAULT_MODEL
@@ -266,18 +267,7 @@ class AnthropicOAuthLLM(CustomLLM):
         if not self.credential_path:
             return
         path = Path(self.credential_path).expanduser()
-        path.parent.mkdir(parents=True, exist_ok=True)
-
-        existing: Dict[str, Any] = {}
-        if path.exists():
-            try:
-                loaded = json.loads(path.read_text(encoding="utf-8"))
-                if isinstance(loaded, dict):
-                    existing = loaded
-            except Exception:
-                existing = {}
-
-        existing["claudeAiOauth"] = {
+        AuthProfileStore(path).update_slot("claudeAiOauth", {
             "accessToken": self._cached_access_token,
             "refreshToken": self._cached_refresh_token,
             "expiresAt": (
@@ -286,15 +276,7 @@ class AnthropicOAuthLLM(CustomLLM):
                 else None
             ),
             "scopes": self.refresh_scope.split(),
-        }
-
-        tmp_path = path.with_suffix(path.suffix + ".tmp")
-        tmp_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
-        os.replace(tmp_path, path)
-        try:
-            os.chmod(path, 0o600)
-        except OSError:
-            pass
+        })
 
     def _token_headers(self) -> Dict[str, str]:
         headers = {

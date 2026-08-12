@@ -31,6 +31,7 @@ from llama_index.core.constants import DEFAULT_TEMPERATURE
 from llama_index.core.llms.callbacks import llm_chat_callback, llm_completion_callback
 from llama_index.core.llms.custom import CustomLLM
 
+from mobilerun.config_manager.auth_profile_store import AuthProfileStore
 from mobilerun.config_manager.credential_paths import GEMINI_OAUTH_CREDENTIAL_PATH
 
 DEFAULT_MODEL = "gemini-3.5-flash-low"
@@ -296,18 +297,7 @@ class GeminiOAuthCodeAssistLLM(CustomLLM):
             return
 
         path = Path(self.credential_path).expanduser()
-        path.parent.mkdir(parents=True, exist_ok=True)
-
-        existing: Dict[str, Any] = {}
-        if path.exists():
-            try:
-                loaded = json.loads(path.read_text(encoding="utf-8"))
-                if isinstance(loaded, dict):
-                    existing = loaded
-            except Exception:
-                existing = {}
-
-        existing[self.credential_slot] = {
+        AuthProfileStore(path).update_slot(self.credential_slot, {
             "access_token": self._cached_access_token,
             "refresh_token": self._cached_refresh_token,
             "token_type": "Bearer",
@@ -316,15 +306,7 @@ class GeminiOAuthCodeAssistLLM(CustomLLM):
                 if self._access_token_expiry
                 else None
             ),
-        }
-
-        tmp_path = path.with_suffix(path.suffix + ".tmp")
-        tmp_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
-        os.replace(tmp_path, path)
-        try:
-            os.chmod(path, 0o600)
-        except OSError:
-            pass
+        })
 
     def _metadata_payload(self) -> Dict[str, str]:
         return {

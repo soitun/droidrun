@@ -1,9 +1,5 @@
 from __future__ import annotations
 
-import json
-import os
-from pathlib import Path
-
 from mobilerun.agent.utils.oauth.anthropic_oauth_llm import (
     DEFAULT_SETUP_TOKEN_SCOPE,
     AnthropicOAuthLLM,
@@ -14,6 +10,10 @@ from mobilerun.agent.utils.oauth.gemini_oauth_code_assist_llm import (
 from mobilerun.agent.utils.oauth.gemini_oauth_code_assist_llm import (
     GeminiOAuthCodeAssistLLM,
 )
+from mobilerun.agent.utils.oauth.grok_oauth_llm import (
+    DEFAULT_GROK_MODEL,
+    GrokOAuth,
+)
 from mobilerun.agent.utils.oauth.openai_oauth_llm import (
     DEFAULT_OPENAI_OAUTH_CALLBACK_HOST,
     DEFAULT_OPENAI_OAUTH_CALLBACK_PATH,
@@ -21,6 +21,7 @@ from mobilerun.agent.utils.oauth.openai_oauth_llm import (
     DEFAULT_OPENAI_OAUTH_CREDENTIAL_PATH,
     OpenAIOAuth,
 )
+from mobilerun.config_manager.auth_profile_store import AuthProfileStore
 
 SETUP_TOKEN_EXPIRES_IN_SECONDS = 365 * 24 * 60 * 60
 
@@ -79,6 +80,26 @@ def run_gemini_oauth_login(
     print(f"✓ Gemini (Antigravity) login OK — {len(models)} models available.")
 
 
+def run_grok_oauth_login(
+    credential_path: str,
+    model: str | None,
+    timeout: float = 300.0,
+    open_browser: bool = True,
+    device_code: bool = False,
+    no_browser: bool = False,
+) -> None:
+    """Authenticate directly with xAI and save MobileRun-owned credentials."""
+    llm = GrokOAuth(
+        model=model or DEFAULT_GROK_MODEL,
+        oauth_credential_path=credential_path,
+    )
+    llm.login(
+        open_browser=open_browser and not no_browser,
+        timeout_seconds=timeout,
+        device_code=device_code,
+    )
+
+
 def run_anthropic_setup_token_oauth(
     *,
     timeout: float = 300.0,
@@ -103,26 +124,12 @@ def run_anthropic_setup_token_oauth(
 
 
 def save_anthropic_setup_token(credential_path: str, token: str) -> None:
-    cred_path = Path(credential_path).expanduser()
-    cred_path.parent.mkdir(parents=True, exist_ok=True)
-
-    existing: dict[str, object] = {}
-    if cred_path.exists():
-        try:
-            loaded = json.loads(cred_path.read_text(encoding="utf-8"))
-            if isinstance(loaded, dict):
-                existing = loaded
-        except Exception:
-            existing = {}
-
-    existing["claudeAiOauth"] = {
+    AuthProfileStore(credential_path).update_slot("claudeAiOauth", {
         "accessToken": token,
         "refreshToken": None,
         "expiresAt": None,
         "scopes": [],
-    }
-    cred_path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
-    os.chmod(cred_path, 0o600)
+    })
 
 
 def run_anthropic_oauth_setup(credential_path: str) -> None:

@@ -125,6 +125,7 @@ def test_openai_structured_predict_omits_per_call_sampling_params(
     for payload in (sync_payload, async_payload):
         assert {"temperature", "top_p"}.isdisjoint(payload)
         assert payload["max_output_tokens"] == 32
+        assert payload["tool_choice"] == "none"
 
 
 @pytest.mark.parametrize(

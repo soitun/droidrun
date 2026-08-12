@@ -41,6 +41,7 @@ from llama_index.llms.openai.base import llm_retry_decorator
 from llama_index.llms.openai.utils import to_openai_message_dicts
 
 from mobilerun.agent.providers.registry import normalize_model_id_for_variant
+from mobilerun.config_manager.auth_profile_store import AuthProfileStore
 from mobilerun.config_manager.credential_paths import OPENAI_OAUTH_CREDENTIAL_PATH
 
 DEFAULT_OPENAI_OAUTH_ISSUER = "https://auth.openai.com"
@@ -273,6 +274,7 @@ class OpenAIOAuthCredentials:
 class OpenAIOAuthCredentialStore:
     def __init__(self, path: str | Path = DEFAULT_OPENAI_OAUTH_CREDENTIAL_PATH) -> None:
         self.path = Path(path).expanduser()
+        self._store = AuthProfileStore(self.path)
 
     _NESTED_KEY = "openaiOauth"
 
@@ -280,7 +282,7 @@ class OpenAIOAuthCredentialStore:
         if not self.path.exists():
             return None
 
-        raw = json.loads(self.path.read_text())
+        raw = self._store.read_profile()
         nested = raw.get(self._NESTED_KEY)
         payload = nested if isinstance(nested, dict) else raw
         try:
@@ -289,29 +291,7 @@ class OpenAIOAuthCredentialStore:
             return None
 
     def save(self, credentials: OpenAIOAuthCredentials) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-
-        existing: dict = {}
-        if self.path.exists():
-            try:
-                loaded = json.loads(self.path.read_text())
-                if isinstance(loaded, dict):
-                    existing = loaded
-            except Exception:
-                existing = {}
-
-        existing[self._NESTED_KEY] = credentials.to_dict()
-
-        tmp_path = self.path.with_suffix(f"{self.path.suffix}.tmp")
-        with open(tmp_path, "w", encoding="utf-8") as f:
-            f.write(json.dumps(existing, indent=2))
-            f.flush()
-            os.fsync(f.fileno())
-        os.replace(tmp_path, self.path)
-        try:
-            os.chmod(self.path, 0o600)
-        except OSError:
-            pass
+        self._store.update_slot(self._NESTED_KEY, credentials.to_dict())
 
 
 class OpenAIOAuthSessionManager:
