@@ -1685,6 +1685,7 @@ dependencies = [
     { name = "aiofiles" },
     { name = "arize-phoenix" },
     { name = "async-adbutils" },
+    { name = "filelock" },
     { name = "httpx" },
     { name = "inquirerpy" },
     { name = "llama-index" },
@@ -1700,6 +1701,7 @@ dependencies = [
     { name = "mobilerun-sdk" },
     { name = "posthog" },
     { name = "pydantic" },
+    { name = "pyjwt", extra = ["crypto"] },
     { name = "rich" },
 ]
 
@@ -1745,6 +1747,7 @@ requires-dist = [
     { name = "async-adbutils" },
     { name = "bandit", marker = "extra == 'dev'", specifier = ">=1.8.6" },
     { name = "black", marker = "extra == 'dev'", specifier = "==25.9.0" },
+    { name = "filelock", specifier = ">=3.20.0" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "inquirerpy", specifier = ">=0.3.4" },
     { name = "langfuse", marker = "extra == 'langfuse'", specifier = "==3.12.1" },
@@ -1766,6 +1769,7 @@ requires-dist = [
     { name = "openinference-instrumentation-llama-index", marker = "extra == 'langfuse'", specifier = ">=3.0.0" },
     { name = "posthog", specifier = ">=6.7.6" },
     { name = "pydantic", specifier = ">=2.11.10" },
+    { name = "pyjwt", extras = ["crypto"], specifier = ">=2.10.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
     { name = "rich", specifier = ">=14.1.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.13.0" },

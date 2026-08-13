@@ -102,6 +102,12 @@ mobilerun run "Create shopping list" \
   --provider OpenAI \
   --model gpt-4o
 
+# xAI Grok
+export XAI_API_KEY=your-key
+mobilerun run "Open Settings" \
+  --provider XAI \
+  --model grok-4.5
+
 # Anthropic Claude
 export ANTHROPIC_API_KEY=your-key
 mobilerun run "Reply to latest email" \
@@ -154,12 +160,34 @@ mobilerun run "Enable 2FA" \
 |----------|---------|---------------------|
 | GoogleGenAI | Included by default | `GOOGLE_API_KEY` |
 | OpenAI | Included by default | `OPENAI_API_KEY` |
+| XAI | Included by default | `XAI_API_KEY` |
 | OpenAILike | Included by default | Varies by provider |
 | OpenRouter | Included by default | `OPENROUTER_API_KEY` |
 | Ollama | Included by default | None (local) |
 | Anthropic | `uv pip install 'mobilerun[anthropic]'` | `ANTHROPIC_API_KEY` |
 | DeepSeek | Included by default | `DEEPSEEK_API_KEY` |
 | MiniMax | Included by default | `MINIMAX_API_KEY` |
+
+### xAI API key and OAuth
+
+Configure XAI with an API key or OAuth:
+
+```bash
+# API key
+mobilerun configure \
+  --provider XAI \
+  --auth-mode api_key \
+  --model grok-4.5
+
+# OAuth through provider options
+mobilerun configure --provider XAI --auth-mode oauth --model grok-4.5
+
+# OAuth shortcut
+mobilerun configure xai
+
+# Device-code login for SSH/headless hosts
+mobilerun configure xai --device-code --no-browser
+```
 
 ### MiniMax endpoints and credentials
 
@@ -551,6 +579,7 @@ mobilerun ping --tcp
 | `GOOGLE_API_KEY` | Google Gemini API key | None |
 | `OPENAI_API_KEY` | OpenAI API key | None |
 | `ANTHROPIC_API_KEY` | Anthropic API key | None |
+| `XAI_API_KEY` | xAI API key for Grok | None |
 | `DEEPSEEK_API_KEY` | DeepSeek API key | None |
 | `MINIMAX_API_KEY` | MiniMax API key | None |
 | `MOBILERUN_CLOUD_API_KEY` | Mobilerun Cloud API key for `devices --cloud` and cloud device actions | None |
