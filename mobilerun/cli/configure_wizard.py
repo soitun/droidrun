@@ -49,6 +49,7 @@ class ConfigureWizardCallbacks:
     run_openai_oauth_login: Callable[..., None]
     run_anthropic_oauth_login: Callable[..., None]
     run_gemini_oauth_login: Callable[..., None]
+    run_grok_oauth_login: Callable[..., None] | None = None
 
 
 @dataclass
@@ -107,9 +108,10 @@ def _print_configure_summary(
     used_advanced_settings: bool,
 ) -> None:
     advanced_line = "Yes" if used_advanced_settings else "No"
+    provider_detail = "" if provider_label == "XAI" else f" ({variant_id})"
     console.print(
         Panel(
-            f"Provider: {provider_label} ({variant_id})\n"
+            f"Provider: {provider_label}{provider_detail}\n"
             f"Model: {model}\n"
             f"Advanced settings changed: {advanced_line}",
             title="Configuration Saved",
@@ -242,6 +244,7 @@ _OAUTH_CREDENTIAL_SLOTS = {
     "gemini_oauth_code_assist": "geminiAntigravityOauth",
     "openai_oauth": "openaiOauth",
     "anthropic_oauth": "claudeAiOauth",
+    "xai_oauth": "grokOauth",
 }
 
 
@@ -320,6 +323,13 @@ def _prepare_variant_auth(
     elif variant.id == "gemini_oauth_code_assist" and credential_path:
         callbacks.run_gemini_oauth_login(
             credential_path=credential_path, model=selected_model
+        )
+    elif variant.id == "xai_oauth" and credential_path:
+        if callbacks.run_grok_oauth_login is None:
+            raise RuntimeError("XAI OAuth login callback is not configured.")
+        callbacks.run_grok_oauth_login(
+            credential_path=credential_path,
+            model=selected_model,
         )
 
 
@@ -547,6 +557,8 @@ def _configure_provider_model(
                 )
                 if state.selected_model == _BACK:
                     state.selected_model = None
+                    if provider_is_fixed and (auth_mode_is_fixed or len(modes) == 1):
+                        return False
                     if auth_mode_is_fixed or len(modes) == 1:
                         if not provider_is_fixed:
                             state.family_id = None
@@ -682,10 +694,11 @@ def run_configure_wizard(
     if model_is_fixed:
         state.selected_model = model
 
-    # When CLI flags fully specify provider+model, run the flow automatically
-    # and save without showing the menu.
+    # Enter a partially fixed provider flow only when another flag establishes
+    # where that flow should resume. A provider-only invocation starts at the
+    # top-level menu, matching the fully interactive wizard.
     provider_configured = False
-    if provider_is_fixed and model_is_fixed:
+    if provider_is_fixed and (auth_mode_is_fixed or model_is_fixed):
         provider_configured = _configure_provider_model(
             console,
             config,

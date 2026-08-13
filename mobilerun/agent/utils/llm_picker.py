@@ -8,6 +8,13 @@ from mobilerun.agent.providers.anthropic import (
     anthropic_model_context_window,
     anthropic_model_omits_sampling_params,
 )
+from mobilerun.agent.providers.grok import (
+    GROK_CONTEXT_WINDOW,
+    GROK_DEFAULT_MODEL,
+    XAI_API_BASE,
+    normalize_grok_model_id,
+    sanitize_grok_responses_kwargs,
+)
 from mobilerun.agent.providers.minimax import (
     MINIMAX_GLOBAL_BASE_URL,
     warn_if_legacy_minimax_endpoint,
@@ -34,6 +41,7 @@ SUPPORTED_PROVIDERS = [
     "DeepSeek",
     "OpenRouter",
     "MiniMax",
+    "XAI",
 ]
 
 PROVIDER_ALIASES = {
@@ -49,6 +57,7 @@ PROVIDER_ALIASES = {
     "openai_like": "OpenAILike",
     "zai": "ZAI",
     "z.ai": "ZAI",
+    "xai": "XAI",
 }
 
 ZAI_GLOBAL_API_BASE = "https://api.z.ai/api/paas/v4"
@@ -184,12 +193,29 @@ def _prepare_ollama_kwargs(kwargs: dict[str, Any], llm_class: Any) -> dict[str, 
     return kwargs
 
 
-def _load_openai_responses(**kwargs: Any) -> LLM:
+def _load_openai_responses(*, grok: bool = False, **kwargs: Any) -> LLM:
     from llama_index.llms.openai.responses import OpenAIResponses
+    from llama_index.llms.openai.utils import to_openai_message_dicts
 
     class MobilerunOpenAIResponses(OpenAIResponses):
-        def _sanitize_call_kwargs(self, call_kwargs: dict[str, Any]) -> dict[str, Any]:
+        def _sanitize_call_kwargs(
+            self,
+            call_kwargs: dict[str, Any],
+            *,
+            omit_tool_choice: bool = False,
+        ) -> dict[str, Any]:
             sanitized = dict(call_kwargs)
+            if grok:
+                sanitized = dict(
+                    sanitize_grok_responses_kwargs(
+                        sanitized,
+                        omit_tool_choice=omit_tool_choice,
+                    )
+                )
+                # Runtime and additional kwargs are merged after constructor
+                # defaults. Re-pin the canonical model after that final merge.
+                sanitized["model"] = self.model
+                return sanitized
             effective_model = sanitized.get("model", self.model)
             if _openai_responses_model_omits_sampling_params(effective_model):
                 for param in OPENAI_RESPONSES_UNSUPPORTED_SAMPLING_PARAMS:
@@ -199,6 +225,21 @@ def _load_openai_responses(**kwargs: Any) -> LLM:
         def _get_model_kwargs(self, **kwargs: Any) -> dict[str, Any]:
             return self._sanitize_call_kwargs(super()._get_model_kwargs(**kwargs))
 
+        def _sanitize_structured_call_kwargs(
+            self, call_kwargs: dict[str, Any]
+        ) -> dict[str, Any]:
+            sanitized = self._sanitize_call_kwargs(call_kwargs, omit_tool_choice=grok)
+            if grok:
+                # The upstream structured adapter passes ``store=self.store``
+                # explicitly. The constructor already pins that field false.
+                # xAI also rejects tool_choice when no tools are supplied, so
+                # structured parsing must not allow either the upstream default
+                # or a generic caller override to restore it.
+                sanitized.pop("store", None)
+                sanitized.pop("model", None)
+                sanitized.pop("tool_choice", None)
+            return sanitized
+
         def structured_predict(
             self,
             output_cls: Any,
@@ -206,10 +247,29 @@ def _load_openai_responses(**kwargs: Any) -> LLM:
             llm_kwargs: dict[str, Any] | None = None,
             **prompt_args: Any,
         ) -> Any:
+            if grok:
+                messages = prompt.format_messages(**prompt_args)
+                message_dicts = to_openai_message_dicts(
+                    messages, model=self.model, is_responses_api=True
+                )
+                response = self._client.responses.parse(
+                    model=self._responses_model,
+                    input=message_dicts,
+                    text_format=output_cls,
+                    store=self.store,
+                    **self._sanitize_structured_call_kwargs(dict(llm_kwargs or {})),
+                )
+                if response.output_parsed is not None:
+                    return response.output_parsed
+                raise ValueError(
+                    "Failed to produce a structured response from the model."
+                )
             return super().structured_predict(
                 output_cls,
                 prompt,
-                llm_kwargs=self._sanitize_call_kwargs(dict(llm_kwargs or {})),
+                llm_kwargs=self._sanitize_structured_call_kwargs(
+                    dict(llm_kwargs or {})
+                ),
                 **prompt_args,
             )
 
@@ -220,12 +280,40 @@ def _load_openai_responses(**kwargs: Any) -> LLM:
             llm_kwargs: dict[str, Any] | None = None,
             **prompt_args: Any,
         ) -> Any:
+            if grok:
+                messages = prompt.format_messages(**prompt_args)
+                message_dicts = to_openai_message_dicts(
+                    messages, model=self.model, is_responses_api=True
+                )
+                response = await self._aclient.responses.parse(
+                    model=self._responses_model,
+                    input=message_dicts,
+                    text_format=output_cls,
+                    store=self.store,
+                    **self._sanitize_structured_call_kwargs(dict(llm_kwargs or {})),
+                )
+                if response.output_parsed is not None:
+                    return response.output_parsed
+                raise ValueError(
+                    "Failed to produce a structured response from the model."
+                )
             return await super().astructured_predict(
                 output_cls,
                 prompt,
-                llm_kwargs=self._sanitize_call_kwargs(dict(llm_kwargs or {})),
+                llm_kwargs=self._sanitize_structured_call_kwargs(
+                    dict(llm_kwargs or {})
+                ),
                 **prompt_args,
             )
+
+    if grok:
+        kwargs = dict(sanitize_grok_responses_kwargs(kwargs))
+        additional_kwargs = dict(kwargs.get("additional_kwargs") or {})
+        sanitize_grok_responses_kwargs(additional_kwargs)
+        # ``store`` is a first-class adapter field; keeping a second copy in
+        # additional_kwargs is unnecessary and makes intent harder to inspect.
+        additional_kwargs.pop("store", None)
+        kwargs["additional_kwargs"] = additional_kwargs
 
     filtered_kwargs = {k: v for k, v in kwargs.items() if v is not None}
     logger.debug(
@@ -431,6 +519,10 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
     if model is not None:
         if provider_name == "OpenAIResponses":
             model = normalize_model_id_for_variant("openai", "api_key", model)
+        elif provider_name == "XAI":
+            model = normalize_grok_model_id(model)
+        elif provider_name == "xai_oauth":
+            model = normalize_model_id_for_variant("xai", "oauth", model)
         elif provider_name == "openai_oauth":
             model = normalize_model_id_for_variant("openai", "oauth", model)
         kwargs["model"] = model
@@ -460,6 +552,10 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
         return GeminiOAuthCodeAssistLLM(
             **{k: v for k, v in kwargs.items() if v is not None}
         )
+    if provider_name == "xai_oauth":
+        from mobilerun.agent.utils.oauth.grok_oauth_llm import GrokOAuth
+
+        return GrokOAuth(**{k: v for k, v in kwargs.items() if v is not None})
 
     # Legacy aliases: MiniMax and DeepSeek route through OpenAILike.
     if provider_name == "MiniMax":
@@ -488,6 +584,36 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
         if "base_url" in kwargs and "api_base" not in kwargs:
             kwargs["api_base"] = kwargs.pop("base_url")
         kwargs.setdefault("api_base", ZAI_GLOBAL_API_BASE)
+
+    if provider_name == "XAI":
+        import os
+
+        # Mobilerun's reasoning mode selects its agent architecture. It does
+        # not opt Grok into a provider-specific reasoning effort.
+        kwargs.pop("reasoning_options", None)
+        api_key = kwargs.get("api_key")
+        if not isinstance(api_key, str) or not api_key.strip():
+            api_key = os.environ.get("XAI_API_KEY")
+        if not isinstance(api_key, str) or not api_key.strip():
+            raise ValueError(
+                "XAI requires an API key. Pass api_key explicitly or set "
+                "XAI_API_KEY."
+            )
+
+        kwargs["api_key"] = api_key
+        # The lowercase runtime alias should be useful without a separately
+        # generated profile. Keep its implicit model aligned with the catalog.
+        kwargs.setdefault("model", GROK_DEFAULT_MODEL)
+        # XAI_API_KEY must only ever be sent to xAI's pinned endpoint. Ignore
+        # generic CLI/profile URL overrides rather than allowing a malicious
+        # config to redirect the bearer credential to another host.
+        kwargs.pop("base_url", None)
+        kwargs["api_base"] = XAI_API_BASE
+        # Grok 4.5's catalog context is provider metadata, not a caller-tunable
+        # endpoint option. Keep hand-written runtime profiles aligned with the
+        # first-class provider catalog as well as generated profiles.
+        kwargs["context_window"] = GROK_CONTEXT_WINDOW
+        return _load_openai_responses(grok=True, **kwargs)
 
     if provider_name == "DeepSeek":
         import os

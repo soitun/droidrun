@@ -28,6 +28,8 @@ PROVIDER_ALIASES = {
     "MobilerunAnthropic": "Anthropic",
     "MobilerunOpenAIResponses": "OpenAIResponses",
     "openai_responses_llm": "OpenAIResponses",
+    "GrokOAuth": "OpenAIResponses",
+    "xai_oauth": "OpenAIResponses",
     "Ollama_llm": "Ollama",
 }
 
@@ -57,6 +59,14 @@ def _usage_field(usage: Any, *names: str) -> int:
     return 0
 
 
+def _response_field(response: Any, name: str) -> Any:
+    """Read a response field from either an SDK object or decoded JSON."""
+
+    if isinstance(response, dict):
+        return response.get(name)
+    return getattr(response, name, None)
+
+
 def _normalize_provider_name(provider: str) -> str:
     return PROVIDER_ALIASES.get(provider, provider)
 
@@ -64,7 +74,7 @@ def _normalize_provider_name(provider: str) -> str:
 def get_usage_from_response(provider: str, chat_rsp: ChatResponse) -> UsageResult:
     provider = _normalize_provider_name(provider)
     rsp = chat_rsp.raw
-    if not rsp:
+    if not rsp and provider not in ("OpenAIResponses", "OpenAIOAuth"):
         raise ValueError("No raw response in chat response")
 
     if provider in {
@@ -100,15 +110,25 @@ def get_usage_from_response(provider: str, chat_rsp: ChatResponse) -> UsageResul
             requests=1,
         )
     elif provider in ("OpenAIResponses", "OpenAIOAuth"):
-        usage = getattr(rsp, "usage", None)
+        usage = _response_field(rsp, "usage")
+        if usage is None:
+            # Streaming Responses end with a ``response.completed`` event. Its
+            # accounting belongs to the nested final Response rather than the
+            # event itself.
+            usage = _response_field(_response_field(rsp, "response"), "usage")
+        if usage is None:
+            # LlamaIndex also copies completed-stream usage into the final
+            # ChatResponse's additional kwargs. Keep this fallback for custom
+            # or normalized event representations that omit the raw response.
+            usage = _response_field(chat_rsp.additional_kwargs, "usage")
         if usage is None:
             return UsageResult(
                 request_tokens=0, response_tokens=0, total_tokens=0, requests=1
             )
         return UsageResult(
-            request_tokens=getattr(usage, "input_tokens", 0) or 0,
-            response_tokens=getattr(usage, "output_tokens", 0) or 0,
-            total_tokens=getattr(usage, "total_tokens", 0) or 0,
+            request_tokens=_usage_field(usage, "input_tokens"),
+            response_tokens=_usage_field(usage, "output_tokens"),
+            total_tokens=_usage_field(usage, "total_tokens"),
             requests=1,
         )
     elif provider in {"Anthropic", "Anthropic_LLM", "AnthropicOAuthLLM"}:

@@ -6,6 +6,12 @@ from mobilerun.agent.providers.anthropic import (
     ANTHROPIC_OAUTH_DEFAULT_MODEL,
     ANTHROPIC_OAUTH_MODELS,
 )
+from mobilerun.agent.providers.grok import (
+    GROK_DEFAULT_MODEL,
+    GROK_MODELS,
+    XAI_API_BASE,
+    normalize_grok_model_id,
+)
 from mobilerun.agent.providers.minimax import MINIMAX_GLOBAL_BASE_URL
 from mobilerun.agent.providers.types import (
     ProviderFamilySpec,
@@ -14,6 +20,7 @@ from mobilerun.agent.providers.types import (
 from mobilerun.config_manager.credential_paths import (
     ANTHROPIC_OAUTH_CREDENTIAL_PATH,
     GEMINI_OAUTH_CREDENTIAL_PATH,
+    GROK_OAUTH_CREDENTIAL_PATH,
     OPENAI_OAUTH_CREDENTIAL_PATH,
 )
 
@@ -22,6 +29,7 @@ from mobilerun.config_manager.credential_paths import (
 VARIANT_ENV_KEY_SLOT: dict[str, str] = {
     "GoogleGenAI": "google",
     "OpenAIResponses": "openai",
+    "XAI": "xai",
     "Anthropic": "anthropic",
     "ZAI": "zai",
     "ZAI_Coding": "zai",
@@ -130,6 +138,29 @@ PROVIDER_FAMILIES: tuple[ProviderFamilySpec, ...] = (
                 default_model=ANTHROPIC_OAUTH_DEFAULT_MODEL,
                 models=ANTHROPIC_OAUTH_MODELS,
                 credential_path=str(ANTHROPIC_OAUTH_CREDENTIAL_PATH),
+            ),
+        ),
+    ),
+    ProviderFamilySpec(
+        id="xai",
+        display_name="XAI",
+        variants=(
+            ProviderVariantSpec(
+                id="XAI",
+                runtime_provider_name="XAI",
+                auth_mode="api_key",
+                default_model=GROK_DEFAULT_MODEL,
+                models=GROK_MODELS,
+                requires_api_key=True,
+                base_url=XAI_API_BASE,
+            ),
+            ProviderVariantSpec(
+                id="xai_oauth",
+                runtime_provider_name="xai_oauth",
+                auth_mode="oauth",
+                default_model=GROK_DEFAULT_MODEL,
+                models=GROK_MODELS,
+                credential_path=str(GROK_OAUTH_CREDENTIAL_PATH),
             ),
         ),
     ),
@@ -285,6 +316,8 @@ def normalize_model_id_for_variant(
 
     if family_id == "openai":
         candidate = OPENAI_MODEL_ALIASES.get(candidate, candidate)
+    elif family_id == "xai":
+        candidate = normalize_grok_model_id(candidate)
 
     if candidate in allowed_model_ids:
         return candidate

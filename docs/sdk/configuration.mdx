@@ -611,7 +611,7 @@ mobilerun run "Task" --config /path/to/config.yaml
 - `--config PATH` - Custom config file
 - `--device SERIAL` - Device serial/IP
 - `--agent NAME` - External agent to use. Not yet supported — reserved for future use.
-- `--provider PROVIDER` - LLM provider (OpenAI, Ollama, Anthropic, GoogleGenAI, DeepSeek, MiniMax)
+- `--provider PROVIDER` - LLM provider (OpenAI, XAI, Ollama, Anthropic, GoogleGenAI, DeepSeek, MiniMax)
 - `--model MODEL` - LLM model name
 - `--temperature FLOAT` - LLM temperature
 - `--steps INT` - Max steps
@@ -635,6 +635,7 @@ Set API keys via environment variables:
 export GOOGLE_API_KEY=your-key
 export OPENAI_API_KEY=your-key
 export ANTHROPIC_API_KEY=your-key
+export XAI_API_KEY=your-key
 export DEEPSEEK_API_KEY=your-key
 export MINIMAX_API_KEY=your-key
 export MOBILERUN_CONFIG=/path/to/config.yaml  # Custom config path

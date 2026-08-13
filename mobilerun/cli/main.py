@@ -5,6 +5,7 @@ Mobilerun CLI - Command line interface for controlling Android devices through L
 import asyncio
 import importlib.metadata
 import logging
+import math
 import os
 import sys
 import tomllib
@@ -53,6 +54,7 @@ from mobilerun.cli.event_handler import EventHandler
 from mobilerun.cli.oauth_actions import (
     run_anthropic_setup_token_oauth,
     run_gemini_oauth_login,
+    run_grok_oauth_login,
     run_openai_oauth_login,
     save_anthropic_setup_token,
 )
@@ -60,6 +62,7 @@ from mobilerun.config_manager import ConfigLoader, MobileConfig
 from mobilerun.config_manager.credential_paths import (
     ANTHROPIC_OAUTH_CREDENTIAL_PATH,
     GEMINI_OAUTH_CREDENTIAL_PATH,
+    GROK_OAUTH_CREDENTIAL_PATH,
 )
 from mobilerun.log_handlers import CLILogHandler, configure_logging
 from mobilerun.macro.cli import macro_cli
@@ -73,6 +76,16 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["GRPC_ENABLE_FORK_SUPPORT"] = "false"
 
 console = Console()
+
+
+def _validate_oauth_timeout(
+    _ctx: click.Context,
+    _param: click.Parameter,
+    value: float,
+) -> float:
+    if not math.isfinite(value) or value <= 0:
+        raise click.BadParameter("must be a finite number greater than zero")
+    return value
 
 
 def _force_screenshot_only_vision(config: MobileConfig) -> None:
@@ -416,10 +429,23 @@ def _run_gemini_oauth_login(credential_path: str, model: str | None, **kwargs) -
 
 def _run_anthropic_oauth_login(credential_path: str, **kwargs) -> None:
     """Run the full Anthropic OAuth flow inline and save the token."""
-    console.print("[blue]Opening browser for Anthropic login...[/]")
-    token = run_anthropic_setup_token_oauth(**kwargs)
-    save_anthropic_setup_token(credential_path, token)
+    console.print("[blue]Starting Anthropic login...[/]")
+    run_anthropic_setup_token_oauth(
+        credential_path=credential_path,
+        **kwargs,
+    )
     _print_oauth_login_success("Anthropic", credential_path)
+
+
+def _run_grok_oauth_login(
+    credential_path: str, model: str | None = None, **kwargs
+) -> None:
+    run_grok_oauth_login(
+        credential_path=credential_path,
+        model=model,
+        **kwargs,
+    )
+    _print_oauth_login_success("XAI", credential_path)
 
 
 try:
@@ -447,7 +473,7 @@ except Exception:
 @click.option(
     "--provider",
     "-p",
-    help="LLM provider (OpenAI, openai_oauth, Ollama, Anthropic, anthropic_oauth, GoogleGenAI, gemini_oauth_code_assist, DeepSeek)",
+    help="LLM provider (OpenAI, openai_oauth, XAI, Ollama, Anthropic, anthropic_oauth, GoogleGenAI, gemini_oauth_code_assist, DeepSeek)",
     default=None,
 )
 @click.option(
@@ -1012,7 +1038,7 @@ async def doctor(device: str | None, debug: bool | None):
     "--provider",
     type=str,
     default=None,
-    help="Provider family (gemini, openai, anthropic, ollama, openai_like, minimax, zai).",
+    help="Provider family (gemini, openai, anthropic, XAI, ollama, openai_like, minimax, zai).",
 )
 @click.option(
     "--auth-mode",
@@ -1052,6 +1078,7 @@ def configure(
             run_openai_oauth_login=_run_openai_oauth_login,
             run_anthropic_oauth_login=_run_anthropic_oauth_login,
             run_gemini_oauth_login=_run_gemini_oauth_login,
+            run_grok_oauth_login=_run_grok_oauth_login,
         ),
         provider=provider,
         auth_mode=auth_mode,
@@ -1074,9 +1101,10 @@ def configure(
 @click.option(
     "--timeout",
     type=float,
+    callback=_validate_oauth_timeout,
     default=300.0,
     show_default=True,
-    help="Max seconds to wait for the browser callback.",
+    help="Max seconds allowed for the complete OpenAI OAuth login.",
 )
 @click.option(
     "--callback-host",
@@ -1136,13 +1164,36 @@ def configure_openai(
     default=None,
     help="Anthropic setup-token value. If provided, skips the OAuth flow.",
 )
-def configure_anthropic(credential_path: str, token: str | None):
+@click.option(
+    "--timeout",
+    type=float,
+    callback=_validate_oauth_timeout,
+    default=300.0,
+    show_default=True,
+    help="Max seconds allowed for the complete Anthropic OAuth login.",
+)
+@click.option(
+    "--open-browser/--no-browser",
+    default=True,
+    show_default=True,
+    help="Open the Anthropic authorization URL automatically.",
+)
+def configure_anthropic(
+    credential_path: str,
+    token: str | None,
+    timeout: float,
+    open_browser: bool,
+):
     """Log in to Anthropic via OAuth (or pass --token to save a setup-token)."""
     if token:
         save_anthropic_setup_token(credential_path, token)
         _print_oauth_login_success("Anthropic", credential_path)
     else:
-        _run_anthropic_oauth_login(credential_path=credential_path)
+        _run_anthropic_oauth_login(
+            credential_path=credential_path,
+            timeout=timeout,
+            open_browser=open_browser,
+        )
 
 
 @configure.command("gemini")
@@ -1158,9 +1209,10 @@ def configure_anthropic(credential_path: str, token: str | None):
 @click.option(
     "--timeout",
     type=float,
+    callback=_validate_oauth_timeout,
     default=300.0,
     show_default=True,
-    help="Max seconds to wait for the browser callback.",
+    help="Max seconds allowed for the complete Gemini OAuth login.",
 )
 @click.option(
     "--callback-host",
@@ -1205,6 +1257,53 @@ def configure_gemini(
         callback_port=callback_port,
         callback_path=callback_path,
         open_browser=open_browser,
+    )
+
+
+@configure.command("xai")
+@click.option(
+    "--credential-path",
+    default=str(GROK_OAUTH_CREDENTIAL_PATH),
+    show_default=True,
+    help="Where to store XAI OAuth credentials.",
+)
+@click.option(
+    "--model", default=None, help="Optional model override for later API calls."
+)
+@click.option(
+    "--timeout",
+    type=float,
+    callback=_validate_oauth_timeout,
+    default=300.0,
+    show_default=True,
+    help="Max seconds allowed for the complete xAI OAuth login.",
+)
+@click.option(
+    "--open-browser/--no-browser",
+    default=True,
+    show_default=True,
+    help="Open the xAI authorization URL automatically.",
+)
+@click.option(
+    "--device-code",
+    is_flag=True,
+    default=False,
+    help="Use xAI's device-code flow for SSH or other headless environments.",
+)
+def configure_xai(
+    credential_path: str,
+    model: str | None,
+    timeout: float,
+    open_browser: bool,
+    device_code: bool,
+):
+    """Log in to XAI with Mobilerun OAuth."""
+    _run_grok_oauth_login(
+        credential_path=credential_path,
+        model=model,
+        timeout=timeout,
+        open_browser=open_browser,
+        device_code=device_code,
     )
 
 

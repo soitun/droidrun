@@ -23,6 +23,7 @@ DEFAULT_KWARGS_BY_VARIANT: dict[str, dict[str, int]] = {
     # which allocates the full KV cache (256K-context models -> ~19 GB) and
     # spills to CPU on typical machines. -1 restores model-max for big GPUs.
     "Ollama": {"context_window": 32768},
+    "XAI": {"context_window": 500_000},
 }
 
 HIDDEN_ROLE_FALLBACKS: tuple[str, ...] = ("app_opener", "structured_output")
@@ -176,10 +177,12 @@ def create_profile_for_variant(
         api_key_source=selection.api_key_source,
         base_url=base_url,
         api_base=(
-            base_url if runtime_provider_name in {"OpenAILike", "MiniMax"} else None
+            base_url
+            if runtime_provider_name in {"OpenAILike", "MiniMax", "XAI"}
+            else None
         ),
         credential_path=selection.credential_path or variant.credential_path,
-        kwargs=kwargs if env_slot is None else {},
+        kwargs=kwargs if env_slot is None or variant.id == "XAI" else {},
     )
 
 
