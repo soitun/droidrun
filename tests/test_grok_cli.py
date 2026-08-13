@@ -8,6 +8,8 @@ from rich.console import Console
 
 import mobilerun.cli.configure_wizard as configure_wizard
 import mobilerun.cli.main as cli_main
+from mobilerun.agent.utils.oauth.login_timeout import OAuthLoginDeadline
+from mobilerun.cli import oauth_actions
 from mobilerun.cli.configure_wizard import ConfigureWizardCallbacks
 from mobilerun.config_manager import MobileConfig
 
@@ -98,6 +100,105 @@ def test_configure_xai_command_forwards_device_code_options(
             "device_code": True,
         }
     ]
+
+
+def test_configure_anthropic_forwards_timeout_and_browser_preference(
+    monkeypatch, tmp_path
+) -> None:
+    calls: list[dict] = []
+    monkeypatch.setattr(
+        cli_main,
+        "_run_anthropic_oauth_login",
+        lambda **kwargs: calls.append(kwargs),
+    )
+    credential_path = tmp_path / "auth-profiles.json"
+
+    result = CliRunner().invoke(
+        cli_main.cli,
+        [
+            "configure",
+            "anthropic",
+            "--credential-path",
+            str(credential_path),
+            "--timeout",
+            "12",
+            "--no-browser",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert calls == [
+        {
+            "credential_path": str(credential_path),
+            "timeout": 12.0,
+            "open_browser": False,
+        }
+    ]
+
+
+def test_configure_oauth_timeout_must_be_positive_and_finite() -> None:
+    result = CliRunner().invoke(
+        cli_main.cli,
+        ["configure", "xai", "--timeout", "nan"],
+    )
+
+    assert result.exit_code == 2
+    assert "finite number greater than zero" in result.output
+
+
+def test_xai_oauth_action_shares_deadline_and_browser_preference(
+    monkeypatch, tmp_path
+) -> None:
+    observed: dict = {}
+
+    class FakeXAI:
+        def __init__(self, **kwargs):  # type: ignore[no-untyped-def]
+            observed["init"] = kwargs
+
+        def login(self, **kwargs):  # type: ignore[no-untyped-def]
+            observed["login"] = kwargs
+
+    monkeypatch.setattr(oauth_actions, "GrokOAuth", FakeXAI)
+    oauth_actions.run_grok_oauth_login(
+        str(tmp_path / "auth.json"),
+        "grok-4.5",
+        timeout=12,
+        open_browser=False,
+        device_code=True,
+    )
+
+    deadline = observed["login"]["deadline"]
+    assert isinstance(deadline, OAuthLoginDeadline)
+    assert observed["init"]["timeout"] == 12
+    assert observed["login"]["open_browser"] is False
+    assert observed["login"]["device_code"] is True
+
+
+def test_gemini_empty_entitlement_is_not_persisted(monkeypatch, tmp_path) -> None:
+    persisted: list[OAuthLoginDeadline] = []
+
+    class FakeGemini:
+        def __init__(self, **kwargs):
+            pass
+
+        def login(self, **kwargs):
+            return "access"
+
+        def fetch_available_models(self, **kwargs):
+            return []
+
+        def _persist_credentials(self, *, deadline):
+            persisted.append(deadline)
+
+    monkeypatch.setattr(oauth_actions, "GeminiOAuthCodeAssistLLM", FakeGemini)
+    with pytest.raises(RuntimeError, match="no usable models"):
+        oauth_actions.run_gemini_oauth_login(
+            str(tmp_path / "auth.json"),
+            "gemini-3.5-flash-low",
+            open_browser=False,
+        )
+
+    assert persisted == []
 
 
 def test_configure_help_advertises_only_xai_provider_and_login_command() -> None:

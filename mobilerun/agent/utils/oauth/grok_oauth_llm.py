@@ -18,7 +18,8 @@ import threading
 import time
 import webbrowser
 from dataclasses import dataclass
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer as HTTPServer
 from pathlib import Path
 from typing import Any, Callable, Iterator
 from urllib.parse import parse_qs, urlencode, urlparse
@@ -33,6 +34,10 @@ from mobilerun.agent.providers.grok import (
     GROK_MODELS,
     normalize_grok_model_id,
     sanitize_grok_responses_kwargs,
+)
+from mobilerun.agent.utils.oauth.login_timeout import (
+    OAuthLoginDeadline,
+    open_browser_async,
 )
 from mobilerun.config_manager.auth_profile_store import AuthProfileStore
 from mobilerun.config_manager.credential_paths import GROK_OAUTH_CREDENTIAL_PATH
@@ -239,9 +244,19 @@ class GrokOAuthCredentialStore:
             return None
         return GrokOAuthCredentials.from_payload(payload)
 
-    def save(self, credentials: GrokOAuthCredentials) -> None:
+    def save(
+        self,
+        credentials: GrokOAuthCredentials,
+        *,
+        deadline: OAuthLoginDeadline | None = None,
+    ) -> None:
+        if deadline is not None:
+            deadline.check()
         self.profile_store.update_slot(
-            DEFAULT_GROK_OAUTH_SLOT, credentials.to_payload()
+            DEFAULT_GROK_OAUTH_SLOT,
+            credentials.to_payload(),
+            lock_timeout=deadline.remaining() if deadline is not None else None,
+            before_commit=deadline.check if deadline is not None else None,
         )
 
 
@@ -250,9 +265,75 @@ class GrokIDTokenValidator:
 
     def __init__(self, jwks_client: Any | None = None) -> None:
         self._jwks_client = jwks_client or jwt.PyJWKClient(DEFAULT_GROK_OAUTH_JWKS_URL)
+        self._jwks_lock = threading.Lock()
 
-    def validate(self, token: str, *, nonce: str | None) -> dict[str, Any]:
-        signing_key = self._jwks_client.get_signing_key_from_jwt(token).key
+    def validate(
+        self,
+        token: str,
+        *,
+        nonce: str | None,
+        deadline: OAuthLoginDeadline | None = None,
+    ) -> dict[str, Any]:
+        if deadline is None:
+            self._jwks_lock.acquire()
+        elif not self._jwks_lock.acquire(timeout=deadline.remaining()):
+            raise TimeoutError("XAI OAuth login timed out.")
+        had_timeout = hasattr(self._jwks_client, "timeout")
+        original_timeout = getattr(self._jwks_client, "timeout", None)
+        timeout_changed = False
+        instance_attributes = getattr(self._jwks_client, "__dict__", {})
+        had_fetch_override = "fetch_data" in instance_attributes
+        original_fetch_override = instance_attributes.get("fetch_data")
+        fetch_changed = False
+
+        def _remaining_request_timeout() -> float:
+            if deadline is None:
+                raise AssertionError("JWKS deadline wrapper requires a deadline")
+            try:
+                return deadline.remaining(cap=float(original_timeout))
+            except (TypeError, ValueError):
+                return deadline.remaining()
+
+        try:
+            if deadline is not None:
+                deadline.check()
+                if type(self._jwks_client) is jwt.PyJWKClient:
+                    original_fetch = self._jwks_client.fetch_data
+
+                    def _fetch_with_remaining_deadline() -> Any:
+                        self._jwks_client.timeout = _remaining_request_timeout()
+                        return original_fetch()
+
+                    self._jwks_client.fetch_data = _fetch_with_remaining_deadline
+                    fetch_changed = True
+                    timeout_changed = True
+                else:
+                    try:
+                        self._jwks_client.timeout = _remaining_request_timeout()
+                        timeout_changed = True
+                    except (AttributeError, TypeError, ValueError):
+                        # Arbitrary injected validators may not expose a writable
+                        # network-timeout setting; deadline checks still bracket
+                        # the call without breaking their existing contract.
+                        pass
+            signing_key = self._jwks_client.get_signing_key_from_jwt(token).key
+            if deadline is not None:
+                deadline.check()
+        finally:
+            if fetch_changed:
+                if had_fetch_override:
+                    self._jwks_client.fetch_data = original_fetch_override
+                else:
+                    del self._jwks_client.fetch_data
+            if timeout_changed:
+                try:
+                    if had_timeout:
+                        self._jwks_client.timeout = original_timeout
+                    else:
+                        del self._jwks_client.timeout
+                except (AttributeError, TypeError):
+                    pass
+            self._jwks_lock.release()
         claims = jwt.decode(
             token,
             signing_key,
@@ -263,6 +344,8 @@ class GrokIDTokenValidator:
         )
         if nonce is not None and claims.get("nonce") != nonce:
             raise jwt.InvalidTokenError("ID token nonce mismatch.")
+        if deadline is not None:
+            deadline.check()
         return claims
 
 
@@ -332,7 +415,10 @@ class GrokOAuthSessionManager:
         prior_refresh_token: str | None = None,
         prior_scopes: tuple[str, ...] = DEFAULT_GROK_OAUTH_SCOPES,
         nonce: str | None = None,
+        deadline: OAuthLoginDeadline | None = None,
     ) -> GrokOAuthCredentials:
+        if deadline is not None:
+            deadline.check()
         access_token = payload.get("access_token")
         if not isinstance(access_token, str) or not access_token:
             raise GrokOAuthError("xAI token response did not contain an access token.")
@@ -342,7 +428,21 @@ class GrokOAuthSessionManager:
                 "xAI authorization response did not contain an ID token."
             )
         if isinstance(id_token, str) and id_token:
-            self.id_token_validator.validate(id_token, nonce=nonce)
+            if (
+                deadline is None
+                or type(self.id_token_validator) is not GrokIDTokenValidator
+            ):
+                if deadline is not None:
+                    deadline.check()
+                self.id_token_validator.validate(id_token, nonce=nonce)
+                if deadline is not None:
+                    deadline.check()
+            else:
+                self.id_token_validator.validate(
+                    id_token,
+                    nonce=nonce,
+                    deadline=deadline,
+                )
 
         refresh_token = payload.get("refresh_token")
         if not isinstance(refresh_token, str) or not refresh_token:
@@ -350,13 +450,16 @@ class GrokOAuthSessionManager:
         token_type = payload.get("token_type")
         if isinstance(token_type, str) and token_type.lower() != "bearer":
             raise GrokOAuthError("xAI token response used an unsupported token type.")
-        return GrokOAuthCredentials(
+        credentials = GrokOAuthCredentials(
             access_token=access_token,
             refresh_token=refresh_token,
             expires_at_ms=self._expiry_ms(payload),
             token_type="Bearer",
             scopes=self._scopes(payload, prior_scopes),
         )
+        if deadline is not None:
+            deadline.check()
+        return credentials
 
     def _post_form(
         self,
@@ -366,26 +469,42 @@ class GrokOAuthSessionManager:
         headers: dict[str, str],
         context: str,
         retry_transient: bool,
+        deadline: OAuthLoginDeadline | None = None,
     ) -> httpx.Response:
         """POST a form, retrying only grants that are safe to replay."""
         backoffs = self.retry_backoff_seconds if retry_transient else ()
         for attempt in range(len(backoffs) + 1):
+            request_timeout = (
+                deadline.remaining(cap=self.request_timeout)
+                if deadline is not None
+                else self.request_timeout
+            )
             try:
                 response = self.http_client.post(
                     url,
                     headers=headers,
                     data=data,
-                    timeout=self.request_timeout,
+                    timeout=request_timeout,
                 )
             except (httpx.ConnectError, httpx.TimeoutException) as exc:
+                if deadline is not None:
+                    deadline.check()
                 if attempt < len(backoffs):
-                    self.sleep(backoffs[attempt])
+                    if deadline is not None:
+                        deadline.sleep(backoffs[attempt])
+                    else:
+                        self.sleep(backoffs[attempt])
                     continue
                 raise GrokOAuthError(
                     f"{context} failed due to a transient network error."
                 ) from exc
+            if deadline is not None:
+                deadline.check()
             if 500 <= response.status_code < 600 and attempt < len(backoffs):
-                self.sleep(backoffs[attempt])
+                if deadline is not None:
+                    deadline.sleep(backoffs[attempt])
+                else:
+                    self.sleep(backoffs[attempt])
                 continue
             return response
         raise AssertionError("unreachable token retry state")
@@ -396,6 +515,7 @@ class GrokOAuthSessionManager:
         *,
         retry_transient: bool = False,
         refresh_request: bool = False,
+        deadline: OAuthLoginDeadline | None = None,
     ) -> dict[str, Any]:
         response = self._post_form(
             DEFAULT_GROK_OAUTH_TOKEN_URL,
@@ -406,6 +526,7 @@ class GrokOAuthSessionManager:
             data=data,
             context="xAI token request",
             retry_transient=retry_transient,
+            deadline=deadline,
         )
         if response.status_code >= 400:
             try:
@@ -419,15 +540,40 @@ class GrokOAuthSessionManager:
             raise GrokOAuthError(
                 f"xAI token request failed ({error or response.status_code})."
             )
-        return _safe_json_object(response, context="xAI token response")
+        payload = _safe_json_object(response, context="xAI token response")
+        if deadline is not None:
+            deadline.check()
+        return payload
 
-    def set_initial_credentials(self, credentials: GrokOAuthCredentials) -> None:
-        with self._thread_lock:
-            self.credential_store.save(credentials)
+    def set_initial_credentials(
+        self,
+        credentials: GrokOAuthCredentials,
+        *,
+        deadline: OAuthLoginDeadline | None = None,
+    ) -> None:
+        if deadline is None:
+            with self._thread_lock:
+                self.credential_store.save(credentials)
+                self._credentials = credentials
+            return
+
+        deadline.check()
+        if not self._thread_lock.acquire(timeout=deadline.remaining()):
+            raise TimeoutError("XAI OAuth login timed out.")
+        try:
+            self.credential_store.save(credentials, deadline=deadline)
             self._credentials = credentials
+        finally:
+            self._thread_lock.release()
 
     def exchange_authorization_code(
-        self, *, code: str, redirect_uri: str, code_verifier: str, nonce: str
+        self,
+        *,
+        code: str,
+        redirect_uri: str,
+        code_verifier: str,
+        nonce: str,
+        deadline: OAuthLoginDeadline | None = None,
     ) -> GrokOAuthCredentials:
         payload = self._post_token(
             {
@@ -436,10 +582,15 @@ class GrokOAuthSessionManager:
                 "code": code,
                 "redirect_uri": redirect_uri,
                 "code_verifier": code_verifier,
-            }
+            },
+            deadline=deadline,
         )
-        credentials = self._credentials_from_token_response(payload, nonce=nonce)
-        self.set_initial_credentials(credentials)
+        credentials = self._credentials_from_token_response(
+            payload,
+            nonce=nonce,
+            deadline=deadline,
+        )
+        self.set_initial_credentials(credentials, deadline=deadline)
         return credentials
 
     def _refresh(self, credentials: GrokOAuthCredentials) -> GrokOAuthCredentials:
@@ -757,7 +908,13 @@ class GrokOAuth(OpenAIResponses):
         callback_port: int = DEFAULT_GROK_OAUTH_CALLBACK_PORT,
         callback_path: str = DEFAULT_GROK_OAUTH_CALLBACK_PATH,
         device_code: bool = False,
+        deadline: OAuthLoginDeadline | None = None,
     ) -> GrokOAuthCredentials:
+        login_deadline = deadline or OAuthLoginDeadline(
+            timeout_seconds,
+            timeout_message="XAI OAuth login timed out.",
+            sleeper=self._oauth_manager.sleep,
+        )
         if callback_host != DEFAULT_GROK_OAUTH_CALLBACK_HOST:
             raise ValueError("XAI OAuth callback_host must be 127.0.0.1.")
         if callback_port != 0:
@@ -765,7 +922,10 @@ class GrokOAuth(OpenAIResponses):
         if callback_path != DEFAULT_GROK_OAUTH_CALLBACK_PATH:
             raise ValueError("XAI OAuth callback_path must be /callback.")
         if device_code or _is_headless_environment():
-            return self._login_device_code(timeout_seconds=timeout_seconds)
+            return self._login_device_code(
+                deadline=login_deadline,
+                open_browser=open_browser,
+            )
 
         code_verifier, code_challenge = _pkce_pair()
         state = _b64_no_pad(secrets.token_bytes(32))
@@ -776,6 +936,7 @@ class GrokOAuth(OpenAIResponses):
             "error": None,
         }
         done = threading.Event()
+        callback_lock = threading.Lock()
 
         class _CallbackHandler(BaseHTTPRequestHandler):
             def do_GET(self) -> None:  # noqa: N802
@@ -784,12 +945,16 @@ class GrokOAuth(OpenAIResponses):
                     self.send_response(404)
                     self.end_headers()
                     return
-                if done.is_set():
-                    self.send_response(409)
-                    self.end_headers()
-                    return
-                result.update(_parse_callback_query(parsed.query))
-                ok = bool(result["code"] and not result["error"])
+                with callback_lock:
+                    if done.is_set():
+                        self.send_response(409)
+                        self.end_headers()
+                        return
+                    result.update(_parse_callback_query(parsed.query))
+                    ok = bool(result["code"] and not result["error"])
+                    # Callback receipt completes the wait. Do not let a stalled
+                    # browser socket consume the remaining login deadline.
+                    done.set()
                 self.send_response(200 if ok else 400)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.end_headers()
@@ -798,7 +963,6 @@ class GrokOAuth(OpenAIResponses):
                     if ok
                     else b"<html><body>Mobilerun XAI login failed. Return to the terminal.</body></html>"
                 )
-                done.set()
 
             def log_message(self, format: str, *args: Any) -> None:  # noqa: A003
                 return
@@ -806,7 +970,10 @@ class GrokOAuth(OpenAIResponses):
         try:
             server = HTTPServer((DEFAULT_GROK_OAUTH_CALLBACK_HOST, 0), _CallbackHandler)
         except OSError:
-            return self._login_device_code(timeout_seconds=timeout_seconds)
+            return self._login_device_code(
+                deadline=login_deadline,
+                open_browser=open_browser,
+            )
 
         redirect_uri = (
             f"http://{DEFAULT_GROK_OAUTH_CALLBACK_HOST}:{server.server_address[1]}"
@@ -819,13 +986,15 @@ class GrokOAuth(OpenAIResponses):
             nonce=nonce,
         )
         thread = threading.Thread(target=server.serve_forever, daemon=True)
+        server.daemon_threads = True
         thread.start()
         try:
             print(f"Open this URL to sign in to xAI:\n{authorization_url}\n")
             if open_browser:
-                webbrowser.open(authorization_url)
-            if not done.wait(timeout=max(0.0, timeout_seconds)):
+                open_browser_async(authorization_url, webbrowser.open)
+            if not done.wait(timeout=login_deadline.remaining()):
                 raise TimeoutError("XAI OAuth login timed out waiting for callback.")
+            login_deadline.check()
             if result["error"]:
                 raise GrokOAuthError(
                     f"xAI authorization failed ({_safe_error_code(result['error']) or 'oauth_error'})."
@@ -839,16 +1008,20 @@ class GrokOAuth(OpenAIResponses):
                 redirect_uri=redirect_uri,
                 code_verifier=code_verifier,
                 nonce=nonce,
+                deadline=login_deadline,
             )
         finally:
             server.shutdown()
             server.server_close()
 
     def _login_device_code(
-        self, *, timeout_seconds: float = 1800.0
+        self,
+        *,
+        deadline: OAuthLoginDeadline,
+        open_browser: bool,
     ) -> GrokOAuthCredentials:
         manager = self._oauth_manager
-        response = manager.http_client.post(
+        response = manager._post_form(
             DEFAULT_GROK_OAUTH_DEVICE_URL,
             headers={
                 "Accept": "application/json",
@@ -859,7 +1032,9 @@ class GrokOAuth(OpenAIResponses):
                 "client_id": DEFAULT_GROK_OAUTH_CLIENT_ID,
                 "scope": " ".join(DEFAULT_GROK_OAUTH_SCOPES),
             },
-            timeout=manager.request_timeout,
+            context="xAI device authorization request",
+            retry_transient=False,
+            deadline=deadline,
         )
         if response.status_code >= 400:
             raise GrokOAuthError(
@@ -883,14 +1058,17 @@ class GrokOAuth(OpenAIResponses):
             interval = max(1, int(payload.get("interval", 5)))
         except (TypeError, ValueError):
             expires_in, interval = 1800, 5
-        deadline = time.monotonic() + min(max(0.0, timeout_seconds), expires_in)
+        device_deadline = deadline.limited_to(expires_in)
         print(
             "Open this URL to sign in to xAI:\n"
             f"{verification_uri}\n\nEnter code: {user_code}\n"
             "Never share this device code.\n"
         )
+        if open_browser:
+            open_browser_async(verification_uri, webbrowser.open)
 
-        while time.monotonic() < deadline:
+        while True:
+            device_deadline.check()
             token_response = manager._post_form(
                 DEFAULT_GROK_OAUTH_TOKEN_URL,
                 headers={
@@ -904,13 +1082,21 @@ class GrokOAuth(OpenAIResponses):
                 },
                 context="xAI device token request",
                 retry_transient=True,
+                deadline=device_deadline,
             )
             if token_response.status_code < 400:
                 token_payload = _safe_json_object(
                     token_response, context="xAI device token response"
                 )
-                credentials = manager._credentials_from_token_response(token_payload)
-                manager.set_initial_credentials(credentials)
+                device_deadline.check()
+                credentials = manager._credentials_from_token_response(
+                    token_payload,
+                    deadline=device_deadline,
+                )
+                manager.set_initial_credentials(
+                    credentials,
+                    deadline=device_deadline,
+                )
                 return credentials
             try:
                 error = _safe_token_error_code(token_response.json().get("error"))
@@ -928,8 +1114,7 @@ class GrokOAuth(OpenAIResponses):
                 raise GrokOAuthError(
                     f"xAI device token request failed ({error or token_response.status_code})."
                 )
-            manager.sleep(min(interval, max(0.0, deadline - time.monotonic())))
-        raise TimeoutError("XAI OAuth device authorization timed out.")
+            device_deadline.sleep(interval)
 
 
 # Descriptive alias for callers that prefer the full class name.

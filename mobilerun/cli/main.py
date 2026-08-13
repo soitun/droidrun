@@ -5,6 +5,7 @@ Mobilerun CLI - Command line interface for controlling Android devices through L
 import asyncio
 import importlib.metadata
 import logging
+import math
 import os
 import sys
 import tomllib
@@ -75,6 +76,16 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["GRPC_ENABLE_FORK_SUPPORT"] = "false"
 
 console = Console()
+
+
+def _validate_oauth_timeout(
+    _ctx: click.Context,
+    _param: click.Parameter,
+    value: float,
+) -> float:
+    if not math.isfinite(value) or value <= 0:
+        raise click.BadParameter("must be a finite number greater than zero")
+    return value
 
 
 def _force_screenshot_only_vision(config: MobileConfig) -> None:
@@ -418,9 +429,11 @@ def _run_gemini_oauth_login(credential_path: str, model: str | None, **kwargs) -
 
 def _run_anthropic_oauth_login(credential_path: str, **kwargs) -> None:
     """Run the full Anthropic OAuth flow inline and save the token."""
-    console.print("[blue]Opening browser for Anthropic login...[/]")
-    token = run_anthropic_setup_token_oauth(**kwargs)
-    save_anthropic_setup_token(credential_path, token)
+    console.print("[blue]Starting Anthropic login...[/]")
+    run_anthropic_setup_token_oauth(
+        credential_path=credential_path,
+        **kwargs,
+    )
     _print_oauth_login_success("Anthropic", credential_path)
 
 
@@ -1088,9 +1101,10 @@ def configure(
 @click.option(
     "--timeout",
     type=float,
+    callback=_validate_oauth_timeout,
     default=300.0,
     show_default=True,
-    help="Max seconds to wait for the browser callback.",
+    help="Max seconds allowed for the complete OpenAI OAuth login.",
 )
 @click.option(
     "--callback-host",
@@ -1150,13 +1164,36 @@ def configure_openai(
     default=None,
     help="Anthropic setup-token value. If provided, skips the OAuth flow.",
 )
-def configure_anthropic(credential_path: str, token: str | None):
+@click.option(
+    "--timeout",
+    type=float,
+    callback=_validate_oauth_timeout,
+    default=300.0,
+    show_default=True,
+    help="Max seconds allowed for the complete Anthropic OAuth login.",
+)
+@click.option(
+    "--open-browser/--no-browser",
+    default=True,
+    show_default=True,
+    help="Open the Anthropic authorization URL automatically.",
+)
+def configure_anthropic(
+    credential_path: str,
+    token: str | None,
+    timeout: float,
+    open_browser: bool,
+):
     """Log in to Anthropic via OAuth (or pass --token to save a setup-token)."""
     if token:
         save_anthropic_setup_token(credential_path, token)
         _print_oauth_login_success("Anthropic", credential_path)
     else:
-        _run_anthropic_oauth_login(credential_path=credential_path)
+        _run_anthropic_oauth_login(
+            credential_path=credential_path,
+            timeout=timeout,
+            open_browser=open_browser,
+        )
 
 
 @configure.command("gemini")
@@ -1172,9 +1209,10 @@ def configure_anthropic(credential_path: str, token: str | None):
 @click.option(
     "--timeout",
     type=float,
+    callback=_validate_oauth_timeout,
     default=300.0,
     show_default=True,
-    help="Max seconds to wait for the browser callback.",
+    help="Max seconds allowed for the complete Gemini OAuth login.",
 )
 @click.option(
     "--callback-host",
@@ -1235,9 +1273,10 @@ def configure_gemini(
 @click.option(
     "--timeout",
     type=float,
+    callback=_validate_oauth_timeout,
     default=300.0,
     show_default=True,
-    help="Max seconds to wait for xAI OAuth authentication.",
+    help="Max seconds allowed for the complete xAI OAuth login.",
 )
 @click.option(
     "--open-browser/--no-browser",

@@ -8,7 +8,8 @@ import sys
 import threading
 import time
 import webbrowser
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer as HTTPServer
 from pathlib import Path
 from typing import Any, Dict, Literal, Optional, Sequence
 from urllib.parse import parse_qs, urlencode, urlparse
@@ -36,6 +37,10 @@ from mobilerun.agent.providers.anthropic import (
     anthropic_model_context_window,
     anthropic_model_omits_sampling_params,
     strip_anthropic_sampling_params,
+)
+from mobilerun.agent.utils.oauth.login_timeout import (
+    OAuthLoginDeadline,
+    open_browser_async,
 )
 from mobilerun.config_manager.auth_profile_store import AuthProfileStore
 from mobilerun.config_manager.credential_paths import ANTHROPIC_OAUTH_CREDENTIAL_PATH
@@ -263,7 +268,11 @@ class AnthropicOAuthLLM(CustomLLM):
         if isinstance(expires_at, (int, float)):
             self._access_token_expiry = float(expires_at) / 1000.0
 
-    def _persist_credentials(self) -> None:
+    def _persist_credentials(
+        self,
+        *,
+        deadline: OAuthLoginDeadline | None = None,
+    ) -> None:
         if not self.credential_path:
             return
         path = Path(self.credential_path).expanduser()
@@ -279,6 +288,8 @@ class AnthropicOAuthLLM(CustomLLM):
                 ),
                 "scopes": self.refresh_scope.split(),
             },
+            lock_timeout=deadline.remaining() if deadline is not None else None,
+            before_commit=deadline.check if deadline is not None else None,
         )
 
     def _token_headers(self) -> Dict[str, str]:
@@ -343,6 +354,7 @@ class AnthropicOAuthLLM(CustomLLM):
         code_verifier: str,
         state: str,
         expires_in: Optional[int] = None,
+        deadline: OAuthLoginDeadline | None = None,
     ) -> str:
         request_body: Dict[str, Any] = {
             "grant_type": "authorization_code",
@@ -355,14 +367,21 @@ class AnthropicOAuthLLM(CustomLLM):
         if expires_in is not None:
             request_body["expires_in"] = expires_in
 
+        request_timeout = (
+            self.timeout if deadline is None else deadline.remaining(cap=self.timeout)
+        )
         res = self._session.post(
             self.token_url,
             headers=self._token_headers(),
             json=request_body,
-            timeout=self.timeout,
+            timeout=request_timeout,
         )
+        if deadline is not None:
+            deadline.check()
         res.raise_for_status()
         data = res.json()
+        if deadline is not None:
+            deadline.check()
 
         access_token = data.get("access_token")
         if not isinstance(access_token, str) or not access_token:
@@ -371,8 +390,11 @@ class AnthropicOAuthLLM(CustomLLM):
             )
 
         refresh_token = data.get("refresh_token")
-        if isinstance(refresh_token, str) and refresh_token:
-            self._cached_refresh_token = refresh_token
+        cached_refresh_token = (
+            refresh_token
+            if isinstance(refresh_token, str) and refresh_token
+            else self._cached_refresh_token
+        )
 
         expires_in = data.get("expires_in", 28_800)
         try:
@@ -380,9 +402,25 @@ class AnthropicOAuthLLM(CustomLLM):
         except (TypeError, ValueError):
             expires_in_s = 28_800
 
+        if deadline is not None:
+            deadline.check()
+        previous = (
+            self._cached_access_token,
+            self._cached_refresh_token,
+            self._access_token_expiry,
+        )
+        self._cached_refresh_token = cached_refresh_token
         self._cached_access_token = access_token
         self._access_token_expiry = time.time() + expires_in_s
-        self._persist_credentials()
+        try:
+            self._persist_credentials(deadline=deadline)
+        except BaseException:
+            (
+                self._cached_access_token,
+                self._cached_refresh_token,
+                self._access_token_expiry,
+            ) = previous
+            raise
         return access_token
 
     def _build_auth_url(
@@ -414,7 +452,11 @@ class AnthropicOAuthLLM(CustomLLM):
         callback_port: int = 0,
         callback_path: str = "/callback",
         expires_in: Optional[int] = None,
+        deadline: OAuthLoginDeadline | None = None,
     ) -> str:
+        active_deadline = deadline or OAuthLoginDeadline(timeout_seconds)
+        active_deadline.check()
+
         # Headless environments: skip local server, use hosted callback page
         use_headless = _is_headless_environment() or os.environ.get(
             "DROIDRUN_OAUTH_MANUAL", ""
@@ -424,11 +466,13 @@ class AnthropicOAuthLLM(CustomLLM):
                 open_browser=open_browser,
                 timeout_seconds=timeout_seconds,
                 expires_in=expires_in,
+                deadline=active_deadline,
             )
 
         # Desktop: browser callback server
         result: Dict[str, Optional[str]] = {"code": None, "state": None, "error": None}
         done = threading.Event()
+        callback_lock = threading.Lock()
 
         code_verifier, code_challenge = _pkce_pair()
         state = _b64_no_pad(secrets.token_bytes(32))
@@ -445,12 +489,17 @@ class AnthropicOAuthLLM(CustomLLM):
                     self.end_headers()
                     return
 
-                params = parse_qs(parsed.query)
-                result["code"] = params.get("code", [None])[0]
-                result["state"] = params.get("state", [None])[0]
-                result["error"] = params.get("error", [None])[0]
-
-                ok = result["code"] is not None and result["error"] is None
+                with callback_lock:
+                    if done.is_set():
+                        self.send_response(409)
+                        self.end_headers()
+                        return
+                    params = parse_qs(parsed.query)
+                    result["code"] = params.get("code", [None])[0]
+                    result["state"] = params.get("state", [None])[0]
+                    result["error"] = params.get("error", [None])[0]
+                    ok = result["code"] is not None and result["error"] is None
+                    done.set()
                 self.send_response(200 if ok else 400)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.end_headers()
@@ -462,7 +511,6 @@ class AnthropicOAuthLLM(CustomLLM):
                     self.wfile.write(
                         b"<html><body><h3>Login failed. Return to your terminal.</h3></body></html>"
                     )
-                done.set()
 
             def log_message(self, format: str, *args: Any) -> None:  # noqa: A003
                 return
@@ -479,8 +527,10 @@ class AnthropicOAuthLLM(CustomLLM):
                 open_browser=open_browser,
                 timeout_seconds=timeout_seconds,
                 expires_in=expires_in,
+                deadline=active_deadline,
             )
 
+        active_deadline.check()
         actual_port = httpd.server_address[1]
         redirect_uri = f"http://localhost:{actual_port}{callback_path}"
         auth_url = self._build_auth_url(
@@ -490,17 +540,19 @@ class AnthropicOAuthLLM(CustomLLM):
         )
 
         server_thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+        httpd.daemon_threads = True
         server_thread.start()
 
         try:
             print(f"Open this URL to login:\n{auth_url}\n")
             if open_browser:
-                webbrowser.open(auth_url)
+                open_browser_async(auth_url, webbrowser.open)
 
-            if not done.wait(timeout=timeout_seconds):
+            if not done.wait(timeout=active_deadline.remaining()):
                 raise TimeoutError(
                     "OAuth login timed out before callback was received."
                 )
+            active_deadline.check()
 
             if result["error"]:
                 raise RuntimeError(f"OAuth callback returned error: {result['error']}")
@@ -511,17 +563,19 @@ class AnthropicOAuthLLM(CustomLLM):
                     "OAuth callback did not include an authorization code."
                 )
 
-            return self._exchange_authorization_code(
+            access_token = self._exchange_authorization_code(
                 code=result["code"],
                 redirect_uri=redirect_uri,
                 code_verifier=code_verifier,
                 state=state,
                 expires_in=expires_in,
+                deadline=active_deadline,
             )
         finally:
             self.authorize_url = original_authorize_url
             httpd.shutdown()
             httpd.server_close()
+        return access_token
 
     def login_headless(
         self,
@@ -530,8 +584,12 @@ class AnthropicOAuthLLM(CustomLLM):
         timeout_seconds: float = 300.0,
         input_fn: Any = input,
         expires_in: Optional[int] = None,
+        deadline: OAuthLoginDeadline | None = None,
     ) -> str:
         """Headless OAuth flow for SSH/WSL environments."""
+        active_deadline = deadline or OAuthLoginDeadline(timeout_seconds)
+        active_deadline.check()
+
         code_verifier, code_challenge = _pkce_pair()
         state = _b64_no_pad(secrets.token_bytes(32))
         redirect_uri = "https://platform.claude.com/oauth/code/callback"
@@ -553,9 +611,8 @@ class AnthropicOAuthLLM(CustomLLM):
                 f"\n2. Complete sign-in, then paste the authorization code shown on the page.\n"
             )
             if open_browser:
-                webbrowser.open(auth_url)
+                open_browser_async(auth_url, webbrowser.open)
 
-            deadline = time.time() + timeout_seconds
             input_queue: queue.Queue[Optional[str]] = queue.Queue()
             stop = threading.Event()
             need_more = threading.Event()
@@ -576,16 +633,13 @@ class AnthropicOAuthLLM(CustomLLM):
 
             try:
                 for attempt in range(_MAX_CODE_ATTEMPTS):
-                    remaining = deadline - time.time()
-                    if remaining <= 0:
-                        raise TimeoutError("OAuth login timed out.")
-
                     need_more.set()
 
                     try:
-                        raw = input_queue.get(timeout=remaining)
+                        raw = input_queue.get(timeout=active_deadline.remaining())
                     except queue.Empty:
                         raise TimeoutError("OAuth login timed out.") from None
+                    active_deadline.check()
 
                     if raw is None:
                         raise RuntimeError("Login failed — stdin closed.")
@@ -608,6 +662,7 @@ class AnthropicOAuthLLM(CustomLLM):
                             code_verifier=code_verifier,
                             state=state,
                             expires_in=expires_in,
+                            deadline=active_deadline,
                         )
                     if attempt == 0:
                         print("Invalid code. Try again.")

@@ -28,15 +28,26 @@ _FCHMOD: Callable[[int, int], None] | None = getattr(os, "fchmod", None)
 class AuthProfileTransaction(AbstractContextManager["AuthProfileTransaction"]):
     """A locked read/modify/write transaction over an auth profile file."""
 
-    def __init__(self, store: "AuthProfileStore") -> None:
+    def __init__(
+        self,
+        store: "AuthProfileStore",
+        *,
+        lock_timeout: float | None = None,
+        before_commit: Callable[[], None] | None = None,
+    ) -> None:
         self._store = store
         self._lock = FileLock(str(store.lock_path))
+        self._lock_timeout = lock_timeout
+        self._before_commit = before_commit
         self._profile: dict[str, Any] = {}
         self._dirty = False
 
     def __enter__(self) -> "AuthProfileTransaction":
         self._store.path.parent.mkdir(parents=True, exist_ok=True)
-        self._lock.acquire()
+        if self._lock_timeout is None:
+            self._lock.acquire()
+        else:
+            self._lock.acquire(timeout=self._lock_timeout)
         try:
             # The lock file has no secrets, but keeping it private prevents
             # other local users from deliberately interfering with writers.
@@ -71,7 +82,10 @@ class AuthProfileTransaction(AbstractContextManager["AuthProfileTransaction"]):
     def __exit__(self, exc_type: object, exc: object, traceback: object) -> None:
         try:
             if exc_type is None and self._dirty:
-                self._store._write_unlocked(self._profile)
+                self._store._write_unlocked(
+                    self._profile,
+                    before_commit=self._before_commit,
+                )
         finally:
             self._lock.release()
         return None
@@ -84,8 +98,17 @@ class AuthProfileStore:
         self.path = Path(path).expanduser()
         self.lock_path = self.path.with_name(f"{self.path.name}.lock")
 
-    def transaction(self) -> AuthProfileTransaction:
-        return AuthProfileTransaction(self)
+    def transaction(
+        self,
+        *,
+        lock_timeout: float | None = None,
+        before_commit: Callable[[], None] | None = None,
+    ) -> AuthProfileTransaction:
+        return AuthProfileTransaction(
+            self,
+            lock_timeout=lock_timeout,
+            before_commit=before_commit,
+        )
 
     def read_profile(self) -> dict[str, Any]:
         with self.transaction() as transaction:
@@ -95,8 +118,18 @@ class AuthProfileStore:
         with self.transaction() as transaction:
             return transaction.get_slot(slot)
 
-    def update_slot(self, slot: str, payload: dict[str, Any]) -> None:
-        with self.transaction() as transaction:
+    def update_slot(
+        self,
+        slot: str,
+        payload: dict[str, Any],
+        *,
+        lock_timeout: float | None = None,
+        before_commit: Callable[[], None] | None = None,
+    ) -> None:
+        with self.transaction(
+            lock_timeout=lock_timeout,
+            before_commit=before_commit,
+        ) as transaction:
             transaction.set_slot(slot, payload)
 
     def update_profile(self, updater: Callable[[dict[str, Any]], _T]) -> _T:
@@ -119,7 +152,12 @@ class AuthProfileStore:
             )
         return payload
 
-    def _write_unlocked(self, profile: dict[str, Any]) -> None:
+    def _write_unlocked(
+        self,
+        profile: dict[str, Any],
+        *,
+        before_commit: Callable[[], None] | None = None,
+    ) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         fd: int | None = None
         tmp_path: Path | None = None
@@ -138,6 +176,8 @@ class AuthProfileStore:
                 handle.write("\n")
                 handle.flush()
                 os.fsync(handle.fileno())
+            if before_commit is not None:
+                before_commit()
             os.replace(tmp_path, self.path)
             tmp_path = None
             os.chmod(self.path, 0o600)

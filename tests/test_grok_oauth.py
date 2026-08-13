@@ -43,6 +43,7 @@ from mobilerun.agent.utils.oauth.grok_oauth_llm import (
     GrokOAuthSessionManager,
     _parse_callback_query,
 )
+from mobilerun.agent.utils.oauth.login_timeout import OAuthLoginDeadline
 from mobilerun.config_manager import auth_profile_store, env_keys
 from mobilerun.config_manager.auth_profile_store import (
     AuthProfileFormatError,
@@ -57,6 +58,26 @@ class _AcceptingIDTokenValidator:
     def validate(self, token: str, *, nonce: str | None):  # type: ignore[no-untyped-def]
         self.calls.append((token, nonce))
         return {"sub": "user"}
+
+
+class _FakeClock:
+    def __init__(self) -> None:
+        self.now = 0.0
+        self.sleeps: list[float] = []
+
+    def __call__(self) -> float:
+        return self.now
+
+    def advance(self, seconds: float) -> None:
+        self.now += seconds
+
+    def sleep(self, seconds: float) -> None:
+        self.sleeps.append(seconds)
+        self.advance(seconds)
+
+
+def _request_timeout(request: httpx.Request) -> float:
+    return float(request.extensions["timeout"]["read"])
 
 
 def _credentials(
@@ -289,14 +310,72 @@ def test_id_token_validator_checks_es256_claims_and_nonce():
         algorithm="ES256",
         headers={"kid": "test"},
     )
-    jwks_client = SimpleNamespace(
-        get_signing_key_from_jwt=lambda _: SimpleNamespace(key=public_key)
-    )
+    observed_timeouts: list[float] = []
+    jwks_client = SimpleNamespace(timeout=30.0)
+
+    def signing_key(_token: str):  # type: ignore[no-untyped-def]
+        observed_timeouts.append(jwks_client.timeout)
+        return SimpleNamespace(key=public_key)
+
+    jwks_client.get_signing_key_from_jwt = signing_key
     validator = GrokIDTokenValidator(jwks_client)
 
-    assert validator.validate(token, nonce="expected")["sub"] == "user"
+    deadline = OAuthLoginDeadline(2)
+    assert (
+        validator.validate(token, nonce="expected", deadline=deadline)["sub"] == "user"
+    )
+    assert observed_timeouts[0] == pytest.approx(2, abs=0.1)
+    assert jwks_client.timeout == 30.0
     with pytest.raises(jwt.InvalidTokenError, match="nonce"):
         validator.validate(token, nonce="wrong")
+
+
+def test_id_token_validator_recomputes_timeout_for_each_jwks_fetch(monkeypatch):
+    clock = _FakeClock()
+    client = jwt.PyJWKClient("https://auth.x.ai/.well-known/jwks.json", timeout=30)
+    observed_timeouts: list[float] = []
+
+    def fetch_data():  # type: ignore[no-untyped-def]
+        observed_timeouts.append(client.timeout)
+        clock.advance(1)
+        return {}
+
+    def signing_key(_token: str):  # type: ignore[no-untyped-def]
+        client.fetch_data()
+        client.fetch_data()
+        return SimpleNamespace(key="public-key")
+
+    client.fetch_data = fetch_data
+    client.get_signing_key_from_jwt = signing_key
+    monkeypatch.setattr(jwt, "decode", lambda *args, **kwargs: {"nonce": "expected"})
+
+    GrokIDTokenValidator(client).validate(
+        "id-token",
+        nonce="expected",
+        deadline=OAuthLoginDeadline(3, clock=clock, sleeper=clock.sleep),
+    )
+
+    assert observed_timeouts == [3, 2]
+    assert client.timeout == 30
+
+
+def test_legacy_id_token_validator_subclass_keeps_prior_signature(tmp_path: Path):
+    class LegacyValidator(GrokIDTokenValidator):
+        def validate(self, token: str, *, nonce: str | None):  # type: ignore[no-untyped-def]
+            return {"sub": "user", "nonce": nonce}
+
+    manager = GrokOAuthSessionManager(
+        credential_store=GrokOAuthCredentialStore(tmp_path / "auth.json"),
+        id_token_validator=LegacyValidator(SimpleNamespace()),
+    )
+
+    credentials = manager._credentials_from_token_response(
+        {"access_token": "access", "id_token": "id-token"},
+        nonce="expected",
+        deadline=OAuthLoginDeadline(1),
+    )
+
+    assert credentials.access_token == "access"
 
 
 def test_id_token_validator_rejects_bad_signature():
@@ -409,6 +488,8 @@ def test_callback_query_rejects_duplicate_code_state_and_error_values():
 def test_browser_login_uses_random_loopback_callback_and_exchanges_code(
     monkeypatch, tmp_path: Path
 ):
+    clock = _FakeClock()
+    deadline = OAuthLoginDeadline(5, clock=clock, sleeper=clock.sleep)
     token_requests: list[httpx.Request] = []
 
     def token_handler(request: httpx.Request) -> httpx.Response:
@@ -468,6 +549,7 @@ def test_browser_login_uses_random_loopback_callback_and_exchanges_code(
 
     def complete_in_browser(authorization_url: str) -> bool:
         opened.append(authorization_url)
+        clock.advance(1)
         query = parse_qs(urlparse(authorization_url).query)
         redirect_uri = query["redirect_uri"][0]
         assert redirect_uri.startswith("http://127.0.0.1:")
@@ -491,7 +573,11 @@ def test_browser_login_uses_random_loopback_callback_and_exchanges_code(
         "mobilerun.agent.utils.oauth.grok_oauth_llm.HTTPServer", make_server
     )
     monkeypatch.setattr("webbrowser.open", complete_in_browser)
-    credentials = llm.login(open_browser=True, timeout_seconds=5)
+    credentials = llm.login(
+        open_browser=True,
+        timeout_seconds=5,
+        deadline=deadline,
+    )
 
     assert credentials.access_token == "access"
     assert len(opened) == 1
@@ -499,6 +585,7 @@ def test_browser_login_uses_random_loopback_callback_and_exchanges_code(
     assert token_form["code"] == ["code"]
     assert token_form["redirect_uri"][0].startswith("http://127.0.0.1:")
     assert token_form["code_verifier"][0]
+    assert _request_timeout(token_requests[0]) == pytest.approx(4)
 
 
 def test_code_exchange_uses_form_validates_id_and_saves_only_session(tmp_path: Path):
@@ -632,16 +719,20 @@ def test_token_errors_never_expose_response_bodies(
 def test_authorization_code_timeout_is_not_retried(tmp_path: Path):
     attempts = 0
     delays: list[float] = []
+    request_timeouts: list[float] = []
+    deadline = OAuthLoginDeadline(2)
 
     def handler(request: httpx.Request) -> httpx.Response:
         nonlocal attempts
         attempts += 1
+        request_timeouts.append(_request_timeout(request))
         raise httpx.ReadTimeout("ambiguous token exchange timeout", request=request)
 
     manager = GrokOAuthSessionManager(
         credential_store=GrokOAuthCredentialStore(tmp_path / "auth.json"),
         http_client=httpx.Client(transport=httpx.MockTransport(handler)),
         id_token_validator=_AcceptingIDTokenValidator(),  # type: ignore[arg-type]
+        request_timeout=20,
         retry_backoff_seconds=(0.01, 0.02),
         sleep=delays.append,
     )
@@ -652,18 +743,23 @@ def test_authorization_code_timeout_is_not_retried(tmp_path: Path):
             redirect_uri="http://127.0.0.1:54321/callback",
             code_verifier="verifier",
             nonce="nonce",
+            deadline=deadline,
         )
 
     assert attempts == 1
+    assert request_timeouts == pytest.approx([2], abs=0.1)
     assert delays == []
     assert "one-time-code" not in str(captured.value)
     assert manager.credential_store.load() is None
 
 
 def test_device_flow_matches_xai_surface_and_handles_pending(
-    monkeypatch, tmp_path: Path
+    monkeypatch, capsys, tmp_path: Path
 ):
     requests: list[httpx.Request] = []
+    verification_uri = "https://accounts.x.ai/device?code=ABCD-1234"
+    opened: list[str] = []
+    opened_event = threading.Event()
 
     def handler(request: httpx.Request) -> httpx.Response:
         requests.append(request)
@@ -673,7 +769,7 @@ def test_device_flow_matches_xai_surface_and_handles_pending(
                 json={
                     "device_code": "device-secret",
                     "user_code": "ABCD-1234",
-                    "verification_uri_complete": "https://accounts.x.ai/device?code=ABCD-1234",
+                    "verification_uri_complete": verification_uri,
                     "expires_in": 1800,
                     "interval": 1,
                 },
@@ -690,6 +786,10 @@ def test_device_flow_matches_xai_surface_and_handles_pending(
         )
 
     monkeypatch.setattr(time, "sleep", lambda _: None)
+    monkeypatch.setattr(
+        "webbrowser.open",
+        lambda url: (opened.append(url), opened_event.set()),
+    )
     manager = GrokOAuthSessionManager(
         credential_store=GrokOAuthCredentialStore(tmp_path / "auth.json"),
         http_client=httpx.Client(transport=httpx.MockTransport(handler)),
@@ -697,7 +797,11 @@ def test_device_flow_matches_xai_surface_and_handles_pending(
     )
     llm = GrokOAuth(oauth_session_manager=manager)
 
-    credentials = llm.login(device_code=True, timeout_seconds=10)
+    credentials = llm.login(
+        device_code=True,
+        open_browser=True,
+        timeout_seconds=10,
+    )
 
     device_request = requests[0]
     assert device_request.headers["x-grok-client-surface"] == "grok-build"
@@ -711,15 +815,51 @@ def test_device_flow_matches_xai_surface_and_handles_pending(
     assert "user_code" not in token_form
     assert credentials.access_token == "access"
     assert manager.credential_store.load() == credentials
+    assert opened_event.wait(timeout=1)
+    assert opened == [verification_uri]
+    assert verification_uri in capsys.readouterr().out
 
 
-def test_device_token_poll_retries_connect_and_5xx_failures(tmp_path: Path):
+def test_bind_fallback_preserves_deadline_and_no_browser(monkeypatch, tmp_path: Path):
+    manager = GrokOAuthSessionManager(
+        credential_store=GrokOAuthCredentialStore(tmp_path / "auth.json")
+    )
+    llm = GrokOAuth(oauth_session_manager=manager)
+    deadline = OAuthLoginDeadline(2)
+    expected = _credentials()
+    calls: list[dict[str, object]] = []
+
+    monkeypatch.setattr(
+        "mobilerun.agent.utils.oauth.grok_oauth_llm._is_headless_environment",
+        lambda: False,
+    )
+    monkeypatch.setattr(
+        "mobilerun.agent.utils.oauth.grok_oauth_llm.HTTPServer",
+        lambda *args, **kwargs: (_ for _ in ()).throw(OSError("unavailable")),
+    )
+    monkeypatch.setattr(
+        llm,
+        "_login_device_code",
+        lambda **kwargs: (calls.append(kwargs), expected)[1],
+    )
+
+    assert llm.login(open_browser=False, deadline=deadline) == expected
+    assert calls == [{"deadline": deadline, "open_browser": False}]
+
+
+def test_device_poll_retries_shrink_deadline_and_do_not_save_after_expiry(
+    tmp_path: Path,
+):
+    clock = _FakeClock()
+    deadline = OAuthLoginDeadline(2, clock=clock, sleeper=clock.sleep)
     poll_attempts = 0
-    delays: list[float] = []
+    request_timeouts: list[float] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         nonlocal poll_attempts
+        request_timeouts.append(_request_timeout(request))
         if request.url.path.endswith("/device/code"):
+            clock.advance(0.4)
             return httpx.Response(
                 200,
                 json={
@@ -732,9 +872,12 @@ def test_device_token_poll_retries_connect_and_5xx_failures(tmp_path: Path):
             )
         poll_attempts += 1
         if poll_attempts == 1:
+            clock.advance(0.3)
             raise httpx.ConnectError("temporary connect failure", request=request)
         if poll_attempts == 2:
+            clock.advance(0.2)
             return httpx.Response(503, text="sensitive-upstream-body")
+        clock.advance(0.36)
         return httpx.Response(
             200,
             json={
@@ -744,22 +887,26 @@ def test_device_token_poll_retries_connect_and_5xx_failures(tmp_path: Path):
             },
         )
 
+    store = GrokOAuthCredentialStore(tmp_path / "auth.json")
     manager = GrokOAuthSessionManager(
-        credential_store=GrokOAuthCredentialStore(tmp_path / "auth.json"),
+        credential_store=store,
         http_client=httpx.Client(transport=httpx.MockTransport(handler)),
         id_token_validator=_AcceptingIDTokenValidator(),  # type: ignore[arg-type]
-        retry_backoff_seconds=(0.01, 0.02),
-        sleep=delays.append,
+        request_timeout=20,
+        retry_backoff_seconds=(0.25, 0.5),
     )
 
-    credentials = GrokOAuth(oauth_session_manager=manager).login(
-        device_code=True,
-        timeout_seconds=10,
-    )
+    with pytest.raises(TimeoutError, match="OAuth login timed out"):
+        GrokOAuth(oauth_session_manager=manager).login(
+            device_code=True,
+            open_browser=False,
+            deadline=deadline,
+        )
 
     assert poll_attempts == 3
-    assert delays == [0.01, 0.02]
-    assert credentials.access_token == "access"
+    assert request_timeouts == pytest.approx([2.0, 1.6, 1.05, 0.35])
+    assert clock.sleeps == pytest.approx([0.25, 0.5])
+    assert store.load() is None
 
 
 def test_refresh_preserves_rotated_token_and_is_coordinated_across_managers(

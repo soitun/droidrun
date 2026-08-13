@@ -24,7 +24,8 @@ import threading
 import time
 import webbrowser
 from dataclasses import dataclass
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer as HTTPServer
 from pathlib import Path
 from typing import Any, Dict, Optional
 from urllib.parse import parse_qs, urlencode, urlparse
@@ -41,6 +42,10 @@ from llama_index.llms.openai.base import llm_retry_decorator
 from llama_index.llms.openai.utils import to_openai_message_dicts
 
 from mobilerun.agent.providers.registry import normalize_model_id_for_variant
+from mobilerun.agent.utils.oauth.login_timeout import (
+    OAuthLoginDeadline,
+    open_browser_async,
+)
 from mobilerun.config_manager.auth_profile_store import AuthProfileStore
 from mobilerun.config_manager.credential_paths import OPENAI_OAUTH_CREDENTIAL_PATH
 
@@ -57,6 +62,7 @@ DEFAULT_OPENAI_OAUTH_CALLBACK_PATH = "/auth/callback"
 DEFAULT_OPENAI_OAUTH_SCOPE = (
     "openid profile email offline_access api.connectors.read api.connectors.invoke"
 )
+_OPENAI_LOGIN_TIMEOUT_MESSAGE = "OpenAI OAuth login timed out."
 
 
 def _b64_no_pad(raw: bytes) -> str:
@@ -81,7 +87,12 @@ def _is_headless_environment() -> bool:
     return False
 
 
-def _tls_preflight(issuer: str, timeout: float = 5.0) -> None:
+def _tls_preflight(
+    issuer: str,
+    timeout: float = 5.0,
+    *,
+    deadline: OAuthLoginDeadline | None = None,
+) -> None:
     """Probe the OAuth issuer to detect TLS/certificate issues before login.
 
     Raises RuntimeError on TLS certificate errors (with fix suggestions).
@@ -89,8 +100,13 @@ def _tls_preflight(issuer: str, timeout: float = 5.0) -> None:
     """
     probe_url = f"{issuer.rstrip('/')}/oauth/authorize"
     try:
-        httpx.head(probe_url, follow_redirects=False, timeout=timeout)
+        request_timeout = deadline.remaining(cap=timeout) if deadline else timeout
+        httpx.head(probe_url, follow_redirects=False, timeout=request_timeout)
+        if deadline:
+            deadline.check()
     except httpx.ConnectError as exc:
+        if deadline:
+            deadline.check()
         err_str = str(exc).lower()
         tls_indicators = (
             "certificate",
@@ -117,11 +133,15 @@ def _tls_preflight(issuer: str, timeout: float = 5.0) -> None:
             "The login flow may fail if there is a DNS or firewall issue."
         )
     except httpx.TimeoutException:
+        if deadline:
+            deadline.check()
         print(
             f"Warning: Connection to {probe_url} timed out.\n"
             "The login flow may fail if there is a network issue."
         )
     except Exception as exc:
+        if deadline:
+            deadline.check()
         # Unexpected error — warn but don't block.
         print(f"Warning: TLS preflight check encountered an error: {exc}")
 
@@ -135,29 +155,47 @@ def _request_device_code(
     http_client: Optional[httpx.Client] = None,
     request_timeout: float = 15.0,
     retries: int = 2,
+    *,
+    deadline: OAuthLoginDeadline | None = None,
 ) -> dict:
     url = f"{issuer.rstrip('/')}/api/accounts/deviceauth/usercode"
     post = http_client.post if http_client is not None else httpx.post
     for attempt in range(1 + retries):
         try:
+            timeout = (
+                deadline.remaining(cap=request_timeout) if deadline else request_timeout
+            )
             response = post(
                 url,
                 headers={"Content-Type": "application/json"},
                 json={"client_id": client_id},
-                timeout=request_timeout,
+                timeout=timeout,
             )
+            if deadline:
+                deadline.check()
         except (httpx.ConnectError, httpx.TimeoutException):
+            if deadline:
+                deadline.check()
             if attempt < retries:
-                time.sleep(2)
+                if deadline:
+                    deadline.sleep(2)
+                else:
+                    time.sleep(2)
                 continue
             raise
         if response.status_code == 404:
             raise RuntimeError("Device code login is not enabled for this server.")
         if response.status_code >= 500 and attempt < retries:
-            time.sleep(2)
+            if deadline:
+                deadline.sleep(2)
+            else:
+                time.sleep(2)
             continue
         response.raise_for_status()
-        return response.json()
+        payload = response.json()
+        if deadline:
+            deadline.check()
+        return payload
     raise RuntimeError("Device code request failed after retries.")
 
 
@@ -169,55 +207,59 @@ def _poll_device_code(
     http_client: Optional[httpx.Client] = None,
     request_timeout: float = 15.0,
     timeout_seconds: float = _DEVICE_CODE_TIMEOUT,
+    *,
+    deadline: OAuthLoginDeadline | None = None,
 ) -> dict:
     url = f"{issuer.rstrip('/')}/api/accounts/deviceauth/token"
-    effective_timeout = min(timeout_seconds, _DEVICE_CODE_TIMEOUT)
-    deadline = time.time() + effective_timeout
+    login_deadline = deadline or OAuthLoginDeadline(
+        min(timeout_seconds, _DEVICE_CODE_TIMEOUT),
+        timeout_message=_OPENAI_LOGIN_TIMEOUT_MESSAGE,
+    )
     post = http_client.post if http_client is not None else httpx.post
 
     last_error: Optional[str] = None
 
-    while time.time() < deadline:
-        try:
-            response = post(
-                url,
-                headers={"Content-Type": "application/json"},
-                json={"device_auth_id": device_auth_id, "user_code": user_code},
-                timeout=request_timeout,
-            )
-        except (httpx.ConnectError, httpx.TimeoutException) as exc:
-            last_error = str(exc)
-            remaining = deadline - time.time()
-            if remaining <= 0:
-                break
-            time.sleep(min(interval, remaining))
-            continue
-        if response.status_code == 200:
-            return response.json()
-        # OpenAI returns 403/404 while the user hasn't completed browser auth.
-        # This differs from RFC 8628's 400 + authorization_pending body, but
-        # matches the observed behaviour of auth.openai.com/api/accounts/deviceauth/token.
-        # TODO: handle slow_down (RFC 8628 §3.5) by increasing interval.
-        if response.status_code in (403, 404):
-            remaining = deadline - time.time()
-            if remaining <= 0:
-                break
-            time.sleep(min(interval, remaining))
-            continue
-        if response.status_code >= 500:
-            last_error = f"HTTP {response.status_code}"
-            remaining = deadline - time.time()
-            if remaining <= 0:
-                break
-            time.sleep(min(interval, remaining))
-            continue
-        response.raise_for_status()
-
-    minutes = int(effective_timeout // 60)
-    msg = f"Device code login timed out ({minutes} minutes)."
-    if last_error:
-        msg += f" Last response: {last_error}."
-    raise TimeoutError(msg)
+    try:
+        while True:
+            try:
+                response = post(
+                    url,
+                    headers={"Content-Type": "application/json"},
+                    json={
+                        "device_auth_id": device_auth_id,
+                        "user_code": user_code,
+                    },
+                    timeout=login_deadline.remaining(cap=request_timeout),
+                )
+                login_deadline.check()
+            except (httpx.ConnectError, httpx.TimeoutException) as exc:
+                login_deadline.check()
+                last_error = str(exc)
+                login_deadline.sleep(interval)
+                continue
+            if response.status_code == 200:
+                payload = response.json()
+                login_deadline.check()
+                return payload
+            # OpenAI returns 403/404 while the user hasn't completed browser auth.
+            # This differs from RFC 8628's 400 + authorization_pending body, but
+            # matches the observed behaviour of
+            # auth.openai.com/api/accounts/deviceauth/token.
+            # TODO: handle slow_down (RFC 8628 §3.5) by increasing interval.
+            if response.status_code in (403, 404):
+                login_deadline.sleep(interval)
+                continue
+            if response.status_code >= 500:
+                last_error = f"HTTP {response.status_code}"
+                login_deadline.sleep(interval)
+                continue
+            response.raise_for_status()
+    except TimeoutError:
+        if last_error:
+            raise TimeoutError(
+                f"{_OPENAI_LOGIN_TIMEOUT_MESSAGE} Last response: {last_error}."
+            ) from None
+        raise
 
 
 @dataclass
@@ -290,8 +332,18 @@ class OpenAIOAuthCredentialStore:
         except ValueError:
             return None
 
-    def save(self, credentials: OpenAIOAuthCredentials) -> None:
-        self._store.update_slot(self._NESTED_KEY, credentials.to_dict())
+    def save(
+        self,
+        credentials: OpenAIOAuthCredentials,
+        *,
+        deadline: OAuthLoginDeadline | None = None,
+    ) -> None:
+        self._store.update_slot(
+            self._NESTED_KEY,
+            credentials.to_dict(),
+            lock_timeout=deadline.remaining() if deadline is not None else None,
+            before_commit=deadline.check if deadline is not None else None,
+        )
 
 
 class OpenAIOAuthSessionManager:
@@ -365,10 +417,27 @@ class OpenAIOAuthSessionManager:
             return int(exp * 1000)
         return None
 
-    def set_initial_credentials(self, credentials: OpenAIOAuthCredentials) -> None:
-        with self._lock:
+    def set_initial_credentials(
+        self,
+        credentials: OpenAIOAuthCredentials,
+        *,
+        deadline: OAuthLoginDeadline | None = None,
+    ) -> None:
+        if deadline is None:
+            with self._lock:
+                self._credentials = credentials
+                self.credential_store.save(credentials)
+            return
+
+        deadline.check()
+        if not self._lock.acquire(timeout=deadline.remaining()):
+            raise TimeoutError(_OPENAI_LOGIN_TIMEOUT_MESSAGE)
+        try:
+            deadline.check()
+            self.credential_store.save(credentials, deadline=deadline)
             self._credentials = credentials
-            self.credential_store.save(credentials)
+        finally:
+            self._lock.release()
 
     def _load_cached_credentials(self) -> Optional[OpenAIOAuthCredentials]:
         if self._credentials is not None:
@@ -449,6 +518,7 @@ class OpenAIOAuthSessionManager:
         code: str,
         redirect_uri: str,
         code_verifier: str,
+        deadline: OAuthLoginDeadline | None = None,
     ) -> OpenAIOAuthCredentials:
         data = {
             "grant_type": "authorization_code",
@@ -458,23 +528,32 @@ class OpenAIOAuthSessionManager:
             "code_verifier": code_verifier,
         }
 
+        request_timeout = (
+            deadline.remaining(cap=self.request_timeout)
+            if deadline
+            else self.request_timeout
+        )
         if self.http_client is not None:
             response = self.http_client.post(
                 f"{self.issuer}/oauth/token",
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
                 data=data,
-                timeout=self.request_timeout,
+                timeout=request_timeout,
             )
         else:
             response = httpx.post(
                 f"{self.issuer}/oauth/token",
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
                 data=data,
-                timeout=self.request_timeout,
+                timeout=request_timeout,
             )
 
+        if deadline:
+            deadline.check()
         response.raise_for_status()
         payload = response.json()
+        if deadline:
+            deadline.check()
 
         access = payload.get("access_token")
         if not isinstance(access, str) or not access:
@@ -493,7 +572,7 @@ class OpenAIOAuthSessionManager:
                 else access
             ),
         )
-        self.set_initial_credentials(credentials)
+        self.set_initial_credentials(credentials, deadline=deadline)
         return credentials
 
 
@@ -641,19 +720,30 @@ class OpenAIOAuth(OpenAI):
         callback_path: str = DEFAULT_OPENAI_OAUTH_CALLBACK_PATH,
         redirect_host: str = DEFAULT_OPENAI_OAUTH_CALLBACK_HOST,
         scope: str = DEFAULT_OPENAI_OAUTH_SCOPE,
+        deadline: OAuthLoginDeadline | None = None,
     ) -> OpenAIOAuthCredentials:
-        _tls_preflight(self._oauth_manager.issuer)
+        login_deadline = deadline or OAuthLoginDeadline(
+            timeout_seconds,
+            timeout_message=_OPENAI_LOGIN_TIMEOUT_MESSAGE,
+        )
+        login_deadline.check()
+        _tls_preflight(self._oauth_manager.issuer, deadline=login_deadline)
 
         # Headless environments: use device code flow (no local server needed)
         use_device_code = _is_headless_environment() or os.environ.get(
             "DROIDRUN_OAUTH_MANUAL", ""
         ).lower() in ("1", "true", "yes")
         if use_device_code:
-            return self._login_device_code(timeout_seconds=timeout_seconds)
+            return self._login_device_code(
+                open_browser=open_browser,
+                timeout_seconds=timeout_seconds,
+                deadline=login_deadline,
+            )
 
         # Desktop: browser callback server
         result: Dict[str, Optional[str]] = {"code": None, "state": None, "error": None}
         done = threading.Event()
+        callback_lock = threading.Lock()
         code_verifier, code_challenge = _pkce_pair()
         state = _b64_no_pad(secrets.token_bytes(32))
 
@@ -665,12 +755,17 @@ class OpenAIOAuth(OpenAI):
                     self.end_headers()
                     return
 
-                params = parse_qs(parsed.query)
-                result["code"] = params.get("code", [None])[0]
-                result["state"] = params.get("state", [None])[0]
-                result["error"] = params.get("error", [None])[0]
-
-                ok = result["code"] is not None and result["error"] is None
+                with callback_lock:
+                    if done.is_set():
+                        self.send_response(409)
+                        self.end_headers()
+                        return
+                    params = parse_qs(parsed.query)
+                    result["code"] = params.get("code", [None])[0]
+                    result["state"] = params.get("state", [None])[0]
+                    result["error"] = params.get("error", [None])[0]
+                    ok = result["code"] is not None and result["error"] is None
+                    done.set()
                 self.send_response(200 if ok else 400)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.end_headers()
@@ -682,7 +777,6 @@ class OpenAIOAuth(OpenAI):
                     self.wfile.write(
                         b"<html><body><h3>Login failed. Return to your terminal.</h3></body></html>"
                     )
-                done.set()
 
             def log_message(self, format: str, *args: Any) -> None:  # noqa: A003
                 return
@@ -690,11 +784,17 @@ class OpenAIOAuth(OpenAI):
         try:
             httpd = HTTPServer((callback_host, callback_port), _OAuthHandler)
         except OSError as exc:
+            login_deadline.check()
             print(
                 f"Could not bind callback server on {callback_host}:{callback_port} ({exc}). "
                 "Falling back to device code login."
             )
-            return self._login_device_code(timeout_seconds=timeout_seconds)
+            return self._login_device_code(
+                open_browser=open_browser,
+                timeout_seconds=timeout_seconds,
+                deadline=login_deadline,
+            )
+        login_deadline.check()
 
         actual_port = httpd.server_address[1]
         redirect_uri = f"http://{redirect_host}:{actual_port}{callback_path}"
@@ -708,17 +808,19 @@ class OpenAIOAuth(OpenAI):
         )
 
         server_thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+        httpd.daemon_threads = True
         server_thread.start()
 
         try:
             print(f"Open this URL to login:\n{auth_url}\n")
             if open_browser:
-                webbrowser.open(auth_url)
+                open_browser_async(auth_url, webbrowser.open)
 
-            if not done.wait(timeout=timeout_seconds):
+            if not done.wait(timeout=login_deadline.remaining()):
                 raise TimeoutError(
-                    "OAuth login timed out before callback was received."
+                    "OpenAI OAuth login timed out before callback was received."
                 )
+            login_deadline.check()
 
             if result["error"]:
                 raise RuntimeError(f"OAuth callback returned error: {result['error']}")
@@ -733,6 +835,7 @@ class OpenAIOAuth(OpenAI):
                 code=result["code"],
                 redirect_uri=redirect_uri,
                 code_verifier=code_verifier,
+                deadline=login_deadline,
             )
             if creds.account_id:
                 object.__setattr__(self, "_oauth_account_id", creds.account_id)
@@ -744,7 +847,9 @@ class OpenAIOAuth(OpenAI):
     def _login_device_code(
         self,
         *,
+        open_browser: bool = False,
         timeout_seconds: float = _DEVICE_CODE_TIMEOUT,
+        deadline: OAuthLoginDeadline | None = None,
     ) -> OpenAIOAuthCredentials:
         """Device Code login for headless/SSH environments.
 
@@ -752,12 +857,18 @@ class OpenAIOAuth(OpenAI):
         """
         mgr = self._oauth_manager
         http_client = mgr.http_client
+        login_deadline = deadline or OAuthLoginDeadline(
+            timeout_seconds,
+            timeout_message=_OPENAI_LOGIN_TIMEOUT_MESSAGE,
+        )
+        login_deadline.check()
 
         device_resp = _request_device_code(
             mgr.issuer,
             mgr.client_id,
             http_client=http_client,
             request_timeout=mgr.request_timeout,
+            deadline=login_deadline,
         )
         device_auth_id = device_resp.get("device_auth_id")
         if not device_auth_id:
@@ -767,14 +878,19 @@ class OpenAIOAuth(OpenAI):
         if not user_code:
             raise RuntimeError("Device code response missing 'user_code'.")
         try:
-            interval = int(str(device_resp.get("interval", "5")).strip())
+            interval = max(1, int(str(device_resp.get("interval", "5")).strip()))
         except (TypeError, ValueError):
             interval = 5
         try:
             server_expires = int(device_resp["expires_in"])
         except (KeyError, TypeError, ValueError):
             server_expires = _DEVICE_CODE_TIMEOUT
-        effective_timeout = min(timeout_seconds, _DEVICE_CODE_TIMEOUT, server_expires)
+        if server_expires <= 0:
+            raise TimeoutError("OpenAI OAuth device authorization expired.")
+        device_deadline = login_deadline.limited_to(
+            min(_DEVICE_CODE_TIMEOUT, server_expires)
+        )
+        effective_timeout = device_deadline.remaining()
         verification_url = (
             device_resp.get("verification_uri")
             or device_resp.get("verification_url")
@@ -793,6 +909,8 @@ class OpenAIOAuth(OpenAI):
             f"\n2. Enter this code (expires in {expires_str}):\n   {user_code}\n"
             f"\nDevice codes are a common phishing target. Never share this code.\n"
         )
+        if open_browser:
+            open_browser_async(str(verification_url), webbrowser.open)
 
         token_resp = _poll_device_code(
             mgr.issuer,
@@ -801,7 +919,7 @@ class OpenAIOAuth(OpenAI):
             interval,
             http_client=http_client,
             request_timeout=mgr.request_timeout,
-            timeout_seconds=effective_timeout,
+            deadline=device_deadline,
         )
 
         auth_code = token_resp.get("authorization_code")
@@ -817,6 +935,7 @@ class OpenAIOAuth(OpenAI):
             code=auth_code,
             redirect_uri=redirect_uri,
             code_verifier=code_verifier,
+            deadline=device_deadline,
         )
         if creds.account_id:
             object.__setattr__(self, "_oauth_account_id", creds.account_id)
