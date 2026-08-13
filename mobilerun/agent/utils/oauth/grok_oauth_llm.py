@@ -887,17 +887,18 @@ class GrokOAuth(OpenAIResponses):
     def _build_auth_url(
         *, redirect_uri: str, code_challenge: str, state: str, nonce: str
     ) -> str:
-        return f"{DEFAULT_GROK_OAUTH_AUTHORIZE_URL}?{urlencode({
-            'response_type': 'code',
-            'client_id': DEFAULT_GROK_OAUTH_CLIENT_ID,
-            'redirect_uri': redirect_uri,
-            'scope': ' '.join(DEFAULT_GROK_OAUTH_SCOPES),
-            'code_challenge': code_challenge,
-            'code_challenge_method': 'S256',
-            'state': state,
-            'nonce': nonce,
-            'referrer': 'grok-build',
-        })}"
+        params = {
+            "response_type": "code",
+            "client_id": DEFAULT_GROK_OAUTH_CLIENT_ID,
+            "redirect_uri": redirect_uri,
+            "scope": " ".join(DEFAULT_GROK_OAUTH_SCOPES),
+            "code_challenge": code_challenge,
+            "code_challenge_method": "S256",
+            "state": state,
+            "nonce": nonce,
+            "referrer": "grok-build",
+        }
+        return f"{DEFAULT_GROK_OAUTH_AUTHORIZE_URL}?{urlencode(params)}"
 
     def login(
         self,

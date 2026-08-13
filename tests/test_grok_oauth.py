@@ -9,7 +9,7 @@ import threading
 import time
 from pathlib import Path
 from types import SimpleNamespace
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlencode, urlparse
 
 import httpx
 import jwt
@@ -453,6 +453,21 @@ def test_authorization_url_is_pinned_pkce_and_complete():
         state="state",
         nonce="nonce",
     )
+    expected_query = urlencode(
+        [
+            ("response_type", "code"),
+            ("client_id", DEFAULT_GROK_OAUTH_CLIENT_ID),
+            ("redirect_uri", "http://127.0.0.1:54321/callback"),
+            ("scope", " ".join(DEFAULT_GROK_OAUTH_SCOPES)),
+            ("code_challenge", "challenge"),
+            ("code_challenge_method", "S256"),
+            ("state", "state"),
+            ("nonce", "nonce"),
+            ("referrer", "grok-build"),
+        ]
+    )
+    assert url == f"{DEFAULT_GROK_OAUTH_ISSUER}/oauth2/authorize?{expected_query}"
+
     parsed = urlparse(url)
     query = parse_qs(parsed.query)
 
