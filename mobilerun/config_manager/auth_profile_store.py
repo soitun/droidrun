@@ -1,4 +1,4 @@
-"""Safe shared storage for MobileRun authentication profiles.
+"""Safe shared storage for Mobilerun authentication profiles.
 
 All OAuth providers and saved API keys share one JSON object.  Writes therefore
 need to be serialized across processes and must preserve slots owned by other
@@ -22,6 +22,7 @@ class AuthProfileFormatError(ValueError):
 
 
 _T = TypeVar("_T")
+_FCHMOD: Callable[[int, int], None] | None = getattr(os, "fchmod", None)
 
 
 class AuthProfileTransaction(AbstractContextManager["AuthProfileTransaction"]):
@@ -129,7 +130,8 @@ class AuthProfileStore:
                 suffix=".tmp",
             )
             tmp_path = Path(raw_tmp_path)
-            os.fchmod(fd, 0o600)
+            if _FCHMOD is not None:
+                _FCHMOD(fd, 0o600)
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
                 fd = None
                 json.dump(profile, handle, indent=2)

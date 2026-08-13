@@ -24,7 +24,7 @@ GROK_UNSUPPORTED_SAMPLING_PARAMS = frozenset(
 
 
 def normalize_grok_model_id(model: object) -> str:
-    """Normalize public xAI/Grok aliases to MobileRun's canonical model id."""
+    """Normalize public xAI/Grok aliases to Mobilerun's canonical model id."""
 
     model_id = str(model or "").strip()
     if model_id.startswith("xai/"):
@@ -54,7 +54,7 @@ def sanitize_grok_responses_kwargs(
     # The OpenAI SDK merges ``extra_body`` after its normal typed parameters,
     # so an unsanitized value here could otherwise restore storage, reasoning,
     # an unsupported sampler, or even a caller-selected model. Preserve other
-    # extension fields while removing every value MobileRun pins or rejects.
+    # extension fields while removing every value Mobilerun pins or rejects.
     extra_body = payload.get("extra_body")
     if extra_body is not None:
         if not isinstance(extra_body, Mapping):

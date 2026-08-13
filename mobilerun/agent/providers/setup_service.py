@@ -151,6 +151,7 @@ def create_profile_for_variant(
         resolved_model,
     )
     kwargs: dict[str, str | int] = dict(DEFAULT_KWARGS_BY_VARIANT.get(variant.id, {}))
+    env_slot = VARIANT_ENV_KEY_SLOT.get(variant.id)
     runtime_provider_name = (
         variant.runtime_transport_provider_name or variant.runtime_provider_name
     )
@@ -181,7 +182,7 @@ def create_profile_for_variant(
             else None
         ),
         credential_path=selection.credential_path or variant.credential_path,
-        kwargs=kwargs,
+        kwargs=kwargs if env_slot is None or variant.id == "XAI" else {},
     )
 
 

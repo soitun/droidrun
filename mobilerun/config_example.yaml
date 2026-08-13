@@ -78,24 +78,6 @@ llm_profiles:
     # kwargs: # optional kwargs, add api_key in kwargs if not already in .env
     #   max_tokens: 8192
     #
-    # Grok API-key example (reads apiKeys.xai / XAI_API_KEY):
-    # provider: XAI
-    # provider_family: grok
-    # auth_mode: api_key
-    # model: grok-4.5
-    # api_key_source: auto
-    # base_url: https://api.x.ai/v1
-    # api_base: https://api.x.ai/v1
-    # kwargs:
-    #   context_window: 500000
-    #
-    # Grok OAuth example (first run `mobilerun configure grok`):
-    # provider: grok_oauth
-    # provider_family: grok
-    # auth_mode: oauth
-    # model: grok-4.5
-    # credential_path: <platform config dir>/droidrun/credentials/auth-profiles.json
-    #
     # Ollama example — max_tokens is translated to Ollama's num_predict, and
     # context_window controls num_ctx (defaults to 32768; -1 = model maximum,
     # which preallocates the full KV cache and can spill to CPU):

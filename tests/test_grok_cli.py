@@ -1,8 +1,10 @@
 import json
+from io import StringIO
 from types import SimpleNamespace
 
 import pytest
 from click.testing import CliRunner
+from rich.console import Console
 
 import mobilerun.cli.configure_wizard as configure_wizard
 import mobilerun.cli.main as cli_main
@@ -10,7 +12,7 @@ from mobilerun.cli.configure_wizard import ConfigureWizardCallbacks
 from mobilerun.config_manager import MobileConfig
 
 
-def test_grok_oauth_credentials_are_detected_by_nested_slot(tmp_path) -> None:
+def test_xai_oauth_credentials_are_detected_by_nested_slot(tmp_path) -> None:
     credential_path = tmp_path / "auth-profiles.json"
     credential_path.write_text(
         json.dumps(
@@ -23,7 +25,7 @@ def test_grok_oauth_credentials_are_detected_by_nested_slot(tmp_path) -> None:
     )
 
     assert configure_wizard._oauth_credentials_present(
-        str(credential_path), "grok_oauth"
+        str(credential_path), "xai_oauth"
     )
 
     credential_path.write_text(
@@ -31,11 +33,11 @@ def test_grok_oauth_credentials_are_detected_by_nested_slot(tmp_path) -> None:
         encoding="utf-8",
     )
     assert not configure_wizard._oauth_credentials_present(
-        str(credential_path), "grok_oauth"
+        str(credential_path), "xai_oauth"
     )
 
 
-def test_wizard_prepares_grok_oauth_with_selected_model(tmp_path) -> None:
+def test_wizard_prepares_xai_oauth_with_selected_model(tmp_path) -> None:
     calls: list[dict] = []
     callbacks = ConfigureWizardCallbacks(
         run_openai_oauth_login=lambda **kwargs: None,
@@ -46,7 +48,7 @@ def test_wizard_prepares_grok_oauth_with_selected_model(tmp_path) -> None:
 
     configure_wizard._prepare_variant_auth(
         callbacks=callbacks,
-        variant=SimpleNamespace(id="grok_oauth"),
+        variant=SimpleNamespace(id="xai_oauth"),
         credential_path=str(tmp_path / "auth-profiles.json"),
         selected_model="grok-4.5",
     )
@@ -59,7 +61,7 @@ def test_wizard_prepares_grok_oauth_with_selected_model(tmp_path) -> None:
     ]
 
 
-def test_configure_grok_command_forwards_device_code_options(
+def test_configure_xai_command_forwards_device_code_options(
     monkeypatch, tmp_path
 ) -> None:
     calls: list[dict] = []
@@ -74,7 +76,7 @@ def test_configure_grok_command_forwards_device_code_options(
         cli_main.cli,
         [
             "configure",
-            "grok",
+            "xai",
             "--credential-path",
             str(credential_path),
             "--model",
@@ -98,24 +100,33 @@ def test_configure_grok_command_forwards_device_code_options(
     ]
 
 
-def test_configure_help_advertises_grok_provider_and_login_command() -> None:
+def test_configure_help_advertises_only_xai_provider_and_login_command() -> None:
     runner = CliRunner()
 
+    run_help = runner.invoke(cli_main.cli, ["run", "--help"])
     configure_help = runner.invoke(cli_main.cli, ["configure", "--help"])
-    grok_help = runner.invoke(cli_main.cli, ["configure", "grok", "--help"])
+    xai_help = runner.invoke(cli_main.cli, ["configure", "xai", "--help"])
+    removed_grok_command = runner.invoke(cli_main.cli, ["configure", "grok"])
 
+    assert run_help.exit_code == 0
+    assert "XAI" in run_help.output
+    assert "xai_oauth" not in run_help.output
+    assert "grok_oauth" not in run_help.output
     assert configure_help.exit_code == 0
-    assert "grok" in configure_help.output.lower()
-    assert grok_help.exit_code == 0
-    assert "--device-code" in grok_help.output
-    assert "native xAI OAuth" in grok_help.output
+    assert "xai" in configure_help.output.lower()
+    assert "grok" not in configure_help.output.lower()
+    assert xai_help.exit_code == 0
+    assert "--device-code" in xai_help.output
+    assert "xai" in xai_help.output.lower()
+    assert "grok" not in xai_help.output.lower()
+    assert removed_grok_command.exit_code != 0
 
 
 @pytest.mark.parametrize(
     ("auth_mode", "expected_provider"),
-    (("api_key", "XAI"), ("oauth", "grok_oauth")),
+    (("api_key", "XAI"), ("oauth", "xai_oauth")),
 )
-def test_exact_grok_configure_forms_keep_provider_and_auth_fixed(
+def test_exact_xai_configure_forms_keep_provider_and_auth_fixed(
     monkeypatch, auth_mode: str, expected_provider: str
 ) -> None:
     config = MobileConfig()
@@ -154,7 +165,7 @@ def test_exact_grok_configure_forms_keep_provider_and_auth_fixed(
         configure_wizard,
         "select_prompt",
         lambda *args, **kwargs: pytest.fail(
-            "fixed Grok configure flow unexpectedly reopened the top-level menu"
+            "fixed XAI configure flow unexpectedly reopened the top-level menu"
         ),
     )
     monkeypatch.setattr(
@@ -165,7 +176,7 @@ def test_exact_grok_configure_forms_keep_provider_and_auth_fixed(
 
     result = CliRunner().invoke(
         cli_main.cli,
-        ["configure", "--provider", "grok", "--auth-mode", auth_mode],
+        ["configure", "--provider", "XAI", "--auth-mode", auth_mode],
     )
 
     assert result.exit_code == 0, result.output
@@ -175,4 +186,94 @@ def test_exact_grok_configure_forms_keep_provider_and_auth_fixed(
     assert {
         (profile.provider, profile.provider_family, profile.auth_mode, profile.model)
         for profile in config.llm_profiles.values()
-    } == {(expected_provider, "grok", auth_mode, "grok-4.5")}
+    } == {(expected_provider, "xai", auth_mode, "grok-4.5")}
+    assert "xai_oauth" not in result.output
+    assert "Provider: XAI" in result.output
+
+
+def test_provider_only_flag_does_not_auto_enter_model_flow(monkeypatch) -> None:
+    config = MobileConfig()
+    saved_configs: list[MobileConfig] = []
+    menu_calls: list[str] = []
+
+    monkeypatch.setattr(configure_wizard.ConfigLoader, "load", lambda: config)
+    monkeypatch.setattr(
+        configure_wizard.ConfigLoader,
+        "save",
+        lambda saved: saved_configs.append(saved),
+    )
+    monkeypatch.setattr(
+        configure_wizard,
+        "_prompt_model_choice",
+        lambda *args, **kwargs: pytest.fail(
+            "a provider-only invocation must start at the top-level menu"
+        ),
+    )
+
+    def choose_top_level(message, *args, **kwargs):  # type: ignore[no-untyped-def]
+        menu_calls.append(message)
+        return "finish"
+
+    monkeypatch.setattr(configure_wizard, "select_prompt", choose_top_level)
+
+    configure_wizard.run_configure_wizard(
+        Console(file=StringIO(), force_terminal=False),
+        ConfigureWizardCallbacks(
+            run_openai_oauth_login=lambda **kwargs: None,
+            run_anthropic_oauth_login=lambda **kwargs: None,
+            run_gemini_oauth_login=lambda **kwargs: None,
+        ),
+        provider="ollama",
+        auth_mode=None,
+        model=None,
+        api_key=None,
+        base_url=None,
+    )
+
+    assert menu_calls == ["Configure"]
+    assert saved_configs == [config]
+
+
+def test_fixed_provider_and_auth_model_back_returns_to_top_level_once(
+    monkeypatch,
+) -> None:
+    config = MobileConfig()
+    saved_configs: list[MobileConfig] = []
+    model_prompts: list[tuple[tuple[str, ...], str]] = []
+    menu_calls: list[str] = []
+
+    monkeypatch.setattr(configure_wizard.ConfigLoader, "load", lambda: config)
+    monkeypatch.setattr(
+        configure_wizard.ConfigLoader,
+        "save",
+        lambda saved: saved_configs.append(saved),
+    )
+
+    def choose_model(models, *, default_model, allow_back=True):  # type: ignore[no-untyped-def]
+        model_prompts.append((tuple(models), default_model))
+        return configure_wizard._BACK
+
+    def choose_top_level(message, *args, **kwargs):  # type: ignore[no-untyped-def]
+        menu_calls.append(message)
+        return "finish"
+
+    monkeypatch.setattr(configure_wizard, "_prompt_model_choice", choose_model)
+    monkeypatch.setattr(configure_wizard, "select_prompt", choose_top_level)
+
+    configure_wizard.run_configure_wizard(
+        Console(file=StringIO(), force_terminal=False),
+        ConfigureWizardCallbacks(
+            run_openai_oauth_login=lambda **kwargs: None,
+            run_anthropic_oauth_login=lambda **kwargs: None,
+            run_gemini_oauth_login=lambda **kwargs: None,
+        ),
+        provider="XAI",
+        auth_mode="api_key",
+        model=None,
+        api_key=None,
+        base_url=None,
+    )
+
+    assert model_prompts == [(("grok-4.5",), "grok-4.5")]
+    assert menu_calls == ["Configure"]
+    assert saved_configs == [config]

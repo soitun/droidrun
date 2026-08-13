@@ -127,7 +127,7 @@ def test_openai_responses_extracts_completed_stream_additional_usage_fallback() 
         },
     )
 
-    usage = get_usage_from_response("GrokOAuth", chat_response)
+    usage = get_usage_from_response("xai_oauth", chat_response)
 
     assert usage.request_tokens == 13
     assert usage.response_tokens == 6

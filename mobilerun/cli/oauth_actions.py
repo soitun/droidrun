@@ -88,7 +88,7 @@ def run_grok_oauth_login(
     device_code: bool = False,
     no_browser: bool = False,
 ) -> None:
-    """Authenticate directly with xAI and save MobileRun-owned credentials."""
+    """Authenticate directly with xAI and save Mobilerun-owned credentials."""
     llm = GrokOAuth(
         model=model or DEFAULT_GROK_MODEL,
         oauth_credential_path=credential_path,

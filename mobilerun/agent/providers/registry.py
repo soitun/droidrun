@@ -142,8 +142,8 @@ PROVIDER_FAMILIES: tuple[ProviderFamilySpec, ...] = (
         ),
     ),
     ProviderFamilySpec(
-        id="grok",
-        display_name="Grok",
+        id="xai",
+        display_name="XAI",
         variants=(
             ProviderVariantSpec(
                 id="XAI",
@@ -155,8 +155,8 @@ PROVIDER_FAMILIES: tuple[ProviderFamilySpec, ...] = (
                 base_url=XAI_API_BASE,
             ),
             ProviderVariantSpec(
-                id="grok_oauth",
-                runtime_provider_name="grok_oauth",
+                id="xai_oauth",
+                runtime_provider_name="xai_oauth",
                 auth_mode="oauth",
                 default_model=GROK_DEFAULT_MODEL,
                 models=GROK_MODELS,
@@ -316,7 +316,7 @@ def normalize_model_id_for_variant(
 
     if family_id == "openai":
         candidate = OPENAI_MODEL_ALIASES.get(candidate, candidate)
-    elif family_id == "grok":
+    elif family_id == "xai":
         candidate = normalize_grok_model_id(candidate)
 
     if candidate in allowed_model_ids:

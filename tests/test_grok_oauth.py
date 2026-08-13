@@ -43,7 +43,7 @@ from mobilerun.agent.utils.oauth.grok_oauth_llm import (
     GrokOAuthSessionManager,
     _parse_callback_query,
 )
-from mobilerun.config_manager import env_keys
+from mobilerun.config_manager import auth_profile_store, env_keys
 from mobilerun.config_manager.auth_profile_store import (
     AuthProfileFormatError,
     AuthProfileStore,
@@ -173,6 +173,16 @@ def test_auth_profile_store_preserves_siblings_and_writes_private_file(tmp_path:
     assert payload["openaiOauth"] == {"access": "keep"}
     assert payload["grokOauth"] == {"accessToken": "secret"}
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    assert not list(tmp_path.glob(".auth-profiles.json.*.tmp"))
+
+
+def test_auth_profile_store_writes_when_fchmod_is_unavailable(monkeypatch, tmp_path: Path):
+    path = tmp_path / "auth-profiles.json"
+    monkeypatch.setattr(auth_profile_store, "_FCHMOD", None)
+
+    AuthProfileStore(path).update_slot("grokOauth", {"accessToken": "secret"})
+
+    assert json.loads(path.read_text()) == {"grokOauth": {"accessToken": "secret"}}
     assert not list(tmp_path.glob(".auth-profiles.json.*.tmp"))
 
 
@@ -1357,7 +1367,7 @@ def test_oauth_responses_adapter_pins_proxy_and_omits_controls(tmp_path: Path):
     ):
         assert key not in model_kwargs
 
-    with pytest.raises(ValueError, match="not supported with Grok OAuth"):
+    with pytest.raises(ValueError, match="not supported with XAI OAuth"):
         GrokOAuth(
             model="other-model",
             oauth_credential_path=str(tmp_path / "other.json"),
@@ -1368,7 +1378,7 @@ def test_oauth_responses_adapter_pins_proxy_and_omits_controls(tmp_path: Path):
         oauth_credential_path=str(tmp_path / "missing.json"),
     )
     assert no_fallback.api_key == "oauth"
-    with pytest.raises(ValueError, match="No Grok OAuth credentials"):
+    with pytest.raises(ValueError, match="No XAI OAuth credentials"):
         no_fallback._oauth_manager.get_valid_credentials()
 
 

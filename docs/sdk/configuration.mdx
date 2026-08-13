@@ -611,7 +611,7 @@ mobilerun run "Task" --config /path/to/config.yaml
 - `--config PATH` - Custom config file
 - `--device SERIAL` - Device serial/IP
 - `--agent NAME` - External agent to use. Not yet supported — reserved for future use.
-- `--provider PROVIDER` - LLM provider (OpenAI, XAI, grok_oauth, Ollama, Anthropic, GoogleGenAI, DeepSeek, MiniMax)
+- `--provider PROVIDER` - LLM provider (OpenAI, XAI, Ollama, Anthropic, GoogleGenAI, DeepSeek, MiniMax)
 - `--model MODEL` - LLM model name
 - `--temperature FLOAT` - LLM temperature
 - `--steps INT` - Max steps
@@ -640,24 +640,6 @@ export DEEPSEEK_API_KEY=your-key
 export MINIMAX_API_KEY=your-key
 export MOBILERUN_CONFIG=/path/to/config.yaml  # Custom config path
 ```
-
-Grok 4.5 supports both the public xAI API and Grok OAuth. Use the `XAI`
-runtime provider for API-key calls:
-
-```bash
-mobilerun configure \
-  --provider grok \
-  --auth-mode api_key \
-  --model grok-4.5
-```
-
-For OAuth, run `mobilerun configure grok` (or add
-`--device-code --no-browser` on a headless host). Mobilerun performs its own
-xAI OAuth flow, stores the credential under `grokOauth` in the shared platform
-`credentials/auth-profiles.json` file, and generates a `grok_oauth` profile.
-The Grok CLI is not required or invoked, and its `~/.grok/auth.json` remains
-separate. API-key profiles use `apiKeys.xai` / `XAI_API_KEY` and the `XAI`
-runtime provider.
 
 MiniMax uses `https://api.minimax.io/v1` for global accounts and
 `https://api.minimaxi.com/v1` for Mainland China accounts. The configure wizard

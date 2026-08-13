@@ -105,14 +105,9 @@ export OPENAI_API_KEY=your-api-key-here
 # For Anthropic Claude
 export ANTHROPIC_API_KEY=your-api-key-here
 
-# For xAI Grok
+# For xAI
 export XAI_API_KEY=your-api-key-here
 ```
-
-To use your Grok account instead of an API key, run
-`mobilerun configure grok` (add `--device-code --no-browser` on a headless
-host). Mobilerun runs its own xAI OAuth flow and never invokes the Grok CLI or
-reads `~/.grok/auth.json`.
 
 ### Run Your First Command via CLI
 
@@ -133,7 +128,7 @@ mobilerun run "Find a contact named John and send him an email" --reasoning
 ```
 
 **Common CLI flags:**
-- `--provider` - LLM provider (GoogleGenAI, OpenAI, XAI, grok_oauth, Anthropic, etc.)
+- `--provider` - LLM provider (GoogleGenAI, OpenAI, XAI, Anthropic, etc.)
 - `--model` - Model name (gemini-3.5-flash-lite, gpt-5.5, etc.)
 - `--vision` - Enable screenshot processing
 - `--reasoning` - Enable multi-agent planning mode

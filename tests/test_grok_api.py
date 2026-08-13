@@ -79,12 +79,12 @@ def _xai_usage() -> ResponseUsage:
 
 
 def test_grok_api_key_variant_is_first_class_xai_responses_provider() -> None:
-    variant = resolve_provider_variant("grok", "api_key")
+    variant = resolve_provider_variant("xai", "api_key")
 
     assert variant.id == "XAI"
     assert variant.runtime_provider_name == "XAI"
     assert variant.default_model == "grok-4.5"
-    assert list_models_for_variant("grok", "api_key") == ("grok-4.5",)
+    assert list_models_for_variant("xai", "api_key") == ("grok-4.5",)
     assert variant.requires_api_key is True
     assert variant.base_url == XAI_API_BASE
     assert VARIANT_ENV_KEY_SLOT[variant.id] == "xai"
@@ -92,10 +92,10 @@ def test_grok_api_key_variant_is_first_class_xai_responses_provider() -> None:
 
 
 def test_grok_oauth_variant_shares_the_canonical_model_catalog() -> None:
-    variant = resolve_provider_variant("grok", "oauth")
+    variant = resolve_provider_variant("xai", "oauth")
 
-    assert variant.id == "grok_oauth"
-    assert variant.runtime_provider_name == "grok_oauth"
+    assert variant.id == "xai_oauth"
+    assert variant.runtime_provider_name == "xai_oauth"
     assert variant.default_model == "grok-4.5"
     assert variant.models == ("grok-4.5",)
     assert variant.credential_path
@@ -109,21 +109,27 @@ def test_grok_oauth_variant_shares_the_canonical_model_catalog() -> None:
 def test_grok_model_aliases_normalize_to_canonical_id(
     auth_mode: str, model_alias: str
 ) -> None:
-    assert normalize_model_id_for_variant("grok", auth_mode, model_alias) == "grok-4.5"
+    assert normalize_model_id_for_variant("xai", auth_mode, model_alias) == "grok-4.5"
 
 
-@pytest.mark.parametrize("alias", ("grok", "xai", "x.ai", "XAI"))
+@pytest.mark.parametrize("alias", ("xai", "XAI"))
 def test_grok_runtime_aliases_select_xai(alias: str) -> None:
     assert normalize_provider_name(alias) == "XAI"
 
 
+@pytest.mark.parametrize("removed_provider", ("grok", "x.ai", "grok_oauth"))
+def test_removed_xai_provider_aliases_are_rejected(removed_provider: str) -> None:
+    with pytest.raises(ValueError, match="Unsupported provider"):
+        load_llm(removed_provider, model="grok-4.5")
+
+
 def test_grok_profile_wires_api_base_context_and_environment_key(monkeypatch) -> None:
     monkeypatch.setenv("XAI_API_KEY", "xai-env-key")
-    variant = resolve_provider_variant("grok", "api_key")
+    variant = resolve_provider_variant("xai", "api_key")
     profile = create_profile_for_variant(
         variant,
         SetupSelection(
-            family_id="grok",
+            family_id="xai",
             variant_id="XAI",
             auth_mode="api_key",
             model="grok-build-latest",
@@ -133,7 +139,7 @@ def test_grok_profile_wires_api_base_context_and_environment_key(monkeypatch) ->
     )
 
     assert profile.provider == "XAI"
-    assert profile.provider_family == "grok"
+    assert profile.provider_family == "xai"
     assert profile.model == "grok-4.5"
     assert profile.temperature == 0.4
     assert profile.base_url == XAI_API_BASE
@@ -153,11 +159,11 @@ def test_grok_profile_resolves_saved_api_key(monkeypatch, tmp_path) -> None:
     )
     monkeypatch.setattr(env_keys, "AUTH_PROFILES_PATH", credential_path)
     monkeypatch.delenv("XAI_API_KEY", raising=False)
-    variant = resolve_provider_variant("grok", "api_key")
+    variant = resolve_provider_variant("xai", "api_key")
     profile = create_profile_for_variant(
         variant,
         SetupSelection(
-            family_id="grok",
+            family_id="xai",
             variant_id="XAI",
             auth_mode="api_key",
             model="grok-4.5",
@@ -507,12 +513,12 @@ def test_xai_structured_predict_sanitizes_sync_and_async_call_kwargs() -> None:
 def test_xai_loader_uses_environment_key_for_direct_runtime(monkeypatch) -> None:
     monkeypatch.setenv("XAI_API_KEY", "xai-runtime-key")
 
-    llm = load_llm("grok", model="grok-4.5")
+    llm = load_llm("xai", model="grok-4.5")
 
     assert llm.api_key == "xai-runtime-key"
 
 
-@pytest.mark.parametrize("alias", ("grok", "xai", "x.ai", "XAI"))
+@pytest.mark.parametrize("alias", ("xai", "XAI"))
 def test_xai_runtime_aliases_default_to_canonical_model(
     alias: str, monkeypatch
 ) -> None:
@@ -521,6 +527,21 @@ def test_xai_runtime_aliases_default_to_canonical_model(
     llm = load_llm(alias)
 
     assert llm.model == "grok-4.5"
+
+
+def test_xai_oauth_runtime_uses_grok_oauth_adapter(tmp_path) -> None:
+    llm = load_llm(
+        "xai_oauth",
+        model="grok-4.5-latest",
+        oauth_access_token="stub",
+        credential_path=str(tmp_path / "auth-profiles.json"),
+    )
+    try:
+        assert type(llm).__name__ == "GrokOAuth"
+        assert llm.model == "grok-4.5"
+    finally:
+        llm._client.close()
+        asyncio.run(llm._aclient.close())
 
 
 def test_xai_loader_does_not_fall_back_to_openai_key(monkeypatch) -> None:

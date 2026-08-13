@@ -57,9 +57,7 @@ PROVIDER_ALIASES = {
     "openai_like": "OpenAILike",
     "zai": "ZAI",
     "z.ai": "ZAI",
-    "grok": "XAI",
     "xai": "XAI",
-    "x.ai": "XAI",
 }
 
 ZAI_GLOBAL_API_BASE = "https://api.z.ai/api/paas/v4"
@@ -529,8 +527,8 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
             model = normalize_model_id_for_variant("openai", "api_key", model)
         elif provider_name == "XAI":
             model = normalize_grok_model_id(model)
-        elif provider_name == "grok_oauth":
-            model = normalize_model_id_for_variant("grok", "oauth", model)
+        elif provider_name == "xai_oauth":
+            model = normalize_model_id_for_variant("xai", "oauth", model)
         elif provider_name == "openai_oauth":
             model = normalize_model_id_for_variant("openai", "oauth", model)
         kwargs["model"] = model
@@ -560,7 +558,7 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
         return GeminiOAuthCodeAssistLLM(
             **{k: v for k, v in kwargs.items() if v is not None}
         )
-    if provider_name == "grok_oauth":
+    if provider_name == "xai_oauth":
         from mobilerun.agent.utils.oauth.grok_oauth_llm import GrokOAuth
 
         return GrokOAuth(**{k: v for k, v in kwargs.items() if v is not None})
@@ -596,7 +594,7 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
     if provider_name == "XAI":
         import os
 
-        # MobileRun's reasoning mode selects its agent architecture. It does
+        # Mobilerun's reasoning mode selects its agent architecture. It does
         # not opt Grok into a provider-specific reasoning effort.
         kwargs.pop("reasoning_options", None)
         api_key = kwargs.get("api_key")
@@ -609,9 +607,8 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
             )
 
         kwargs["api_key"] = api_key
-        # The public runtime aliases (`grok`, `xai`, and `x.ai`) should be
-        # useful without a separately generated profile as well. Keep their
-        # implicit model aligned with the first-class provider catalog.
+        # The lowercase runtime alias should be useful without a separately
+        # generated profile. Keep its implicit model aligned with the catalog.
         kwargs.setdefault("model", GROK_DEFAULT_MODEL)
         # XAI_API_KEY must only ever be sent to xAI's pinned endpoint. Ignore
         # generic CLI/profile URL overrides rather than allowing a malicious

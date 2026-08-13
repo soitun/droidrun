@@ -29,7 +29,7 @@ PROVIDER_ALIASES = {
     "MobilerunOpenAIResponses": "OpenAIResponses",
     "openai_responses_llm": "OpenAIResponses",
     "GrokOAuth": "OpenAIResponses",
-    "grok_oauth": "OpenAIResponses",
+    "xai_oauth": "OpenAIResponses",
     "Ollama_llm": "Ollama",
 }
 

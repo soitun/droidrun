@@ -1,6 +1,6 @@
 """xAI subscription OAuth transport for the Responses API.
 
-Credentials are owned by MobileRun and stored in its shared auth profile.  The
+Credentials are owned by Mobilerun and stored in its shared auth profile.  The
 OAuth client and inference proxy values are deliberately pinned: accepting
 caller-controlled endpoints would let an attacker exfiltrate refresh tokens.
 """
@@ -173,16 +173,16 @@ class GrokOAuthCredentials:
     @classmethod
     def from_payload(cls, payload: dict[str, Any]) -> "GrokOAuthCredentials":
         if payload.get("type") != "oauth" or payload.get("provider") != "xai-grok":
-            raise ValueError("Grok OAuth profile has an unexpected credential type.")
+            raise ValueError("XAI OAuth profile has an unexpected credential type.")
         access_token = payload.get("accessToken")
         if not isinstance(access_token, str) or not access_token:
-            raise ValueError("Grok OAuth profile is missing accessToken.")
+            raise ValueError("XAI OAuth profile is missing accessToken.")
         issuer = payload.get("issuer")
         client_id = payload.get("clientId")
         if issuer != DEFAULT_GROK_OAUTH_ISSUER:
-            raise ValueError("Grok OAuth profile has an unexpected issuer.")
+            raise ValueError("XAI OAuth profile has an unexpected issuer.")
         if client_id != DEFAULT_GROK_OAUTH_CLIENT_ID:
-            raise ValueError("Grok OAuth profile has an unexpected clientId.")
+            raise ValueError("XAI OAuth profile has an unexpected clientId.")
 
         refresh = payload.get("refreshToken")
         raw_expiry = payload.get("expiresAt")
@@ -198,7 +198,7 @@ class GrokOAuthCredentials:
         )
         token_type = str(payload.get("tokenType") or "Bearer")
         if token_type.lower() != "bearer":
-            raise ValueError("Grok OAuth profile has an unsupported tokenType.")
+            raise ValueError("XAI OAuth profile has an unsupported tokenType.")
         return cls(
             access_token=access_token,
             refresh_token=refresh if isinstance(refresh, str) and refresh else None,
@@ -271,7 +271,7 @@ class GrokIDTokenValidator:
 
 
 class GrokOAuthSessionManager:
-    """Load, exchange, and cross-process-refresh MobileRun's xAI session."""
+    """Load, exchange, and cross-process-refresh Mobilerun's xAI session."""
 
     def __init__(
         self,
@@ -420,7 +420,7 @@ class GrokOAuthSessionManager:
                 error = None
             if refresh_request and error in {"invalid_grant", "invalid_client"}:
                 raise GrokOAuthReloginRequired(
-                    "Grok OAuth refresh was rejected; re-login is required."
+                    "XAI OAuth refresh was rejected; re-login is required."
                 )
             raise GrokOAuthError(
                 f"xAI token request failed ({error or response.status_code})."
@@ -453,7 +453,7 @@ class GrokOAuthSessionManager:
     def _refresh(self, credentials: GrokOAuthCredentials) -> GrokOAuthCredentials:
         if not credentials.refresh_token:
             raise ValueError(
-                "No Grok OAuth refresh token is available. Run MobileRun's Grok login."
+                "No XAI OAuth refresh token is available. Run `mobilerun configure xai`."
             )
         payload = self._post_token(
             {
@@ -477,7 +477,7 @@ class GrokOAuthSessionManager:
         rejected_access_token: str | None = None,
     ) -> GrokOAuthCredentials:
         with self._thread_lock:
-            # Keep the file lock across refresh so separate MobileRun processes
+            # Keep the file lock across refresh so separate Mobilerun processes
             # cannot rotate the same refresh token concurrently.
             with self.credential_store.profile_store.transaction() as transaction:
                 payload = transaction.get_slot(DEFAULT_GROK_OAUTH_SLOT)
@@ -488,7 +488,7 @@ class GrokOAuthSessionManager:
                 )
                 if credentials is None:
                     raise ValueError(
-                        "No Grok OAuth credentials found. Run MobileRun's Grok login."
+                        "No XAI OAuth credentials found. Run `mobilerun configure xai`."
                     )
 
                 another_writer_refreshed = (
@@ -566,7 +566,7 @@ class GrokOAuthAuth(httpx.Auth):
 
 
 class GrokOAuth(OpenAIResponses):
-    """LlamaIndex Responses adapter backed only by MobileRun's xAI OAuth slot."""
+    """LlamaIndex Responses adapter backed only by Mobilerun's xAI OAuth slot."""
 
     @classmethod
     def class_name(cls) -> str:
@@ -589,7 +589,7 @@ class GrokOAuth(OpenAIResponses):
         model = normalize_grok_model_id(model)
         if model not in GROK_MODELS:
             raise ValueError(
-                f"Model {model!r} is not supported with Grok OAuth. "
+                f"Model {model!r} is not supported with XAI OAuth. "
                 f"Use {', '.join(GROK_MODELS)}."
             )
         path = (
@@ -773,11 +773,11 @@ class GrokOAuth(OpenAIResponses):
         device_code: bool = False,
     ) -> GrokOAuthCredentials:
         if callback_host != DEFAULT_GROK_OAUTH_CALLBACK_HOST:
-            raise ValueError("Grok OAuth callback_host must be 127.0.0.1.")
+            raise ValueError("XAI OAuth callback_host must be 127.0.0.1.")
         if callback_port != 0:
-            raise ValueError("Grok OAuth callback_port must be OS-assigned (0).")
+            raise ValueError("XAI OAuth callback_port must be OS-assigned (0).")
         if callback_path != DEFAULT_GROK_OAUTH_CALLBACK_PATH:
-            raise ValueError("Grok OAuth callback_path must be /callback.")
+            raise ValueError("XAI OAuth callback_path must be /callback.")
         if device_code or _is_headless_environment():
             return self._login_device_code(timeout_seconds=timeout_seconds)
 
@@ -808,9 +808,9 @@ class GrokOAuth(OpenAIResponses):
                 self.send_header("Content-Type", "text/html; charset=utf-8")
                 self.end_headers()
                 self.wfile.write(
-                    b"<html><body>MobileRun Grok login complete. You may close this tab.</body></html>"
+                    b"<html><body>Mobilerun XAI login complete. You may close this tab.</body></html>"
                     if ok
-                    else b"<html><body>MobileRun Grok login failed. Return to the terminal.</body></html>"
+                    else b"<html><body>Mobilerun XAI login failed. Return to the terminal.</body></html>"
                 )
                 done.set()
 
@@ -839,15 +839,15 @@ class GrokOAuth(OpenAIResponses):
             if open_browser:
                 webbrowser.open(authorization_url)
             if not done.wait(timeout=max(0.0, timeout_seconds)):
-                raise TimeoutError("Grok OAuth login timed out waiting for callback.")
+                raise TimeoutError("XAI OAuth login timed out waiting for callback.")
             if result["error"]:
                 raise GrokOAuthError(
                     f"xAI authorization failed ({_safe_error_code(result['error']) or 'oauth_error'})."
                 )
             if not secrets.compare_digest(result["state"] or "", state):
-                raise GrokOAuthError("Grok OAuth callback state mismatch.")
+                raise GrokOAuthError("XAI OAuth callback state mismatch.")
             if not result["code"]:
-                raise GrokOAuthError("Grok OAuth callback did not contain a code.")
+                raise GrokOAuthError("XAI OAuth callback did not contain a code.")
             return self._oauth_manager.exchange_authorization_code(
                 code=result["code"],
                 redirect_uri=redirect_uri,
@@ -942,7 +942,7 @@ class GrokOAuth(OpenAIResponses):
                     f"xAI device token request failed ({error or token_response.status_code})."
                 )
             manager.sleep(min(interval, max(0.0, deadline - time.monotonic())))
-        raise TimeoutError("Grok OAuth device authorization timed out.")
+        raise TimeoutError("XAI OAuth device authorization timed out.")
 
 
 # Descriptive alias for callers that prefer the full class name.

@@ -26,8 +26,6 @@ from mobilerun_core_local.driver.android.portal import (
     ping_portal_tcp,
     setup_portal,
 )
-from mobilerun_core_local.driver.ios import discover_ios_device, validate_ios_portal_url
-from mobilerun_core_local.driver.visual_remote import VISUAL_REMOTE_CONNECTION
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
@@ -68,6 +66,8 @@ from mobilerun.config_manager.credential_paths import (
 from mobilerun.log_handlers import CLILogHandler, configure_logging
 from mobilerun.macro.cli import macro_cli
 from mobilerun.telemetry import print_telemetry_message
+from mobilerun_core_local.driver.ios import discover_ios_device, validate_ios_portal_url
+from mobilerun_core_local.driver.visual_remote import VISUAL_REMOTE_CONNECTION
 
 # Suppress all warnings
 warnings.filterwarnings("ignore")
@@ -432,7 +432,7 @@ def _run_grok_oauth_login(
         model=model,
         **kwargs,
     )
-    _print_oauth_login_success("Grok", credential_path)
+    _print_oauth_login_success("XAI", credential_path)
 
 
 try:
@@ -460,7 +460,7 @@ except Exception:
 @click.option(
     "--provider",
     "-p",
-    help="LLM provider (OpenAI, openai_oauth, XAI, grok_oauth, Ollama, Anthropic, anthropic_oauth, GoogleGenAI, gemini_oauth_code_assist, DeepSeek)",
+    help="LLM provider (OpenAI, openai_oauth, XAI, Ollama, Anthropic, anthropic_oauth, GoogleGenAI, gemini_oauth_code_assist, DeepSeek)",
     default=None,
 )
 @click.option(
@@ -1025,7 +1025,7 @@ async def doctor(device: str | None, debug: bool | None):
     "--provider",
     type=str,
     default=None,
-    help="Provider family (gemini, openai, anthropic, grok, ollama, openai_like, minimax, zai).",
+    help="Provider family (gemini, openai, anthropic, XAI, ollama, openai_like, minimax, zai).",
 )
 @click.option(
     "--auth-mode",
@@ -1222,12 +1222,12 @@ def configure_gemini(
     )
 
 
-@configure.command("grok")
+@configure.command("xai")
 @click.option(
     "--credential-path",
     default=str(GROK_OAUTH_CREDENTIAL_PATH),
     show_default=True,
-    help="Where to store Mobilerun's Grok OAuth credentials.",
+    help="Where to store XAI OAuth credentials.",
 )
 @click.option(
     "--model", default=None, help="Optional model override for later API calls."
@@ -1249,16 +1249,16 @@ def configure_gemini(
     "--device-code",
     is_flag=True,
     default=False,
-    help="Use Grok's device-code flow for SSH or other headless environments.",
+    help="Use xAI's device-code flow for SSH or other headless environments.",
 )
-def configure_grok(
+def configure_xai(
     credential_path: str,
     model: str | None,
     timeout: float,
     open_browser: bool,
     device_code: bool,
 ):
-    """Log in to Grok with Mobilerun's native xAI OAuth flow."""
+    """Log in to XAI with Mobilerun OAuth."""
     _run_grok_oauth_login(
         credential_path=credential_path,
         model=model,
