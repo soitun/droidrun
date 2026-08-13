@@ -228,9 +228,7 @@ def _load_openai_responses(*, grok: bool = False, **kwargs: Any) -> LLM:
         def _sanitize_structured_call_kwargs(
             self, call_kwargs: dict[str, Any]
         ) -> dict[str, Any]:
-            sanitized = self._sanitize_call_kwargs(
-                call_kwargs, omit_tool_choice=grok
-            )
+            sanitized = self._sanitize_call_kwargs(call_kwargs, omit_tool_choice=grok)
             if grok:
                 # The upstream structured adapter passes ``store=self.store``
                 # explicitly. The constructor already pins that field false.
@@ -259,9 +257,7 @@ def _load_openai_responses(*, grok: bool = False, **kwargs: Any) -> LLM:
                     input=message_dicts,
                     text_format=output_cls,
                     store=self.store,
-                    **self._sanitize_structured_call_kwargs(
-                        dict(llm_kwargs or {})
-                    ),
+                    **self._sanitize_structured_call_kwargs(dict(llm_kwargs or {})),
                 )
                 if response.output_parsed is not None:
                     return response.output_parsed
@@ -294,9 +290,7 @@ def _load_openai_responses(*, grok: bool = False, **kwargs: Any) -> LLM:
                     input=message_dicts,
                     text_format=output_cls,
                     store=self.store,
-                    **self._sanitize_structured_call_kwargs(
-                        dict(llm_kwargs or {})
-                    ),
+                    **self._sanitize_structured_call_kwargs(dict(llm_kwargs or {})),
                 )
                 if response.output_parsed is not None:
                     return response.output_parsed

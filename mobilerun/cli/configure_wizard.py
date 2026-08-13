@@ -557,9 +557,7 @@ def _configure_provider_model(
                 )
                 if state.selected_model == _BACK:
                     state.selected_model = None
-                    if provider_is_fixed and (
-                        auth_mode_is_fixed or len(modes) == 1
-                    ):
+                    if provider_is_fixed and (auth_mode_is_fixed or len(modes) == 1):
                         return False
                     if auth_mode_is_fixed or len(modes) == 1:
                         if not provider_is_fixed:

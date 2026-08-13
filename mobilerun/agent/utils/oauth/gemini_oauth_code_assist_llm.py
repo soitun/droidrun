@@ -297,16 +297,19 @@ class GeminiOAuthCodeAssistLLM(CustomLLM):
             return
 
         path = Path(self.credential_path).expanduser()
-        AuthProfileStore(path).update_slot(self.credential_slot, {
-            "access_token": self._cached_access_token,
-            "refresh_token": self._cached_refresh_token,
-            "token_type": "Bearer",
-            "expiry_date": (
-                int(self._access_token_expiry * 1000)
-                if self._access_token_expiry
-                else None
-            ),
-        })
+        AuthProfileStore(path).update_slot(
+            self.credential_slot,
+            {
+                "access_token": self._cached_access_token,
+                "refresh_token": self._cached_refresh_token,
+                "token_type": "Bearer",
+                "expiry_date": (
+                    int(self._access_token_expiry * 1000)
+                    if self._access_token_expiry
+                    else None
+                ),
+            },
+        )
 
     def _metadata_payload(self) -> Dict[str, str]:
         return {

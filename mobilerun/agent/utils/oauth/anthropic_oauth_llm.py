@@ -267,16 +267,19 @@ class AnthropicOAuthLLM(CustomLLM):
         if not self.credential_path:
             return
         path = Path(self.credential_path).expanduser()
-        AuthProfileStore(path).update_slot("claudeAiOauth", {
-            "accessToken": self._cached_access_token,
-            "refreshToken": self._cached_refresh_token,
-            "expiresAt": (
-                int(self._access_token_expiry * 1000)
-                if self._access_token_expiry
-                else None
-            ),
-            "scopes": self.refresh_scope.split(),
-        })
+        AuthProfileStore(path).update_slot(
+            "claudeAiOauth",
+            {
+                "accessToken": self._cached_access_token,
+                "refreshToken": self._cached_refresh_token,
+                "expiresAt": (
+                    int(self._access_token_expiry * 1000)
+                    if self._access_token_expiry
+                    else None
+                ),
+                "scopes": self.refresh_scope.split(),
+            },
+        )
 
     def _token_headers(self) -> Dict[str, str]:
         headers = {

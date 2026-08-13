@@ -130,8 +130,7 @@ def _responses_sse() -> bytes:
     )
     return (
         "".join(
-            f"event: {event['type']}\ndata: {json.dumps(event)}\n\n"
-            for event in events
+            f"event: {event['type']}\ndata: {json.dumps(event)}\n\n" for event in events
         )
         + "data: [DONE]\n\n"
     ).encode()
@@ -176,7 +175,9 @@ def test_auth_profile_store_preserves_siblings_and_writes_private_file(tmp_path:
     assert not list(tmp_path.glob(".auth-profiles.json.*.tmp"))
 
 
-def test_auth_profile_store_writes_when_fchmod_is_unavailable(monkeypatch, tmp_path: Path):
+def test_auth_profile_store_writes_when_fchmod_is_unavailable(
+    monkeypatch, tmp_path: Path
+):
     path = tmp_path / "auth-profiles.json"
     monkeypatch.setattr(auth_profile_store, "_FCHMOD", None)
 
@@ -659,7 +660,9 @@ def test_authorization_code_timeout_is_not_retried(tmp_path: Path):
     assert manager.credential_store.load() is None
 
 
-def test_device_flow_matches_xai_surface_and_handles_pending(monkeypatch, tmp_path: Path):
+def test_device_flow_matches_xai_surface_and_handles_pending(
+    monkeypatch, tmp_path: Path
+):
     requests: list[httpx.Request] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -791,7 +794,9 @@ def test_refresh_preserves_rotated_token_and_is_coordinated_across_managers(
     ]
     results: list[GrokOAuthCredentials] = []
     threads = [
-        threading.Thread(target=lambda manager=m: results.append(manager.get_valid_credentials()))
+        threading.Thread(
+            target=lambda manager=m: results.append(manager.get_valid_credentials())
+        )
         for m in managers
     ]
     for thread in threads:
@@ -939,8 +944,7 @@ def test_sync_auth_injects_headers_and_retries_exactly_one_401():
         assert request.headers["X-XAI-Token-Auth"] == "xai-grok-cli"
         assert request.headers["x-grok-model-override"] == DEFAULT_GROK_MODEL
         assert (
-            request.headers[GROK_CLI_COMPAT_VERSION_HEADER]
-            == GROK_CLI_COMPAT_VERSION
+            request.headers[GROK_CLI_COMPAT_VERSION_HEADER] == GROK_CLI_COMPAT_VERSION
         )
         return httpx.Response(401 if len(seen) == 1 else 200, json={})
 
@@ -1158,10 +1162,7 @@ def test_oauth_adapter_sync_chat_serializes_image_and_tool_on_sanitized_wire(
     assert request.headers["Authorization"] == "Bearer adapter-access"
     assert request.headers["X-XAI-Token-Auth"] == "xai-grok-cli"
     assert request.headers["x-grok-model-override"] == DEFAULT_GROK_MODEL
-    assert (
-        request.headers[GROK_CLI_COMPAT_VERSION_HEADER]
-        == GROK_CLI_COMPAT_VERSION
-    )
+    assert request.headers[GROK_CLI_COMPAT_VERSION_HEADER] == GROK_CLI_COMPAT_VERSION
     payload = json.loads(request.content)
     assert payload["model"] == DEFAULT_GROK_MODEL
     assert payload["store"] is False
@@ -1252,8 +1253,7 @@ def test_oauth_adapter_sync_and_async_stream_emit_completed_usage(
         assert request.headers["X-XAI-Token-Auth"] == "xai-grok-cli"
         assert request.headers["x-grok-model-override"] == DEFAULT_GROK_MODEL
         assert (
-            request.headers[GROK_CLI_COMPAT_VERSION_HEADER]
-            == GROK_CLI_COMPAT_VERSION
+            request.headers[GROK_CLI_COMPAT_VERSION_HEADER] == GROK_CLI_COMPAT_VERSION
         )
         assert {"temperature", "top_p", "reasoning"}.isdisjoint(payload)
 
@@ -1281,9 +1281,7 @@ def test_oauth_adapter_async_responses_request_uses_proxy_auth_headers(
         )
 
     async def run() -> str:
-        async_http_client = httpx.AsyncClient(
-            transport=httpx.MockTransport(handler)
-        )
+        async_http_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
         llm = GrokOAuth(
             oauth_credential_path=str(tmp_path / "auth.json"),
             oauth_access_token="adapter-access",
@@ -1308,10 +1306,7 @@ def test_oauth_adapter_async_responses_request_uses_proxy_auth_headers(
     assert request.headers["Authorization"] == "Bearer adapter-access"
     assert request.headers["X-XAI-Token-Auth"] == "xai-grok-cli"
     assert request.headers["x-grok-model-override"] == DEFAULT_GROK_MODEL
-    assert (
-        request.headers[GROK_CLI_COMPAT_VERSION_HEADER]
-        == GROK_CLI_COMPAT_VERSION
-    )
+    assert request.headers[GROK_CLI_COMPAT_VERSION_HEADER] == GROK_CLI_COMPAT_VERSION
 
 
 def test_oauth_responses_adapter_pins_proxy_and_omits_controls(tmp_path: Path):
@@ -1351,8 +1346,7 @@ def test_oauth_responses_adapter_pins_proxy_and_omits_controls(tmp_path: Path):
     assert llm.metadata.is_function_calling_model
     assert llm._tokenizer is None
     assert (
-        llm.default_headers[GROK_CLI_COMPAT_VERSION_HEADER]
-        == GROK_CLI_COMPAT_VERSION
+        llm.default_headers[GROK_CLI_COMPAT_VERSION_HEADER] == GROK_CLI_COMPAT_VERSION
     )
     assert model_kwargs["store"] is False
     assert model_kwargs["model"] == DEFAULT_GROK_MODEL
@@ -1437,9 +1431,7 @@ def test_structured_predict_sanitizes_runtime_kwargs(monkeypatch, tmp_path: Path
     assert llm.store is False
 
 
-def test_async_structured_predict_sanitizes_runtime_kwargs(
-    monkeypatch, tmp_path: Path
-):
+def test_async_structured_predict_sanitizes_runtime_kwargs(monkeypatch, tmp_path: Path):
     llm = GrokOAuth(
         oauth_credential_path=str(tmp_path / "auth.json"),
         oauth_access_token="access",
@@ -1495,9 +1487,9 @@ def test_async_structured_predict_sanitizes_runtime_kwargs(
 
 
 def test_grok_integration_source_does_not_bridge_to_external_credentials():
-    source = Path(
-        "mobilerun/agent/utils/oauth/grok_oauth_llm.py"
-    ).read_text(encoding="utf-8")
+    source = Path("mobilerun/agent/utils/oauth/grok_oauth_llm.py").read_text(
+        encoding="utf-8"
+    )
     forbidden = (
         "." + "grok" + "/" + "auth.json",
         "GROK" + "_HOME",

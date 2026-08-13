@@ -409,9 +409,7 @@ def test_xai_sync_and_async_stream_preserve_completed_usage() -> None:
     async def collect_async():  # type: ignore[no-untyped-def]
         return [
             item
-            async for item in await llm.astream_chat(
-                messages, **dict(runtime_kwargs)
-            )
+            async for item in await llm.astream_chat(messages, **dict(runtime_kwargs))
         ]
 
     async_result = asyncio.run(collect_async())[-1]

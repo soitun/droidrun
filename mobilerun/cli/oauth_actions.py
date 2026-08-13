@@ -124,12 +124,15 @@ def run_anthropic_setup_token_oauth(
 
 
 def save_anthropic_setup_token(credential_path: str, token: str) -> None:
-    AuthProfileStore(credential_path).update_slot("claudeAiOauth", {
-        "accessToken": token,
-        "refreshToken": None,
-        "expiresAt": None,
-        "scopes": [],
-    })
+    AuthProfileStore(credential_path).update_slot(
+        "claudeAiOauth",
+        {
+            "accessToken": token,
+            "refreshToken": None,
+            "expiresAt": None,
+            "scopes": [],
+        },
+    )
 
 
 def run_anthropic_oauth_setup(credential_path: str) -> None:

@@ -119,9 +119,7 @@ def _parse_callback_query(query: str) -> dict[str, str | None]:
     state_values = params.get("state", [])
     error_values = params.get("error", [])
     valid_cardinality = (
-        len(code_values) <= 1
-        and len(state_values) <= 1
-        and len(error_values) <= 1
+        len(code_values) <= 1 and len(state_values) <= 1 and len(error_values) <= 1
     )
     return {
         "code": code_values[0] if len(code_values) == 1 else None,
@@ -143,7 +141,9 @@ class GrokOAuthReloginRequired(GrokOAuthError):
 
 
 def _safe_error_code(value: object) -> str | None:
-    return value if isinstance(value, str) and _OAUTH_ERROR_CODE.fullmatch(value) else None
+    return (
+        value if isinstance(value, str) and _OAUTH_ERROR_CODE.fullmatch(value) else None
+    )
 
 
 def _safe_token_error_code(value: object) -> str | None:
@@ -229,9 +229,7 @@ class GrokOAuthCredentials:
 
 
 class GrokOAuthCredentialStore:
-    def __init__(
-        self, path: str | Path = DEFAULT_GROK_OAUTH_CREDENTIAL_PATH
-    ) -> None:
+    def __init__(self, path: str | Path = DEFAULT_GROK_OAUTH_CREDENTIAL_PATH) -> None:
         self.path = Path(path).expanduser()
         self.profile_store = AuthProfileStore(self.path)
 
@@ -251,9 +249,7 @@ class GrokIDTokenValidator:
     """Validate xAI ID tokens using its pinned ES256 JWKS endpoint."""
 
     def __init__(self, jwks_client: Any | None = None) -> None:
-        self._jwks_client = jwks_client or jwt.PyJWKClient(
-            DEFAULT_GROK_OAUTH_JWKS_URL
-        )
+        self._jwks_client = jwks_client or jwt.PyJWKClient(DEFAULT_GROK_OAUTH_JWKS_URL)
 
     def validate(self, token: str, *, nonce: str | None) -> dict[str, Any]:
         signing_key = self._jwks_client.get_signing_key_from_jwt(token).key
@@ -341,9 +337,7 @@ class GrokOAuthSessionManager:
         if not isinstance(access_token, str) or not access_token:
             raise GrokOAuthError("xAI token response did not contain an access token.")
         id_token = payload.get("id_token")
-        if nonce is not None and not (
-            isinstance(id_token, str) and id_token
-        ):
+        if nonce is not None and not (isinstance(id_token, str) and id_token):
             raise GrokOAuthError(
                 "xAI authorization response did not contain an ID token."
             )
@@ -444,9 +438,7 @@ class GrokOAuthSessionManager:
                 "code_verifier": code_verifier,
             }
         )
-        credentials = self._credentials_from_token_response(
-            payload, nonce=nonce
-        )
+        credentials = self._credentials_from_token_response(payload, nonce=nonce)
         self.set_initial_credentials(credentials)
         return credentials
 
@@ -535,9 +527,7 @@ class GrokOAuthAuth(httpx.Auth):
         request.headers["x-grok-model-override"] = self.model
         request.headers[GROK_CLI_COMPAT_VERSION_HEADER] = GROK_CLI_COMPAT_VERSION
 
-    def sync_auth_flow(
-        self, request: httpx.Request
-    ) -> Iterator[httpx.Request]:
+    def sync_auth_flow(self, request: httpx.Request) -> Iterator[httpx.Request]:
         credentials = self.manager.get_valid_credentials()
         self._authorize(request, credentials)
         response = yield request
@@ -607,11 +597,7 @@ class GrokOAuth(OpenAIResponses):
                 GrokOAuthCredentials(
                     access_token=oauth_access_token or "oauth",
                     refresh_token=oauth_refresh_token,
-                    expires_at_ms=(
-                        oauth_expires_at_ms
-                        if oauth_access_token
-                        else 0
-                    ),
+                    expires_at_ms=(oauth_expires_at_ms if oauth_access_token else 0),
                 )
             )
 
@@ -887,7 +873,10 @@ class GrokOAuth(OpenAIResponses):
         verification_uri = payload.get("verification_uri_complete") or payload.get(
             "verification_uri"
         )
-        if not all(isinstance(value, str) and value for value in (device_code, user_code, verification_uri)):
+        if not all(
+            isinstance(value, str) and value
+            for value in (device_code, user_code, verification_uri)
+        ):
             raise GrokOAuthError("xAI device authorization response was incomplete.")
         try:
             expires_in = max(1, int(payload.get("expires_in", 1800)))
@@ -920,9 +909,7 @@ class GrokOAuth(OpenAIResponses):
                 token_payload = _safe_json_object(
                     token_response, context="xAI device token response"
                 )
-                credentials = manager._credentials_from_token_response(
-                    token_payload
-                )
+                credentials = manager._credentials_from_token_response(token_payload)
                 manager.set_initial_credentials(credentials)
                 return credentials
             try:
