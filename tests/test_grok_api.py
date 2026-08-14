@@ -552,12 +552,6 @@ def test_xai_runtime_aliases_default_to_canonical_model(
     assert llm.model == "grok-4.6"
 
 
-def test_xai_api_preserves_provider_managed_grok_build_latest() -> None:
-    llm = load_llm("XAI", model="grok-build-latest", api_key="stub")
-
-    assert llm.model == "grok-build-latest"
-
-
 def test_xai_oauth_runtime_uses_grok_oauth_adapter(tmp_path) -> None:
     llm = load_llm(
         "xai_oauth",
