@@ -31,6 +31,7 @@ from llama_index.llms.openai.responses import OpenAIResponses
 from llama_index.llms.openai.utils import to_openai_message_dicts
 
 from mobilerun.agent.providers.grok import (
+    GROK_DEFAULT_MODEL,
     GROK_MODELS,
     normalize_grok_model_id,
     sanitize_grok_responses_kwargs,
@@ -42,7 +43,7 @@ from mobilerun.agent.utils.oauth.login_timeout import (
 from mobilerun.config_manager.auth_profile_store import AuthProfileStore
 from mobilerun.config_manager.credential_paths import GROK_OAUTH_CREDENTIAL_PATH
 
-DEFAULT_GROK_MODEL = "grok-4.5"
+DEFAULT_GROK_MODEL = GROK_DEFAULT_MODEL
 DEFAULT_GROK_CONTEXT_WINDOW = 500_000
 DEFAULT_GROK_OAUTH_ISSUER = "https://auth.x.ai"
 DEFAULT_GROK_OAUTH_AUTHORIZE_URL = f"{DEFAULT_GROK_OAUTH_ISSUER}/oauth2/authorize"

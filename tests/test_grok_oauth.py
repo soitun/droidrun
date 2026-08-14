@@ -23,6 +23,7 @@ from llama_index.core.base.llms.types import (
     ToolCallBlock,
 )
 
+from mobilerun.agent.providers.grok import GROK_DEFAULT_MODEL
 from mobilerun.agent.usage import get_usage_from_response
 from mobilerun.agent.utils.oauth.grok_oauth_llm import (
     DEFAULT_GROK_CONTEXT_WINDOW,
@@ -58,6 +59,10 @@ class _AcceptingIDTokenValidator:
     def validate(self, token: str, *, nonce: str | None):  # type: ignore[no-untyped-def]
         self.calls.append((token, nonce))
         return {"sub": "user"}
+
+
+def test_oauth_default_uses_shared_xai_catalog_default() -> None:
+    assert DEFAULT_GROK_MODEL == GROK_DEFAULT_MODEL == "grok-4.6"
 
 
 class _FakeClock:
@@ -1420,8 +1425,9 @@ def test_oauth_adapter_sync_and_async_stream_emit_completed_usage(
         assert {"temperature", "top_p", "reasoning"}.isdisjoint(payload)
 
 
-def test_oauth_adapter_async_responses_request_uses_proxy_auth_headers(
-    tmp_path: Path,
+@pytest.mark.parametrize("model", ("grok-4.6", "grok-4.5"))
+def test_oauth_adapter_async_responses_request_uses_exact_model_in_header_and_body(
+    tmp_path: Path, model: str
 ):
     requests: list[httpx.Request] = []
 
@@ -1432,7 +1438,7 @@ def test_oauth_adapter_async_responses_request_uses_proxy_auth_headers(
             json={
                 "id": "resp_test",
                 "created_at": int(time.time()),
-                "model": DEFAULT_GROK_MODEL,
+                "model": model,
                 "object": "response",
                 "output": [],
                 "parallel_tool_calls": True,
@@ -1445,6 +1451,7 @@ def test_oauth_adapter_async_responses_request_uses_proxy_auth_headers(
     async def run() -> str:
         async_http_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
         llm = GrokOAuth(
+            model=model,
             oauth_credential_path=str(tmp_path / "auth.json"),
             oauth_access_token="adapter-access",
             oauth_refresh_token="adapter-refresh",
@@ -1453,7 +1460,7 @@ def test_oauth_adapter_async_responses_request_uses_proxy_auth_headers(
         )
         try:
             response = await llm._aclient.responses.create(
-                model=DEFAULT_GROK_MODEL,
+                model=model,
                 input="hello",
                 store=False,
             )
@@ -1467,8 +1474,17 @@ def test_oauth_adapter_async_responses_request_uses_proxy_auth_headers(
     assert str(request.url) == f"{DEFAULT_GROK_OAUTH_PROXY}/responses"
     assert request.headers["Authorization"] == "Bearer adapter-access"
     assert request.headers["X-XAI-Token-Auth"] == "xai-grok-cli"
-    assert request.headers["x-grok-model-override"] == DEFAULT_GROK_MODEL
+    assert request.headers["x-grok-model-override"] == model
     assert request.headers[GROK_CLI_COMPAT_VERSION_HEADER] == GROK_CLI_COMPAT_VERSION
+    assert json.loads(request.content)["model"] == model
+
+
+def test_oauth_rejects_grok_build_latest_without_rewriting_it(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="grok-build-latest"):
+        GrokOAuth(
+            model="grok-build-latest",
+            oauth_credential_path=str(tmp_path / "auth.json"),
+        )
 
 
 def test_oauth_responses_adapter_pins_proxy_and_omits_controls(tmp_path: Path):

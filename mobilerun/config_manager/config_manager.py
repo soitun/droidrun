@@ -7,7 +7,10 @@ from typing import Any, Dict, List, Literal, Optional
 import yaml
 
 from mobilerun.agent.providers.minimax import warn_if_legacy_minimax_endpoint
-from mobilerun.agent.providers.registry import VARIANT_ENV_KEY_SLOT
+from mobilerun.agent.providers.registry import (
+    GEMINI_API_DEFAULT_MODEL,
+    VARIANT_ENV_KEY_SLOT,
+)
 from mobilerun.config_manager.env_keys import API_KEY_ENV_VARS, load_env_key_sources
 from mobilerun.config_manager.path_resolver import PathResolver
 from mobilerun.mcp.config import MCPConfig, MCPServerConfig
@@ -22,7 +25,7 @@ class LLMProfile:
     """LLM profile configuration."""
 
     provider: str = "GoogleGenAI"
-    model: str = "gemini-3.5-flash-lite"
+    model: str = GEMINI_API_DEFAULT_MODEL
     temperature: float = 0.2
     api_key_source: Literal["auto", "env", "file"] = "auto"
     base_url: Optional[str] = None
@@ -264,31 +267,31 @@ class MobileConfig:
         return {
             "manager": LLMProfile(
                 provider="GoogleGenAI",
-                model="gemini-3.5-flash-lite",
+                model=GEMINI_API_DEFAULT_MODEL,
                 temperature=0.2,
                 kwargs={},
             ),
             "executor": LLMProfile(
                 provider="GoogleGenAI",
-                model="gemini-3.5-flash-lite",
+                model=GEMINI_API_DEFAULT_MODEL,
                 temperature=0.1,
                 kwargs={},
             ),
             "fast_agent": LLMProfile(
                 provider="GoogleGenAI",
-                model="gemini-3.5-flash-lite",
+                model=GEMINI_API_DEFAULT_MODEL,
                 temperature=0.2,
                 kwargs={},
             ),
             "app_opener": LLMProfile(
                 provider="GoogleGenAI",
-                model="gemini-3.5-flash-lite",
+                model=GEMINI_API_DEFAULT_MODEL,
                 temperature=0.0,
                 kwargs={},
             ),
             "structured_output": LLMProfile(
                 provider="GoogleGenAI",
-                model="gemini-3.5-flash-lite",
+                model=GEMINI_API_DEFAULT_MODEL,
                 temperature=0.0,
                 kwargs={},
             ),

@@ -5,11 +5,10 @@ from __future__ import annotations
 from collections.abc import Mapping, MutableMapping
 from typing import Any
 
-GROK_DEFAULT_MODEL = "grok-4.5"
-GROK_MODELS = (GROK_DEFAULT_MODEL,)
+GROK_DEFAULT_MODEL = "grok-4.6"
+GROK_MODELS = (GROK_DEFAULT_MODEL, "grok-4.5")
 GROK_MODEL_ALIASES = {
-    "grok-4.5-latest": GROK_DEFAULT_MODEL,
-    "grok-build-latest": GROK_DEFAULT_MODEL,
+    "grok-4.5-latest": "grok-4.5",
 }
 
 XAI_API_BASE = "https://api.x.ai/v1"

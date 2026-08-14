@@ -12,8 +12,10 @@ def test_gemini_api_key_catalog_uses_current_flash_models() -> None:
     variant = resolve_provider_variant("gemini", "api_key")
     models = list_models_for_variant("gemini", "api_key")
 
-    assert variant.default_model == "gemini-3.1-pro-preview"
+    assert models[0] == variant.default_model == LLMProfile().model
+    assert variant.default_model == "gemini-3.7-flash"
     assert models == (
+        "gemini-3.7-flash",
         "gemini-3.5-flash",
         "gemini-3.6-flash",
         "gemini-3.5-flash-lite",
@@ -110,12 +112,12 @@ def test_openai_api_key_catalog_uses_current_default_model() -> None:
     )
 
 
-def test_default_profiles_use_stable_gemini_flash_lite() -> None:
+def test_default_profiles_use_gemini_3_7_flash() -> None:
     config = MobileConfig()
 
-    assert LLMProfile().model == "gemini-3.5-flash-lite"
+    assert LLMProfile().model == "gemini-3.7-flash"
     assert {profile.model for profile in config.llm_profiles.values()} == {
-        "gemini-3.5-flash-lite"
+        "gemini-3.7-flash"
     }
 
 

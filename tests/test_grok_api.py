@@ -22,7 +22,12 @@ from openai.types.responses.response_usage import (
     ResponseUsage,
 )
 
-from mobilerun.agent.providers.grok import XAI_API_BASE
+from mobilerun.agent.providers.grok import (
+    GROK_DEFAULT_MODEL,
+    GROK_MODELS,
+    XAI_API_BASE,
+    normalize_grok_model_id,
+)
 from mobilerun.agent.providers.registry import (
     VARIANT_ENV_KEY_SLOT,
     list_models_for_variant,
@@ -46,7 +51,7 @@ def _xai_completed_response(*, usage: ResponseUsage) -> Response:
         incomplete_details=None,
         instructions=None,
         metadata={},
-        model="grok-4.5",
+        model=GROK_DEFAULT_MODEL,
         object="response",
         output=[
             ResponseFunctionToolCall(
@@ -83,8 +88,11 @@ def test_grok_api_key_variant_is_first_class_xai_responses_provider() -> None:
 
     assert variant.id == "XAI"
     assert variant.runtime_provider_name == "XAI"
-    assert variant.default_model == "grok-4.5"
-    assert list_models_for_variant("xai", "api_key") == ("grok-4.5",)
+    assert variant.default_model == "grok-4.6"
+    assert list_models_for_variant("xai", "api_key") == (
+        "grok-4.6",
+        "grok-4.5",
+    )
     assert variant.requires_api_key is True
     assert variant.base_url == XAI_API_BASE
     assert VARIANT_ENV_KEY_SLOT[variant.id] == "xai"
@@ -96,20 +104,38 @@ def test_grok_oauth_variant_shares_the_canonical_model_catalog() -> None:
 
     assert variant.id == "xai_oauth"
     assert variant.runtime_provider_name == "xai_oauth"
-    assert variant.default_model == "grok-4.5"
-    assert variant.models == ("grok-4.5",)
+    assert variant.default_model == "grok-4.6"
+    assert variant.models == ("grok-4.6", "grok-4.5")
+    assert variant.models == GROK_MODELS
     assert variant.credential_path
 
 
 @pytest.mark.parametrize("auth_mode", ("api_key", "oauth"))
 @pytest.mark.parametrize(
-    "model_alias",
-    ("grok-4.5", "grok-4.5-latest", "grok-build-latest", "xai/grok-4.5"),
+    ("model_alias", "expected_model"),
+    (
+        ("grok-4.6", "grok-4.6"),
+        ("xai/grok-4.6", "grok-4.6"),
+        ("grok-4.5", "grok-4.5"),
+        ("grok-4.5-latest", "grok-4.5"),
+        ("xai/grok-4.5", "grok-4.5"),
+    ),
 )
 def test_grok_model_aliases_normalize_to_canonical_id(
-    auth_mode: str, model_alias: str
+    auth_mode: str, model_alias: str, expected_model: str
 ) -> None:
-    assert normalize_model_id_for_variant("xai", auth_mode, model_alias) == "grok-4.5"
+    assert (
+        normalize_model_id_for_variant("xai", auth_mode, model_alias) == expected_model
+    )
+
+
+@pytest.mark.parametrize("auth_mode", ("api_key", "oauth"))
+def test_grok_build_latest_is_never_rewritten(auth_mode: str) -> None:
+    assert normalize_grok_model_id("grok-build-latest") == "grok-build-latest"
+    assert (
+        normalize_model_id_for_variant("xai", auth_mode, "grok-build-latest")
+        == "grok-build-latest"
+    )
 
 
 @pytest.mark.parametrize("alias", ("xai", "XAI"))
@@ -132,7 +158,7 @@ def test_grok_profile_wires_api_base_context_and_environment_key(monkeypatch) ->
             family_id="xai",
             variant_id="XAI",
             auth_mode="api_key",
-            model="grok-build-latest",
+            model="grok-4.6",
             api_key_source="env",
         ),
         temperature=0.4,
@@ -140,7 +166,7 @@ def test_grok_profile_wires_api_base_context_and_environment_key(monkeypatch) ->
 
     assert profile.provider == "XAI"
     assert profile.provider_family == "xai"
-    assert profile.model == "grok-4.5"
+    assert profile.model == "grok-4.6"
     assert profile.temperature == 0.4
     assert profile.base_url == XAI_API_BASE
     assert profile.api_base == XAI_API_BASE
@@ -258,7 +284,6 @@ def test_xai_sync_chat_pins_final_sdk_wire_body() -> None:
 
     llm = load_llm(
         "XAI",
-        model="grok-4.5",
         api_key="stub",
         http_client=httpx.Client(transport=httpx.MockTransport(handler)),
     )
@@ -285,7 +310,7 @@ def test_xai_sync_chat_pins_final_sdk_wire_body() -> None:
     request = requests[0]
     assert str(request.url) == f"{XAI_API_BASE}/responses"
     payload = json.loads(request.content)
-    assert payload["model"] == "grok-4.5"
+    assert payload["model"] == "grok-4.6"
     assert payload["store"] is False
     assert payload["metadata"] == {"safe": "value"}
     assert {"reasoning", "presence_penalty"}.isdisjoint(payload)
@@ -305,7 +330,7 @@ def test_xai_sync_and_async_chat_send_sanitized_multimodal_tool_payloads() -> No
         async_payload.update(kwargs)
         return response
 
-    llm = load_llm("XAI", model="grok-4.5", api_key="stub")
+    llm = load_llm("XAI", model=GROK_DEFAULT_MODEL, api_key="stub")
     llm._client = SimpleNamespace(responses=SimpleNamespace(create=create_sync))
     llm._aclient = SimpleNamespace(responses=SimpleNamespace(create=create_async))
     messages = [
@@ -352,7 +377,7 @@ def test_xai_sync_and_async_chat_send_sanitized_multimodal_tool_payloads() -> No
 
     for payload in (sync_payload, async_payload):
         assert payload["stream"] is False
-        assert payload["model"] == "grok-4.5"
+        assert payload["model"] == GROK_DEFAULT_MODEL
         assert payload["temperature"] == 0.4
         assert payload["top_p"] == 0.6
         assert payload["store"] is False
@@ -393,7 +418,7 @@ def test_xai_sync_and_async_stream_preserve_completed_usage() -> None:
         async_payload.update(kwargs)
         return event_stream()
 
-    llm = load_llm("XAI", model="grok-4.5", api_key="stub")
+    llm = load_llm("XAI", model=GROK_DEFAULT_MODEL, api_key="stub")
     llm._client = SimpleNamespace(responses=SimpleNamespace(create=create_sync))
     llm._aclient = SimpleNamespace(responses=SimpleNamespace(create=create_async))
     messages = [ChatMessage(role=MessageRole.USER, content="inspect")]
@@ -448,7 +473,7 @@ def test_xai_structured_predict_sanitizes_sync_and_async_call_kwargs() -> None:
         async_payload.update(kwargs)
         return SimpleNamespace(output_parsed=StructuredResult(value="OK"))
 
-    llm = load_llm("XAI", model="grok-4.5", api_key="stub")
+    llm = load_llm("XAI", model=GROK_DEFAULT_MODEL, api_key="stub")
     llm._client = SimpleNamespace(responses=SimpleNamespace(parse=parse_sync))
     llm._aclient = SimpleNamespace(responses=SimpleNamespace(parse=parse_async))
     prompt = PromptTemplate("Return {value}")
@@ -524,7 +549,13 @@ def test_xai_runtime_aliases_default_to_canonical_model(
 
     llm = load_llm(alias)
 
-    assert llm.model == "grok-4.5"
+    assert llm.model == "grok-4.6"
+
+
+def test_xai_api_preserves_provider_managed_grok_build_latest() -> None:
+    llm = load_llm("XAI", model="grok-build-latest", api_key="stub")
+
+    assert llm.model == "grok-build-latest"
 
 
 def test_xai_oauth_runtime_uses_grok_oauth_adapter(tmp_path) -> None:

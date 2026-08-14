@@ -161,7 +161,7 @@ def test_xai_oauth_action_shares_deadline_and_browser_preference(
     monkeypatch.setattr(oauth_actions, "GrokOAuth", FakeXAI)
     oauth_actions.run_grok_oauth_login(
         str(tmp_path / "auth.json"),
-        "grok-4.5",
+        None,
         timeout=12,
         open_browser=False,
         device_code=True,
@@ -169,6 +169,7 @@ def test_xai_oauth_action_shares_deadline_and_browser_preference(
 
     deadline = observed["login"]["deadline"]
     assert isinstance(deadline, OAuthLoginDeadline)
+    assert observed["init"]["model"] == "grok-4.6"
     assert observed["init"]["timeout"] == 12
     assert observed["login"]["open_browser"] is False
     assert observed["login"]["device_code"] is True
@@ -283,11 +284,11 @@ def test_exact_xai_configure_forms_keep_provider_and_auth_fixed(
     assert result.exit_code == 0, result.output
     assert saved_configs == [config]
     assert login_calls == []
-    assert model_prompts == [(("grok-4.5",), "grok-4.5")]
+    assert model_prompts == [(("grok-4.6", "grok-4.5"), "grok-4.6")]
     assert {
         (profile.provider, profile.provider_family, profile.auth_mode, profile.model)
         for profile in config.llm_profiles.values()
-    } == {(expected_provider, "xai", auth_mode, "grok-4.5")}
+    } == {(expected_provider, "xai", auth_mode, "grok-4.6")}
     assert "xai_oauth" not in result.output
     assert "Provider: XAI" in result.output
 
@@ -375,6 +376,6 @@ def test_fixed_provider_and_auth_model_back_returns_to_top_level_once(
         base_url=None,
     )
 
-    assert model_prompts == [(("grok-4.5",), "grok-4.5")]
+    assert model_prompts == [(("grok-4.6", "grok-4.5"), "grok-4.6")]
     assert menu_calls == ["Configure"]
     assert saved_configs == [config]

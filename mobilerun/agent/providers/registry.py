@@ -40,6 +40,16 @@ OPENAI_MODEL_ALIASES: dict[str, str] = {
     "gpt-5.6": "gpt-5.6-sol",
 }
 
+GEMINI_API_DEFAULT_MODEL = "gemini-3.7-flash"
+GEMINI_API_MODELS: tuple[str, ...] = (
+    GEMINI_API_DEFAULT_MODEL,
+    "gemini-3.5-flash",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-3-flash-preview",
+    "gemini-3.1-pro-preview",
+)
+
 
 PROVIDER_FAMILIES: tuple[ProviderFamilySpec, ...] = (
     ProviderFamilySpec(
@@ -50,14 +60,8 @@ PROVIDER_FAMILIES: tuple[ProviderFamilySpec, ...] = (
                 id="GoogleGenAI",
                 runtime_provider_name="GoogleGenAI",
                 auth_mode="api_key",
-                default_model="gemini-3.1-pro-preview",
-                models=(
-                    "gemini-3.5-flash",
-                    "gemini-3.6-flash",
-                    "gemini-3.5-flash-lite",
-                    "gemini-3-flash-preview",
-                    "gemini-3.1-pro-preview",
-                ),
+                default_model=GEMINI_API_DEFAULT_MODEL,
+                models=GEMINI_API_MODELS,
                 requires_api_key=True,
             ),
             ProviderVariantSpec(
