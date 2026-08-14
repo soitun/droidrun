@@ -233,6 +233,7 @@ def test_openai_oauth_rejects_unsupported_codex_model() -> None:
 @pytest.mark.parametrize(
     "model",
     [
+        "gemini-3.7-flash",
         "gemini-3.6-flash",
         "gemini-3.5-flash-lite",
         "gemini-3.5-flash",
@@ -260,7 +261,10 @@ def test_gemini_oauth_allows_live_unadvertised_2_5_ids(model: str) -> None:
     assert llm.model == model
 
 
-@pytest.mark.parametrize("model", ["gemini-3.6-flash", "gemini-3.5-flash-lite"])
+@pytest.mark.parametrize(
+    "model",
+    ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"],
+)
 def test_new_google_genai_models_omit_sampling_configuration(model: str) -> None:
     from google.genai import types
 
@@ -298,6 +302,106 @@ def test_new_google_genai_models_omit_sampling_configuration(model: str) -> None
     )
     assert {"temperature", "top_p", "top_k"}.isdisjoint(call_kwargs)
     assert call_kwargs["generation_config"] == {"max_output_tokens": 32}
+
+
+def test_gemini_3_7_image_tool_chat_uses_native_payload_without_sampling() -> None:
+    from google.genai import types
+    from llama_index.core.base.llms.types import (
+        ChatMessage,
+        ImageBlock,
+        MessageRole,
+        TextBlock,
+    )
+
+    captured: dict[str, Any] = {}
+    native_response = types.GenerateContentResponse(
+        candidates=[
+            types.Candidate(
+                content=types.Content(
+                    role="model",
+                    parts=[
+                        types.Part(
+                            function_call=types.FunctionCall(
+                                name="live_probe", args={"value": "ok"}
+                            )
+                        )
+                    ],
+                ),
+                finish_reason=types.FinishReason.STOP,
+            )
+        ],
+        usage_metadata=types.GenerateContentResponseUsageMetadata(
+            prompt_token_count=7,
+            candidates_token_count=3,
+            total_token_count=10,
+        ),
+    )
+
+    class NativeChat:
+        def send_message(self, parts: Any) -> Any:
+            captured["parts"] = parts
+            return native_response
+
+    class NativeChats:
+        def create(self, **kwargs: Any) -> NativeChat:
+            captured["create"] = kwargs
+            return NativeChat()
+
+    llm = load_llm(
+        "GoogleGenAI",
+        model="gemini-3.7-flash",
+        api_key="stub",
+        context_window=1_048_576,
+        max_tokens=64,
+        file_mode="inline",
+        temperature=0.4,
+    )
+    llm._client = SimpleNamespace(chats=NativeChats())
+    declaration = types.FunctionDeclaration(
+        name="live_probe",
+        description="Record the compatibility probe.",
+        parameters_json_schema={
+            "type": "object",
+            "properties": {"value": {"type": "string"}},
+            "required": ["value"],
+        },
+    )
+    tool_config = types.ToolConfig(
+        function_calling_config=types.FunctionCallingConfig(
+            mode="ANY", allowed_function_names=["live_probe"]
+        )
+    )
+
+    response = llm._chat(
+        [
+            ChatMessage(
+                role=MessageRole.USER,
+                blocks=[
+                    TextBlock(text="Inspect the image, then call live_probe."),
+                    ImageBlock(image=b"png", image_mimetype="image/png"),
+                ],
+            )
+        ],
+        tools=[types.Tool(function_declarations=[declaration])],
+        tool_config=tool_config,
+        **_sampling_llm_kwargs(),
+    )
+
+    create_kwargs = captured["create"]
+    config = create_kwargs["config"].model_dump(exclude_none=True)
+    assert create_kwargs["model"] == llm.model == "gemini-3.7-flash"
+    assert {"temperature", "top_p", "top_k"}.isdisjoint(config)
+    assert config["max_output_tokens"] == 32
+    assert config["tools"][0]["function_declarations"][0]["name"] == "live_probe"
+    assert config["tool_config"]["function_calling_config"]["mode"].value == "ANY"
+
+    sent_parts = captured["parts"]
+    assert sent_parts[1].inline_data.mime_type == "image/png"
+    assert sent_parts[1].inline_data.data == b"png"
+    tool_calls = llm.get_tool_calls_from_response(response)
+    assert [(call.tool_name, call.tool_kwargs) for call in tool_calls] == [
+        ("live_probe", {"value": "ok"})
+    ]
 
 
 class _AsyncChunks:
@@ -359,7 +463,7 @@ def _google_structured_llm_with_capture() -> tuple[Any, Any, Any, list[dict[str,
     calls: list[dict[str, Any]] = []
     llm = load_llm(
         "GoogleGenAI",
-        model="gemini-3.5-flash-lite",
+        model="gemini-3.7-flash",
         api_key="stub",
         max_tokens=64,
         context_window=1_000_000,
@@ -391,6 +495,61 @@ def _assert_google_request_omits_sampling(request: dict[str, Any]) -> None:
     sampling_params = {"temperature", "top_p", "top_k"}
     assert sampling_params.isdisjoint(request)
     assert sampling_params.isdisjoint(request["config"])
+
+
+def test_gemini_3_7_chat_paths_strip_sampling_payload(monkeypatch) -> None:
+    from llama_index.llms.google_genai import GoogleGenAI
+
+    calls: list[tuple[str, dict[str, Any]]] = []
+
+    def capture_chat(_self, _messages, **kwargs: Any) -> str:
+        calls.append(("chat", kwargs))
+        return "chat"
+
+    async def capture_achat(_self, _messages, **kwargs: Any) -> str:
+        calls.append(("achat", kwargs))
+        return "achat"
+
+    def capture_stream_chat(_self, _messages, **kwargs: Any) -> str:
+        calls.append(("stream_chat", kwargs))
+        return "stream_chat"
+
+    async def capture_astream_chat(_self, _messages, **kwargs: Any) -> str:
+        calls.append(("astream_chat", kwargs))
+        return "astream_chat"
+
+    monkeypatch.setattr(GoogleGenAI, "_chat", capture_chat)
+    monkeypatch.setattr(GoogleGenAI, "_achat", capture_achat)
+    monkeypatch.setattr(GoogleGenAI, "_stream_chat", capture_stream_chat)
+    monkeypatch.setattr(GoogleGenAI, "_astream_chat", capture_astream_chat)
+
+    llm = load_llm(
+        "GoogleGenAI",
+        model="gemini-3.7-flash",
+        api_key="stub",
+        max_tokens=64,
+        context_window=1_000_000,
+        temperature=0.4,
+    )
+
+    assert llm._chat([], **_sampling_llm_kwargs()) == "chat"
+    assert llm._stream_chat([], **_sampling_llm_kwargs()) == "stream_chat"
+
+    async def run_async_paths() -> None:
+        assert await llm._achat([], **_sampling_llm_kwargs()) == "achat"
+        assert await llm._astream_chat([], **_sampling_llm_kwargs()) == "astream_chat"
+
+    asyncio.run(run_async_paths())
+
+    assert [name for name, _ in calls] == [
+        "chat",
+        "stream_chat",
+        "achat",
+        "astream_chat",
+    ]
+    for _, call_kwargs in calls:
+        assert {"temperature", "top_p", "top_k"}.isdisjoint(call_kwargs)
+        assert call_kwargs["generation_config"] == {"max_output_tokens": 32}
 
 
 def test_google_direct_structured_path_strips_sampling_payload() -> None:

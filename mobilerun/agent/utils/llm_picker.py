@@ -65,6 +65,7 @@ ZAI_GLOBAL_API_BASE = "https://api.z.ai/api/paas/v4"
 # Antigravity OAuth catalog. Catch these locally so users get the applicable
 # OAuth choices instead of a remote model-not-found response.
 GEMINI_OAUTH_UNSUPPORTED_MODELS = {
+    "gemini-3.7-flash",
     "gemini-3.6-flash",
     "gemini-3.5-flash-lite",
     "gemini-3.5-flash",
@@ -83,6 +84,7 @@ OPENAI_RESPONSES_MODELS_WITHOUT_SAMPLING_PARAMS = {
 }
 OPENAI_RESPONSES_UNSUPPORTED_SAMPLING_PARAMS = {"temperature", "top_p"}
 GOOGLE_GENAI_MODELS_WITHOUT_SAMPLING_PARAMS = {
+    "gemini-3.7-flash",
     "gemini-3.6-flash",
     "gemini-3.5-flash-lite",
 }
@@ -505,7 +507,7 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
 
     Args:
         provider_name: Case-sensitive provider name (e.g. "OpenAIResponses", "Ollama").
-        model: Model name (e.g. "gpt-5.5", "gemini-3.5-flash-lite").
+        model: Model name (e.g. "gpt-5.5", "gemini-3.7-flash").
         **kwargs: Keyword arguments for the LLM class constructor.
 
     Returns:
@@ -609,7 +611,7 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
         # config to redirect the bearer credential to another host.
         kwargs.pop("base_url", None)
         kwargs["api_base"] = XAI_API_BASE
-        # Grok 4.5's catalog context is provider metadata, not a caller-tunable
+        # Grok's catalog context is provider metadata, not a caller-tunable
         # endpoint option. Keep hand-written runtime profiles aligned with the
         # first-class provider catalog as well as generated profiles.
         kwargs["context_window"] = GROK_CONTEXT_WINDOW
@@ -749,7 +751,7 @@ if __name__ == "__main__":
         },
         {
             "name": "GoogleGenAI",
-            "model": "gemini-3.5-flash-lite",
+            "model": "gemini-3.7-flash",
         },
         {
             "name": "OpenAIResponses",

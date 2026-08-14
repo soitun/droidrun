@@ -94,7 +94,7 @@ In screenshot-only mode, Mobilerun does not read an accessibility tree. The agen
 export GOOGLE_API_KEY=your-key
 mobilerun run "Archive old emails" \
   --provider GoogleGenAI \
-  --model gemini-3.5-flash-lite
+  --model gemini-3.7-flash
 
 # OpenAI
 export OPENAI_API_KEY=your-key
@@ -106,7 +106,7 @@ mobilerun run "Create shopping list" \
 export XAI_API_KEY=your-key
 mobilerun run "Open Settings" \
   --provider XAI \
-  --model grok-4.5
+  --model grok-4.6
 
 # Anthropic Claude
 export ANTHROPIC_API_KEY=your-key
@@ -177,10 +177,10 @@ Configure XAI with an API key or OAuth:
 mobilerun configure \
   --provider XAI \
   --auth-mode api_key \
-  --model grok-4.5
+  --model grok-4.6
 
 # OAuth through provider options
-mobilerun configure --provider XAI --auth-mode oauth --model grok-4.5
+mobilerun configure --provider XAI --auth-mode oauth --model grok-4.6
 
 # OAuth shortcut
 mobilerun configure xai
@@ -188,6 +188,9 @@ mobilerun configure xai
 # Device-code login for SSH/headless hosts
 mobilerun configure xai --device-code --no-browser
 ```
+
+Grok 4.6 is the default; Grok 4.5 remains available by selecting
+`--model grok-4.5` explicitly.
 
 ### MiniMax endpoints and credentials
 
