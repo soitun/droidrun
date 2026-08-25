@@ -171,6 +171,16 @@ Use the framework when you want full local control of the agent runtime. Use [Mo
 | Cloud Phone (Hosted) | Instantly available cloud-hosted phone | Scalable hosted automation |
 | Physical Phone (Hosted) | Real hardware with stronger identity characteristics | Workflows that need high device authenticity and trust |
 
+## 🧩 Agent Skill
+
+Give Claude Code, Codex, or another coding agent direct control of Android and iOS devices with the [mobile-harness](https://github.com/droidrun/mobile-harness) skill:
+
+```bash
+npx skills add droidrun/mobile-harness
+```
+
+The skill teaches the agent to drive local devices (ADB, Portal, iOS Simulator) and Mobilerun Cloud phones through `mobilerun-core`.
+
 ## 🎬 Demo Videos
 
 ### Book accommodation from a prompt
