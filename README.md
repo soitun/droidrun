@@ -173,13 +173,15 @@ Use the framework when you want full local control of the agent runtime. Use [Mo
 
 ## 🧩 Agent Skill
 
-Give Claude Code, Codex, or another coding agent direct control of Android and iOS devices with the [mobile-harness](https://github.com/droidrun/mobile-harness) skill:
+Give Claude Code, Codex, or another coding agent direct control of Android and iOS devices with the [mobile-harness](https://github.com/droidrun/mobile-harness) skill. Copy paste it into your agent:
 
-```bash
-npx skills add droidrun/mobile-harness
+```text
+Set up https://github.com/droidrun/mobile-harness for me.
+
+Read `install.md` and follow the steps to install `mobile-harness`.
 ```
 
-The skill teaches the agent to drive local devices (ADB, Portal, iOS Simulator) and Mobilerun Cloud phones through `mobilerun-core`.
+The skill teaches the agent to drive local devices (ADB, Portal, iOS Simulator) and Mobilerun Cloud phones.
 
 ## 🎬 Demo Videos
 
