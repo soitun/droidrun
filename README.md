@@ -133,8 +133,6 @@ mobilerun run "Open Settings" --steps 30 --debug
 
 Read the full [framework documentation](https://docs.mobilerun.ai/framework/quickstart).
 
-[![Quickstart Video](https://img.youtube.com/vi/4WT7FXJah2I/0.jpg)](https://www.youtube.com/watch?v=4WT7FXJah2I)
-
 ## ⚙️ Features
 
 - **CLI:** Run one-off natural language tasks, inspect devices, replay macros, and debug from the terminal.
@@ -170,6 +168,12 @@ Use the framework when you want full local control of the agent runtime. Use [Mo
 | Personal | Your own hardware connected to Mobilerun Cloud | Quick automation on devices you own |
 | Cloud Phone (Hosted) | Instantly available cloud-hosted phone | Scalable hosted automation |
 | Physical Phone (Hosted) | Real hardware with stronger identity characteristics | Workflows that need high device authenticity and trust |
+
+### Automate WhatsApp on a Cloud Phone
+
+<a href="https://www.youtube.com/watch?v=2A8D8NtNfz8">
+  <img src="./static/whatsapp-automation.gif" alt="Mobilerun automating WhatsApp on a cloud device" width="800">
+</a>
 
 ## 🧩 Agent Skill
 
