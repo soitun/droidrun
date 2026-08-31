@@ -5,6 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
+from mobilerun_core_local.driver.ios import IOSDriver
 from PIL import Image
 
 from mobilerun.agent.droid.droid_agent import MobileAgent, _effective_disabled_tools
@@ -12,7 +13,6 @@ from mobilerun.agent.utils.actions import click_area, click_at, long_press_at, s
 from mobilerun.agent.utils.signatures import build_tool_registry
 from mobilerun.config_manager.config_manager import MobileConfig
 from mobilerun.config_manager.prompt_loader import PromptLoader
-from mobilerun_core_local.driver.ios import IOSDriver
 from mobilerun.tools.helpers.images import (
     image_dimensions,
     resize_image_to_max_side,
