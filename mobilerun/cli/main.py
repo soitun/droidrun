@@ -27,6 +27,8 @@ from mobilerun_core_local.driver.android.portal import (
     ping_portal_tcp,
     setup_portal,
 )
+from mobilerun_core_local.driver.ios import discover_ios_device, validate_ios_portal_url
+from mobilerun_core_local.driver.visual_remote import VISUAL_REMOTE_CONNECTION
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
@@ -67,8 +69,6 @@ from mobilerun.config_manager.credential_paths import (
 from mobilerun.log_handlers import CLILogHandler, configure_logging
 from mobilerun.macro.cli import macro_cli
 from mobilerun.telemetry import print_telemetry_message
-from mobilerun_core_local.driver.ios import discover_ios_device, validate_ios_portal_url
-from mobilerun_core_local.driver.visual_remote import VISUAL_REMOTE_CONNECTION
 
 # Suppress all warnings
 warnings.filterwarnings("ignore")
@@ -171,7 +171,7 @@ async def run_command(
 
     try:
         logger.info(f"🚀 Starting: {command}")
-        print_telemetry_message()
+        print_telemetry_message(config_enabled=config.telemetry.enabled)
 
         # ================================================================
         # STEP 1: Apply CLI overrides via direct mutation
@@ -1330,7 +1330,7 @@ async def test(
 
     try:
         logger.info(f"🚀 Starting: {command}")
-        print_telemetry_message()
+        print_telemetry_message(config_enabled=config.telemetry.enabled)
 
         # ================================================================
         # STEP 1: Apply CLI overrides via direct mutation

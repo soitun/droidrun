@@ -26,6 +26,7 @@ class MobileAgentState(BaseModel):
     step_number: int = 0
     runtype: str = "developer"
     user_id: str | None = None
+    telemetry_config_enabled: bool = Field(default=True, exclude=True)
     platform: str = "Android"
 
     # ========================================================================
@@ -192,6 +193,7 @@ class MobileAgentState(BaseModel):
                 step_number=self.step_number,
             ),
             user_id=self.user_id,
+            config_enabled=self.telemetry_config_enabled,
         )
 
 

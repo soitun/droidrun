@@ -18,6 +18,18 @@ from llama_index.core.workflow import Context, StartEvent, StopEvent, Workflow, 
 from mobilerun_core_local.driver.android import AndroidDriver
 from mobilerun_core_local.driver.android.portal import ensure_portal_ready
 from mobilerun_core_local.driver.base import DeviceDisconnectedError
+from mobilerun_core_local.driver.ios import (
+    IOSPortalHttpDriver,
+    create_ios_driver,
+    discover_ios_device,
+)
+from mobilerun_core_local.driver.recording import RecordingDriver
+from mobilerun_core_local.driver.stealth import StealthDriver
+from mobilerun_core_local.driver.visual_remote import (
+    VISUAL_REMOTE_CONNECTION,
+    VISUAL_REMOTE_DEFAULT_URL,
+    VisualRemoteDriver,
+)
 from opentelemetry import trace
 from pydantic import BaseModel
 from workflows.events import Event
@@ -80,18 +92,6 @@ from mobilerun.telemetry import (
     MobileAgentInitEvent,
     capture,
     flush,
-)
-from mobilerun_core_local.driver.ios import (
-    IOSPortalHttpDriver,
-    create_ios_driver,
-    discover_ios_device,
-)
-from mobilerun_core_local.driver.recording import RecordingDriver
-from mobilerun_core_local.driver.stealth import StealthDriver
-from mobilerun_core_local.driver.visual_remote import (
-    VISUAL_REMOTE_CONNECTION,
-    VISUAL_REMOTE_DEFAULT_URL,
-    VisualRemoteDriver,
 )
 from mobilerun.tools.filters import ConciseFilter, DetailedFilter
 from mobilerun.tools.formatters import IndexedFormatter
@@ -256,6 +256,7 @@ class MobileAgent(Workflow):
             external_agents=config.external_agents if config else {},
             mcp=config.mcp if config else MCPConfig(),
         )
+        self.shared_state.telemetry_config_enabled = self.config.telemetry.enabled
         control_backend = _normalize_control_backend(
             self.resolved_device_config.control_backend
         )
@@ -749,6 +750,7 @@ class MobileAgent(Workflow):
                 custom_prompts=self._init_prompts,
             ),
             self.user_id,
+            config_enabled=self.shared_state.telemetry_config_enabled,
         )
 
         if self.config.logging.save_trajectory != "none":
@@ -1011,8 +1013,9 @@ class MobileAgent(Workflow):
                 unique_activities_count=len(self.shared_state.visited_activities),
             ),
             self.user_id,
+            config_enabled=self.shared_state.telemetry_config_enabled,
         )
-        await flush()
+        await flush(config_enabled=self.shared_state.telemetry_config_enabled)
 
         # Base result with answer
         result = ResultEvent(

@@ -22,7 +22,22 @@ Mobilerun collects <b>anonymized</b> usage data to help us understand which feat
 
 ## How to Disable Telemetry
 
-You can disable telemetry at any time by setting the following environment variable:
+Disable telemetry for an agent in Python:
+
+```python
+from mobilerun import MobileConfig, TelemetryConfig
+
+config = MobileConfig(telemetry=TelemetryConfig(enabled=False))
+```
+
+Or set the equivalent value in your YAML configuration:
+
+```yaml
+telemetry:
+  enabled: false
+```
+
+You can also disable telemetry for every Mobilerun process in your environment:
 
 ```bash
 export MOBILERUN_TELEMETRY_ENABLED=false
@@ -39,7 +54,12 @@ export MOBILERUN_TELEMETRY_ENABLED=true
 ```
 
 <Note>
-Telemetry is currently controlled only by the `MOBILERUN_TELEMETRY_ENABLED` environment variable. While a `telemetry.enabled` config option exists in the configuration schema, it is not currently used by the telemetry system.
+Telemetry is sent only when both `telemetry.enabled` and the environment setting
+allow it. An explicit `false` in either place always disables telemetry, so an
+environment value of `true` cannot override `telemetry.enabled: false`.
+
+`DROIDRUN_TELEMETRY_ENABLED` remains supported as a legacy fallback when
+`MOBILERUN_TELEMETRY_ENABLED` is not set.
 </Note>
 
 ---
