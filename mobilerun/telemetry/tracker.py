@@ -2,13 +2,15 @@
 Anonymous telemetry tracking using PostHog.
 
 This module handles opt-in telemetry collection to help improve Mobilerun.
-All data is anonymized and can be disabled by setting DROIDRUN_TELEMETRY_ENABLED=false.
+All data is anonymized, and telemetry can be disabled through the Mobilerun
+configuration or environment variables.
 """
 
 import asyncio
 import logging
 import os
 from pathlib import Path
+from threading import Lock
 from uuid import UUID, uuid4
 
 from posthog import Posthog
@@ -24,51 +26,53 @@ USER_ID_PATH = Path.home() / ".droidrun" / "user_id"
 RUN_ID = str(uuid4())
 
 TELEMETRY_ENABLED_MESSAGE = "Anonymized telemetry enabled. See https://docs.mobilerun.ai/v3/guides/telemetry for more information."
-TELEMETRY_DISABLED_MESSAGE = "🛑 Anonymized telemetry disabled. Consider setting the DROIDRUN_TELEMETRY_ENABLED environment variable to 'true' to enable telemetry and help us improve Mobilerun."
+TELEMETRY_DISABLED_MESSAGE = "🛑 Anonymized telemetry disabled. Telemetry can be controlled through Mobilerun configuration or the MOBILERUN_TELEMETRY_ENABLED environment variable."
 
 # Created lazily on first capture/flush. Constructing the PostHog client spawns
 # a consumer thread and registers a blocking atexit flush, which added ~5s to
 # the shutdown of EVERY command (incl. `mobilerun --help`) because importing
 # mobilerun imports this module. Deferring it keeps non-telemetry commands fast.
 _posthog: Posthog | None = None
+_posthog_lock = Lock()
 
 
 def _get_posthog() -> Posthog:
     global _posthog
     if _posthog is None:
-        _posthog = Posthog(
-            project_api_key=PROJECT_API_KEY,
-            host=HOST,
-            disable_geoip=False,
-        )
+        with _posthog_lock:
+            if _posthog is None:
+                _posthog = Posthog(
+                    project_api_key=PROJECT_API_KEY,
+                    host=HOST,
+                    disable_geoip=False,
+                )
     return _posthog
 
 
-def is_telemetry_enabled():
+def is_telemetry_enabled(*, config_enabled: bool = True) -> bool:
     """
-    Check if telemetry is enabled via environment variable.
+    Check whether both configuration and environment policy enable telemetry.
 
     Returns:
-        True if DROIDRUN_TELEMETRY_ENABLED is set to true/1/yes/y (case-insensitive),
-        or if the environment variable is not set (default is enabled).
+        True when ``config_enabled`` is true and the primary or legacy telemetry
+        environment variable is true/1/yes/y (case-insensitive). Environment
+        policy defaults to enabled when neither variable is set.
     """
-    telemetry_enabled = (
-        os.environ.get("MOBILERUN_TELEMETRY_ENABLED")
-        or os.environ.get("DROIDRUN_TELEMETRY_ENABLED")
-        or "true"
-    )
-    enabled = telemetry_enabled.lower() in ["true", "1", "yes", "y"]
+    telemetry_enabled = os.environ.get("MOBILERUN_TELEMETRY_ENABLED")
+    if telemetry_enabled is None:
+        telemetry_enabled = os.environ.get("DROIDRUN_TELEMETRY_ENABLED") or "true"
+    enabled = config_enabled and telemetry_enabled.lower() in ["true", "1", "yes", "y"]
     logger.debug(f"Telemetry enabled: {enabled}")
     return enabled
 
 
-def print_telemetry_message():
+def print_telemetry_message(*, config_enabled: bool = True) -> None:
     """
     Print telemetry status message to the logger.
 
-    Displays enabled or disabled message based on DROIDRUN_TELEMETRY_ENABLED setting.
+    Displays the effective status based on configuration and environment policy.
     """
-    if is_telemetry_enabled():
+    if is_telemetry_enabled(config_enabled=config_enabled):
         mobilerun_logger.debug(TELEMETRY_ENABLED_MESSAGE)
 
     else:
@@ -124,21 +128,28 @@ def get_user_id() -> str:
         return "unknown"
 
 
-def capture(event: TelemetryEvent, user_id: str | None = None):
+def capture(
+    event: TelemetryEvent,
+    user_id: str | None = None,
+    *,
+    config_enabled: bool = True,
+) -> None:
     """
     Capture and send a telemetry event to PostHog.
 
     Args:
         event: Telemetry event to capture (must be a TelemetryEvent subclass)
         user_id: Optional user ID to use instead of the default persistent ID
+        config_enabled: Whether telemetry is enabled in Mobilerun configuration
 
     Note:
         This function is a no-op if telemetry is disabled.
     """
+    if not is_telemetry_enabled(config_enabled=config_enabled):
+        logger.debug(f"Telemetry disabled, skipping capture of {event}")
+        return
+
     try:
-        if not is_telemetry_enabled():
-            logger.debug(f"Telemetry disabled, skipping capture of {event}")
-            return
         event_name = type(event).__name__
         event_data = event.model_dump()
         properties = {
@@ -154,9 +165,9 @@ def capture(event: TelemetryEvent, user_id: str | None = None):
         logger.error(f"Error capturing event: {e}")
 
 
-async def flush():
+async def flush(*, config_enabled: bool = True) -> None:
     try:
-        if not is_telemetry_enabled() or _posthog is None:
+        if not is_telemetry_enabled(config_enabled=config_enabled) or _posthog is None:
             return
 
         await asyncio.wait_for(asyncio.to_thread(_posthog.flush), timeout=10)

@@ -9,7 +9,10 @@ resolves to the exact same classes as the core packages.
 
 import unittest
 
+import mobilerun_core_local.driver.android
+import mobilerun_core_local.driver.base
 import mobilerun_core_local.driver.cloud
+import mobilerun_core_local.driver.ios
 import mobilerun_core_local.driver.recording
 import mobilerun_core_local.driver.stealth
 import mobilerun_core_local.driver.visual_remote
@@ -29,6 +32,30 @@ from mobilerun.tools.driver import (
 
 class DriverCompatIdentityTest(unittest.TestCase):
     """Compat names must be the exact same objects as the core implementations."""
+
+    def test_android_driver_is_core_local_implementation(self):
+        self.assertIs(
+            AndroidDriver,
+            mobilerun_core_local.driver.android.AndroidDriver,
+        )
+
+    def test_device_disconnected_error_is_core_local_implementation(self):
+        self.assertIs(
+            DeviceDisconnectedError,
+            mobilerun_core_local.driver.base.DeviceDisconnectedError,
+        )
+
+    def test_device_driver_is_core_local_implementation(self):
+        self.assertIs(
+            DeviceDriver,
+            mobilerun_core_local.driver.base.DeviceDriver,
+        )
+
+    def test_ios_driver_is_core_local_implementation(self):
+        self.assertIs(
+            IOSDriver,
+            mobilerun_core_local.driver.ios.IOSDriver,
+        )
 
     def test_recording_driver_is_core_local_implementation(self):
         self.assertIs(

@@ -16,15 +16,15 @@ import click
 from async_adbutils import adb
 from mobilerun_core_local.driver.android import AndroidDriver
 from mobilerun_core_local.driver.android.portal import ensure_portal_ready
-from rich.console import Console
-
-from mobilerun.config_manager import ConfigLoader
 from mobilerun_core_local.driver.ios import (
     IOSPortalHttpDriver,
     create_ios_driver,
     discover_ios_device,
     validate_ios_portal_url,
 )
+from rich.console import Console
+
+from mobilerun.config_manager import ConfigLoader
 from mobilerun.tools.filters import ConciseFilter
 from mobilerun.tools.formatters import IndexedFormatter
 from mobilerun.tools.ui.ios_provider import IOSStateProvider
