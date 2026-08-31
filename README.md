@@ -169,6 +169,8 @@ Use the framework when you want full local control of the agent runtime. Use [Mo
 | Cloud Phone (Hosted) | Instantly available cloud-hosted phone | Scalable hosted automation |
 | Physical Phone (Hosted) | Real hardware with stronger identity characteristics | Workflows that need high device authenticity and trust |
 
+### Automate WhatsApp on a Cloud Phone
+
 <a href="https://www.youtube.com/watch?v=2A8D8NtNfz8">
   <img src="./static/whatsapp-automation.gif" alt="Mobilerun automating WhatsApp on a cloud device" width="800">
 </a>
