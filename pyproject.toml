@@ -69,7 +69,7 @@ dev = [
     "mobilerun[langfuse]",
 ]
 langfuse = [
-    "langfuse==3.12.1",
+    "langfuse==4.15.1",
     "openinference-instrumentation-llama-index>=3.0.0",
     "llama-index-instrumentation"
 ]

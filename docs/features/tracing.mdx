@@ -120,8 +120,12 @@ Langfuse provides LLM observability with features like session tracking, user an
 ```sh
 export LANGFUSE_SECRET_KEY=sk-lf-...
 export LANGFUSE_PUBLIC_KEY=pk-lf-...
-export LANGFUSE_HOST=https://cloud.langfuse.com
+export LANGFUSE_BASE_URL=https://cloud.langfuse.com
 ```
+
+`LANGFUSE_BASE_URL` is the canonical endpoint variable. The legacy
+`LANGFUSE_HOST` variable remains a fallback. An explicit `langfuse_host` value
+in Mobilerun configuration takes precedence over both environment variables.
 
 **Via config.yaml:**
 ```yaml
