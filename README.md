@@ -21,6 +21,7 @@
 [![mobilerun.ai](https://img.shields.io/badge/mobilerun.ai-white)](https://mobilerun.ai)
 [![Twitter Follow](https://img.shields.io/twitter/follow/mobilerun_ai?style=social)](https://x.com/mobilerun_ai)
 [![Discord](https://img.shields.io/discord/1360219330318696488?color=white&label=Discord&logo=discord&logoColor=white)](https://discord.gg/ZZbKEZZkwK)
+[![Telegram Support](https://img.shields.io/badge/Telegram-Support-26A5E4?logo=telegram&logoColor=white)](https://t.me/+_r43WkbbyiA1OGUy)
 [![Benchmark](https://img.shields.io/badge/Benchmark-91.4﹪-white)](https://mobilerun.ai/benchmark)
 
 
