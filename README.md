@@ -176,6 +176,12 @@ Use the framework when you want full local control of the agent runtime. Use [Mo
   <img src="./static/whatsapp-automation.gif" alt="Mobilerun automating WhatsApp on a cloud device" width="800">
 </a>
 
+### Generate leads with Google Maps on a Cloud Phone
+
+<a href="https://www.youtube.com/watch?v=CaL71WorysA">
+  <img src="./static/google-maps.gif" alt="Mobilerun generating business leads with Google Maps on a cloud device" width="800">
+</a>
+
 ## 🧩 Agent Skill
 
 Give Claude Code, Codex, or another coding agent direct control of Android and iOS devices with the [mobile-harness](https://github.com/droidrun/mobile-harness) skill. Copy paste it into your agent:
@@ -204,14 +210,6 @@ Shows browsing, app navigation, and result extraction from a natural-language ta
 
 <a href="https://youtu.be/7V8S2f8PnkQ">
   <img src="./static/demo-reddit-trends.gif" alt="Mobilerun finding trending content from a prompt" width="800">
-</a>
-
-### Maintain an app streak
-
-Shows a short recurring mobile workflow that can be automated from a prompt.
-
-<a href="https://youtu.be/B5q2B467HKw">
-  <img src="./static/demo-duolingo-streak.gif" alt="Mobilerun maintaining an app streak from a prompt" width="800">
 </a>
 
 ## 💡 Example Use Cases
