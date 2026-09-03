@@ -410,8 +410,17 @@ class LangfuseSpanProcessor(SpanProcessor):
 
     @classmethod
     def _sanitize_serialized_data_uris(cls, value: Any) -> tuple[Any, bool]:
-        """Apply the image limit to media already serialized as content."""
-        if isinstance(value, str) and value.startswith("data:"):
+        """Apply media limits to base64 data URIs already serialized as content."""
+        if isinstance(value, str):
+            header, separator, _payload = value.partition(",")
+            is_base64_data_uri = (
+                value.startswith("data:")
+                and bool(separator)
+                and header.endswith(";base64")
+            )
+            if not is_base64_data_uri:
+                return value, False
+
             prepared = cls._prepare_image_for_native_upload(
                 {"image": value, "image_mimetype": "application/octet-stream"}
             )

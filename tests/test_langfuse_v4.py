@@ -426,6 +426,62 @@ def test_rejected_serialized_content_media_is_removed(monkeypatch):
     assert "input.value" not in attrs
 
 
+@pytest.mark.parametrize(
+    "value",
+    [
+        "data: ordinary non-media text",
+        {"message": "data: nested non-media text"},
+        ["data: list-contained non-media text"],
+        {"uri": "data:text/plain,hello"},
+    ],
+)
+def test_non_media_data_prefixed_serialized_content_is_preserved(value, caplog):
+    serialized = json.dumps(value)
+    attrs = {"input.value": serialized}
+
+    LangfuseSpanProcessor()._process_field(attrs, "input")
+
+    assert attrs["langfuse.observation.input"] == serialized
+    assert "input.value" not in attrs
+    assert "skipping upload" not in caplog.text
+
+
+def test_mixed_serialized_content_preserves_text_and_removes_oversized_media(
+    monkeypatch,
+):
+    monkeypatch.setattr(langfuse_processor, "MAX_IMAGE_SIZE_KB", 0)
+    encoded = base64.b64encode(b"oversized-image").decode()
+    attrs = {
+        "input.value": json.dumps(
+            {
+                "content": [
+                    "data: ordinary non-media text",
+                    f"data:image/png;base64,{encoded}",
+                ]
+            }
+        )
+    }
+
+    LangfuseSpanProcessor()._process_field(attrs, "input")
+
+    observed = json.loads(attrs["langfuse.observation.input"])
+    assert observed["content"] == ["data: ordinary non-media text", ""]
+    assert encoded not in attrs["langfuse.observation.input"]
+    assert "input.value" not in attrs
+
+
+def test_malformed_base64_serialized_media_is_removed(caplog):
+    attrs = {
+        "input.value": json.dumps({"url": "data:image/png;base64,not-valid-base64"})
+    }
+
+    LangfuseSpanProcessor()._process_field(attrs, "input")
+
+    assert json.loads(attrs["langfuse.observation.input"])["url"] == ""
+    assert "not-valid-base64" not in caplog.text
+    assert "input.value" not in attrs
+
+
 def test_apply_session_context_sets_langfuse_trace_attributes():
     from openinference.semconv.trace import SpanAttributes
     from opentelemetry.context import get_value
