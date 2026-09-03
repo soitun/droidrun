@@ -140,7 +140,7 @@ def _setup_langfuse_tracing(
 
         if not public_key or not secret_key:
             logger.error(
-                "❌ Langfuse credentials are missing. Configure both the public and secret key."
+                "Langfuse credentials are missing. Configure both the public and secret key."
             )
             return False
 
@@ -244,7 +244,7 @@ def _setup_langfuse_tracing(
         try:
             if not _langfuse_client.auth_check():
                 logger.error(
-                    "❌ Langfuse authentication failed. Please check your credentials."
+                    "Langfuse authentication failed. Please check your credentials."
                 )
         except Exception as error:
             logger.error(
