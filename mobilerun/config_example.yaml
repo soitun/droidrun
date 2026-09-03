@@ -159,10 +159,10 @@ tracing:
   provider: phoenix
   # Upload screenshots to Langfuse (cloud traces)
   langfuse_screenshots: false
-  # Langfuse configuration (set as environment variables if not empty string)
-  langfuse_secret_key: ""  # LANGFUSE_SECRET_KEY
-  langfuse_public_key: ""  # LANGFUSE_PUBLIC_KEY
-  langfuse_host: ""        # LANGFUSE_HOST
+  # Langfuse configuration (explicit values override environment variables)
+  langfuse_secret_key: ""  # Explicit key override; otherwise LANGFUSE_SECRET_KEY
+  langfuse_public_key: ""  # Explicit key override; otherwise LANGFUSE_PUBLIC_KEY
+  langfuse_host: ""        # Explicit endpoint; otherwise LANGFUSE_BASE_URL
   langfuse_user_id: "anonymous"  # User ID for tracing
   langfuse_session_id: ""  # Session ID (empty = auto-generate UUID per process)
 

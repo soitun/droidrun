@@ -172,7 +172,7 @@ TracingConfig(
     # Langfuse settings (only used if provider="langfuse")
     langfuse_secret_key="",             # LANGFUSE_SECRET_KEY env var
     langfuse_public_key="",             # LANGFUSE_PUBLIC_KEY env var
-    langfuse_host="",                   # LANGFUSE_HOST env var (e.g., "https://cloud.langfuse.com")
+    langfuse_host="",                   # Endpoint override; otherwise LANGFUSE_BASE_URL
     langfuse_user_id="anonymous",       # User ID for Langfuse tracing
     langfuse_session_id="",             # Empty = auto-generate UUID; custom value to persist across runs
 )

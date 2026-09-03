@@ -1,40 +1,19 @@
-"""Production-ready Langfuse span processor with image upload support.
+"""OpenTelemetry span preprocessing for the Langfuse integration.
 
-This module provides a custom OpenTelemetry span processor that:
-- Uploads images to Langfuse blob storage (S3/Azure/GCS)
-- Transforms LlamaIndex block-based messages to Langfuse content format
-- Auto-scales from 3 to 50 worker threads based on load
-- Uses HTTP connection pooling for performance
-- Operates silently (warnings and errors only)
-
-Usage:
-    from mobilerun.telemetry.langfuse_processor import LangfuseSpanProcessor
-
-    processor = LangfuseSpanProcessor(
-        public_key="pk-lf-...",
-        secret_key="sk-lf-...",
-        base_url="https://cloud.langfuse.com",
-    )
+Langfuse owns span export, batching, and media upload. This processor runs
+before the Langfuse processor and only normalizes Mobilerun/OpenInference spans
+into the attributes understood by Langfuse.
 """
 
 import base64
-import hashlib
 import json
 import logging
-import threading
-import time
-from concurrent.futures import Future, ThreadPoolExecutor
 from contextvars import ContextVar
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
-import requests
-from langfuse._client.span_processor import (
-    LangfuseSpanProcessor as BaseLangfuseSpanProcessor,
-)
 from opentelemetry import trace
 from opentelemetry.context import Context
-from opentelemetry.sdk.trace import ReadableSpan, Span
+from opentelemetry.sdk.trace import ReadableSpan, Span, SpanProcessor
 
 from mobilerun import __version__
 
@@ -47,10 +26,13 @@ _current_agent: ContextVar[Optional["MobileAgent"]] = ContextVar(
 _root_span_context: ContextVar[Optional[Context]] = ContextVar(
     "_root_span_context", default=None
 )
-# Track last active step span (FastAgent/Manager/Executor) to parent screenshots
 _last_step_span_context: ContextVar[Optional[Context]] = ContextVar(
     "_last_step_span_context", default=None
 )
+
+MAX_IMAGE_SIZE_KB = 10000
+
+logger = logging.getLogger("mobilerun")
 
 
 def set_current_agent(agent: "MobileAgent") -> None:
@@ -58,10 +40,9 @@ def set_current_agent(agent: "MobileAgent") -> None:
 
 
 def set_root_span_context(span: Span) -> None:
-    """Store the root span context so screenshots can attach even if current span is missing."""
+    """Store the root span context for screenshots created outside an active span."""
     try:
-        ctx = trace.set_span_in_context(span)
-        _root_span_context.set(ctx)
+        _root_span_context.set(trace.set_span_in_context(span))
     except Exception:
         pass
 
@@ -72,8 +53,7 @@ def get_root_span_context() -> Optional[Context]:
 
 def set_last_step_span_context(span: Span) -> None:
     try:
-        ctx = trace.set_span_in_context(span)
-        _last_step_span_context.set(ctx)
+        _last_step_span_context.set(trace.set_span_in_context(span))
     except Exception:
         pass
 
@@ -82,362 +62,123 @@ def get_last_step_span_context() -> Optional[Context]:
     return _last_step_span_context.get()
 
 
-MAX_IMAGE_SIZE_KB = 10000
-MAX_UPLOAD_WORKERS = 50  # Maximum concurrent upload threads
-SHUTDOWN_TIMEOUT = 30  # Seconds to wait for pending uploads on shutdown
+class LangfuseSpanProcessor(SpanProcessor):
+    """Normalize spans before Langfuse's public OTel exporter sees them.
 
-# Use Mobilerun's logger
-logger = logging.getLogger("mobilerun")
-
-
-class LangfuseSpanProcessor(BaseLangfuseSpanProcessor):
-    """
-    Production span processor with image upload and message formatting.
-
-    Extends the base LangfuseSpanProcessor with:
-    - Auto-scaling thread pool (3-50 workers based on load)
-    - Image upload to blob storage with deduplication
-    - Message format transformation (blocks → content)
+    This processor deliberately does not export, batch, upload, or own threads.
+    Register it before constructing the public :class:`langfuse.Langfuse`
+    client so the client's processor receives the normalized span.
     """
 
-    def __init__(
-        self,
-        *,
-        public_key: str,
-        secret_key: str,
-        base_url: str,
-        timeout: Optional[int] = None,
-        flush_at: Optional[int] = None,
-        flush_interval: Optional[float] = None,
-        blocked_instrumentation_scopes: Optional[List[str]] = None,
-        additional_headers: Optional[dict] = None,
-        agent: Optional["MobileAgent"] = None,
-    ):
-        """Initialize the span processor with media upload support.
-
-        Args:
-            agent: Optional MobileAgent instance for accessing agent context during span processing.
-        """
-        super().__init__(
-            public_key=public_key,
-            secret_key=secret_key,
-            base_url=base_url,
-            timeout=timeout,
-            flush_at=flush_at,
-            flush_interval=flush_interval,
-            blocked_instrumentation_scopes=blocked_instrumentation_scopes,
-            additional_headers=additional_headers,
-        )
-
-        # Store credentials for media API calls
-        self._base_url = base_url
-        auth_string = f"{public_key}:{secret_key}"
-        self._auth_header = "Basic " + base64.b64encode(auth_string.encode()).decode()
-
-        # HTTP connection pooling (shared across all threads)
-        self._http_session = requests.Session()
-        self._http_session.headers.update(
-            {
-                "Authorization": self._auth_header,
-                "Content-Type": "application/json",
-            }
-        )
-        adapter = requests.adapters.HTTPAdapter(
-            pool_connections=3,  # Increase this if hosting on server with multiple users
-            pool_maxsize=10,  # Increase this if hosting on server with multiple users (task api)
-            max_retries=3,
-        )
-        self._http_session.mount("http://", adapter)
-        self._http_session.mount("https://", adapter)
-
-        self._executor = ThreadPoolExecutor(
-            max_workers=MAX_UPLOAD_WORKERS,
-            thread_name_prefix="LangfuseMediaUpload",
-        )
-
-        self._pending_uploads: List[Future] = []
-        self._pending_lock = threading.Lock()
+    def __init__(self, agent: Optional["MobileAgent"] = None) -> None:
+        if agent is not None:
+            set_current_agent(agent)
 
     @property
     def agent(self) -> Optional["MobileAgent"]:
         return _current_agent.get()
 
     def _extract_agent_input(self) -> Optional[dict]:
-        if not self.agent:
+        agent = self.agent
+        if not agent:
             return None
 
         try:
-            input_data = {}
+            input_data: dict[str, Any] = {}
 
-            if self.agent.shared_state.instruction:
-                input_data["goal"] = self.agent.shared_state.instruction
+            if agent.shared_state.instruction:
+                input_data["goal"] = agent.shared_state.instruction
 
-            input_data["reasoning"] = self.agent.config.agent.reasoning
+            input_data["reasoning"] = agent.config.agent.reasoning
 
-            if self.agent.config.device:
-                device = self.agent.config.device
+            if agent.config.device:
+                device = agent.config.device
                 input_data["device"] = {
                     "platform": device.platform,
                     "serial": device.serial,
                     "use_tcp": device.use_tcp,
                 }
 
-            if self.agent.output_model:
-                input_data["output_model"] = self.agent.output_model.__name__
+            if agent.output_model:
+                input_data["output_model"] = agent.output_model.__name__
 
             input_data["droidrun_version"] = "v" + __version__
 
-            if self.agent.config.agent.after_sleep_action:
-                input_data["after_action_sleep"] = (
-                    self.agent.config.agent.after_sleep_action
-                )
+            if agent.config.agent.after_sleep_action:
+                input_data["after_action_sleep"] = agent.config.agent.after_sleep_action
 
-            # Vision settings
             vision_state = {
-                "manager": getattr(self.agent.config.agent.manager, "vision", False),
-                "executor": getattr(self.agent.config.agent.executor, "vision", False),
-                "fast_agent": getattr(
-                    self.agent.config.agent.fast_agent, "vision", False
-                ),
+                "manager": getattr(agent.config.agent.manager, "vision", False),
+                "executor": getattr(agent.config.agent.executor, "vision", False),
+                "fast_agent": getattr(agent.config.agent.fast_agent, "vision", False),
             }
             input_data["vision_enabled"] = any(vision_state.values())
             input_data["vision"] = vision_state
 
-            active_llms = []
-            if self.agent.config.agent.reasoning:
-                # Reasoning mode uses manager, executor
-                llm_attrs = ["manager_llm", "executor_llm"]
-            else:
-                # Direct mode uses fast_agent
-                llm_attrs = ["fast_agent_llm"]
-
-            # Add helper LLMs
+            llm_attrs = (
+                ["manager_llm", "executor_llm"]
+                if agent.config.agent.reasoning
+                else ["fast_agent_llm"]
+            )
             llm_attrs.append("app_opener_llm")
-
-            # Add structured_output if output_model is present
-            if self.agent.output_model:
+            if agent.output_model:
                 llm_attrs.append("structured_output_llm")
 
+            active_llms = []
             for llm_attr in llm_attrs:
-                llm = getattr(self.agent, llm_attr)
-                if llm:
-                    role = llm_attr.replace("_llm", "")
-                    llm_info = {
-                        "role": role,
-                        "provider": (
-                            llm.class_name()
-                            if hasattr(llm, "class_name")
-                            else "unknown"
-                        ),
-                    }
-                    if role in vision_state:
-                        llm_info["vision"] = vision_state[role]
+                llm = getattr(agent, llm_attr, None)
+                if llm is None:
+                    continue
 
-                    # Extract model name
-                    if hasattr(llm, "model"):
-                        llm_info["model"] = llm.model
-                    elif hasattr(llm, "metadata") and hasattr(
-                        llm.metadata, "model_name"
-                    ):
-                        llm_info["model"] = llm.metadata.model_name
+                role = llm_attr.replace("_llm", "")
+                llm_info = {
+                    "role": role,
+                    "provider": (
+                        llm.class_name() if hasattr(llm, "class_name") else "unknown"
+                    ),
+                }
+                if role in vision_state:
+                    llm_info["vision"] = vision_state[role]
 
-                    # Extract temperature
-                    if hasattr(llm, "temperature"):
-                        llm_info["temperature"] = llm.temperature
+                if hasattr(llm, "model"):
+                    llm_info["model"] = llm.model
+                elif hasattr(llm, "metadata") and hasattr(llm.metadata, "model_name"):
+                    llm_info["model"] = llm.metadata.model_name
 
-                    active_llms.append(llm_info)
+                if hasattr(llm, "temperature"):
+                    llm_info["temperature"] = llm.temperature
+
+                active_llms.append(llm_info)
 
             input_data["llms"] = active_llms
-
             return input_data
-
-        except Exception as e:
-            logger.warning(f"Failed to extract agent input: {e}")
-            return None
-
-    # Media API
-    def _submit_upload(self, job: dict):
-        """Submit upload job to thread pool (non-blocking)."""
-        try:
-            future = self._executor.submit(self._upload_media_to_langfuse, job)
-
-            with self._pending_lock:
-                self._pending_uploads.append(future)
-
-            future.add_done_callback(self._cleanup_future)
-
-        except Exception as e:
-            logger.error(f"Failed to submit media upload: {e}")
-
-    def _cleanup_future(self, future: Future):
-        """Remove completed future from tracking list."""
-        with self._pending_lock:
-            try:
-                self._pending_uploads.remove(future)
-            except ValueError:
-                pass
-
-    def _upload_media_to_langfuse(self, job: dict):
-        """Upload media to Langfuse blob storage."""
-        try:
-            # Step 1: Request presigned upload URL
-            upload_response = self._request_upload_url(
-                media_id=job["media_id"],
-                content_type=job["content_type"],
-                content_length=job["content_length"],
-                sha256_hash=job["sha256_hash"],
-                trace_id=job["trace_id"],
-                observation_id=job.get("observation_id"),
-                field=job["field"],
-            )
-
-            if not upload_response or not upload_response.get("uploadUrl"):
-                # Media already exists (deduplication)
-                return
-
-            upload_url = upload_response["uploadUrl"]
-
-            # Step 2: Upload to blob storage (S3/Azure/GCS)
-            headers = {"Content-Type": job["content_type"]}
-
-            # GCS doesn't support these headers
-            if "storage.googleapis.com" not in upload_url:
-                headers["x-ms-blob-type"] = "BlockBlob"
-                headers["x-amz-checksum-sha256"] = job["sha256_hash"]
-
-            response = self._http_session.put(
-                upload_url, headers=headers, data=job["content_bytes"]
-            )
-
-            # Step 3: Notify Langfuse of upload completion
-            if response.status_code in (200, 201):
-                self._notify_upload_complete(job["media_id"], response.status_code)
-            else:
-                logger.error(
-                    f"Media upload failed for {job['media_id']}: "
-                    f"HTTP {response.status_code} - {response.text}"
-                )
-
-        except Exception as e:
-            logger.error(f"Failed to upload media {job['media_id']}: {e}")
-
-    def _request_upload_url(
-        self,
-        media_id: str,
-        content_type: str,
-        content_length: int,
-        sha256_hash: str,
-        trace_id: str,
-        observation_id: Optional[str],
-        field: str,
-    ) -> Optional[dict]:
-        """Request presigned upload URL from Langfuse API."""
-        try:
-            url = f"{self._base_url}/api/public/media"
-            payload = {
-                "traceId": trace_id,
-                "observationId": observation_id,
-                "contentType": content_type,
-                "contentLength": content_length,
-                "sha256Hash": sha256_hash,
-                "field": field,
-            }
-
-            response = self._http_session.post(url, json=payload, timeout=10)
-
-            if response.status_code == 200:
-                return response.json()
-            elif response.status_code == 201:
-                data = response.json()
-                if data.get("uploadUrl") is None:
-                    # media already exists (deduplication)
-                    return None
-                return data
-            else:
-                logger.error(
-                    f"Failed to request upload URL: HTTP {response.status_code} - {response.text}"
-                )
-                return None
-
-        except Exception as e:
-            logger.error(f"Error requesting upload URL: {e}")
-            return None
-
-    def _notify_upload_complete(self, media_id: str, status_code: int):
-        """Notify Langfuse that upload completed."""
-        try:
-            url = f"{self._base_url}/api/public/media/{media_id}"
-            payload = {
-                "uploadedAt": datetime.now(timezone.utc).isoformat(),
-                "uploadHttpStatus": status_code,
-            }
-
-            response = self._http_session.patch(url, json=payload, timeout=10)
-
-            if response.status_code != 200:
-                logger.warning(
-                    f"Failed to notify upload complete: HTTP {response.status_code}"
-                )
-
-        except Exception as e:
-            logger.error(f"Error notifying upload complete: {e}")
-
-    def shutdown(self):
-        """Override shutdown to wait for pending media uploads."""
-
-        self._executor.shutdown(wait=False, cancel_futures=False)
-
-        # Wait for pending uploads with timeout
-        deadline = time.time() + SHUTDOWN_TIMEOUT
-        all_done = False
-
-        while time.time() < deadline:
-            with self._pending_lock:
-                pending = [f for f in self._pending_uploads if not f.done()]
-                pending_count = len(pending)
-
-            if pending_count == 0:
-                all_done = True
-                break
-
-            time.sleep(0.1)
-
-        if not all_done:
-            with self._pending_lock:
-                pending_count = len([f for f in self._pending_uploads if not f.done()])
+        except Exception as error:
             logger.warning(
-                f"Langfuse shutdown timeout after {SHUTDOWN_TIMEOUT}s - "
-                f"{pending_count} media uploads still pending"
+                "Failed to extract Langfuse agent metadata (%s)",
+                type(error).__name__,
             )
-
-        self._http_session.close()
-
-        super().shutdown()
+            return None
 
     def on_start(self, span: Span, parent_context: Optional[Context] = None) -> None:
-        super().on_start(span, parent_context)
+        del parent_context
 
-        if not self.agent:
+        attrs = getattr(span, "_attributes", None)
+        if attrs is None or not self.agent:
             return
 
         try:
-            if "input.value" in span._attributes:
-                del span._attributes["input.value"]
+            attrs.pop("input.value", None)
 
             if span.name == "MobileAgent.run":
                 set_root_span_context(span)
-                span._attributes["langfuse.release"] = "v" + __version__
+                attrs["langfuse.release"] = "v" + __version__
                 input_data = self._extract_agent_input()
                 if input_data:
-                    span._attributes["langfuse.observation.input"] = json.dumps(
-                        input_data
+                    attrs["langfuse.observation.input"] = json.dumps(input_data)
+                    attrs["langfuse.trace.tags"] = (
+                        ["reasoning"] if input_data.get("reasoning") else ["fast"]
                     )
-                    tags = ["reasoning"] if input_data.get("reasoning") else ["fast"]
-                    span._attributes["langfuse.trace.tags"] = tags
-                    if "vision_enabled" in input_data:
-                        span._attributes["droidrun.vision.enabled"] = input_data[
-                            "vision_enabled"
-                        ]
+                    attrs["droidrun.vision.enabled"] = input_data["vision_enabled"]
 
             elif span.name in (
                 "ManagerAgent.run",
@@ -446,50 +187,36 @@ class LangfuseSpanProcessor(BaseLangfuseSpanProcessor):
                 "ExecutorAgent.run",
             ):
                 set_last_step_span_context(span)
-                memory_size = (
-                    len(self.agent.shared_state.agent_memory)
-                    if self.agent.shared_state.agent_memory
-                    else 0
-                )
-                message_history_count = len(self.agent.shared_state.message_history) + 1
-
+                agent = self.agent
+                memory = agent.shared_state.agent_memory
                 input_data = {
-                    "memory_size": memory_size,
-                    "message_history_count": message_history_count,
+                    "memory_size": len(memory) if memory else 0,
+                    "message_history_count": len(agent.shared_state.message_history)
+                    + 1,
                 }
 
                 if span.name == "ExecutorAgent.run":
                     input_data["subgoal"] = (
-                        self.agent.shared_state.current_subgoal or "Unknown"
+                        agent.shared_state.current_subgoal or "Unknown"
                     )
 
-                span._attributes["langfuse.observation.input"] = json.dumps(input_data)
+                attrs["langfuse.observation.input"] = json.dumps(input_data)
+                if agent.shared_state.error_flag_plan:
+                    attrs["langfuse.trace.tags"] = ["error_recovery"]
+        except Exception as error:
+            logger.warning(
+                "Failed to add Langfuse span metadata (%s)", type(error).__name__
+            )
 
-                if self.agent.shared_state.error_flag_plan:
-                    span._attributes["langfuse.trace.tags"] = ["error_recovery"]
-
-        except Exception as e:
-            logger.error(f"Error injecting metadata in on_start: {e}")
-
-    # Span processing
     def on_end(self, span: ReadableSpan) -> None:
-        if self._is_langfuse_span(span) and not self._is_langfuse_project_span(span):
+        attrs = getattr(span, "_attributes", None)
+        if attrs is None:
             return
-
-        if self._is_blocked_instrumentation_scope(span):
-            return
-
-        if span.name.endswith("_done"):
-            span._attributes["langfuse.observation.level"] = "DEBUG"
 
         try:
-            if "output.value" in span._attributes and not span._attributes.get(
-                "langfuse.observation.output"
-            ):
-                span._attributes["langfuse.observation.output"] = span._attributes[
-                    "output.value"
-                ]
-                del span._attributes["output.value"]
+            if span.name.endswith("_done"):
+                attrs["langfuse.observation.level"] = "DEBUG"
+
             if span.name in (
                 "MobileAgent.run",
                 "ManagerAgent.run",
@@ -497,8 +224,7 @@ class LangfuseSpanProcessor(BaseLangfuseSpanProcessor):
                 "ExecutorAgent.run",
                 "FastAgent.run",
             ):
-                if "input.value" in span._attributes:
-                    del span._attributes["input.value"]
+                attrs.pop("input.value", None)
             elif span.name.endswith(
                 (".chat", ".achat", ".stream_chat", ".astream_chat")
             ):
@@ -509,126 +235,123 @@ class LangfuseSpanProcessor(BaseLangfuseSpanProcessor):
                 self._format_complete(span)
             elif span.name == "droidrun.screenshot":
                 self._process_screenshot_span(span)
-        except Exception as e:
-            logger.error(f"Error processing span for Langfuse: {e}")
 
-        super(BaseLangfuseSpanProcessor, self).on_end(span)
+            output = attrs.pop("output.value", None)
+            if output is not None and not attrs.get("langfuse.observation.output"):
+                attrs["langfuse.observation.output"] = output
+        except Exception as error:
+            logger.warning(
+                "Failed to preprocess a span for Langfuse (%s)",
+                type(error).__name__,
+            )
+
+    def shutdown(self) -> None:
+        """No-op: the public Langfuse client owns exporter shutdown."""
+
+    def force_flush(self, timeout_millis: int = 30000) -> bool:
+        """The processor has no queue; all preprocessing is synchronous."""
+        del timeout_millis
+        return True
 
     def _format_complete(self, span: ReadableSpan) -> None:
-        span._attributes["input.value"] = span._attributes["llm.prompts"][0]
-        del span._attributes["llm.prompts"]
-        pass
+        attrs = getattr(span, "_attributes", None)
+        if attrs is None:
+            return
+
+        prompts = attrs.pop("llm.prompts", None)
+        if isinstance(prompts, (list, tuple)) and prompts:
+            attrs["input.value"] = prompts[0]
+        self._process_field(attrs, "input")
+        self._process_field(attrs, "output")
 
     def _format_chat(self, span: ReadableSpan) -> None:
-        """
-        Apply custom formatting to transform blocks and set Langfuse attributes.
-
-        Processes both input.value and output.value attributes:
-        - Plain strings: Set langfuse.observation.{field} directly
-        - JSON with blocks: Transform blocks to content format (images, tool calls, etc.)
-        - JSON without blocks: Set langfuse.observation.{field} as-is
-        """
-        if not hasattr(span, "_attributes") or span._attributes is None:
+        attrs = getattr(span, "_attributes", None)
+        if attrs is None:
             return
 
-        attrs = span._attributes
-        trace_id = format(span.context.trace_id, "032x")
+        self._process_field(attrs, "input")
+        self._process_field(attrs, "output")
 
-        self._process_field(attrs, trace_id, "input")
-        self._process_field(attrs, trace_id, "output")
-
-    # Message transformation
-    def _process_field(self, attrs: dict, trace_id: str, field: str) -> None:
-        """Process input or output field - handle both JSON messages and plain strings."""
+    def _process_field(self, attrs: dict, field: str) -> None:
+        """Normalize an OpenInference input/output value for Langfuse."""
         field_key = f"{field}.value"
-
-        if field_key not in attrs:
-            return
-
-        value = attrs[field_key]
+        value = attrs.get(field_key)
         if not isinstance(value, str):
             return
 
-        # Try parsing as JSON with messages
         try:
             data = json.loads(value)
-
-            # Check if it has messages with blocks that need transformation
             if self._has_blocks_to_transform(data):
-                self._transform_and_set_field(attrs, trace_id, field, data)
+                self._transform_and_set_field(attrs, field, data)
                 return
-
+            sanitized, contains_data_uri = self._sanitize_serialized_data_uris(data)
+            if contains_data_uri:
+                attrs[f"langfuse.observation.{field}"] = json.dumps(sanitized)
+                attrs.pop(field_key, None)
+                return
         except (json.JSONDecodeError, ValueError):
             pass
 
         attrs[f"langfuse.observation.{field}"] = value
+        attrs.pop(field_key, None)
 
-    def _has_blocks_to_transform(self, data: dict) -> bool:
-        """Check if data contains messages with blocks that need transformation."""
-        if not isinstance(data, dict) or "messages" not in data:
+    @staticmethod
+    def _has_blocks_to_transform(data: object) -> bool:
+        if not isinstance(data, dict) or not isinstance(data.get("messages"), list):
             return False
 
-        messages = data["messages"]
-        if not isinstance(messages, list):
-            return False
+        return any(
+            isinstance(message, dict)
+            and (
+                "blocks" in message
+                or (
+                    isinstance(message.get("json"), dict)
+                    and "blocks" in message["json"]
+                )
+            )
+            for message in data["messages"]
+        )
 
-        return any(isinstance(msg, dict) and "blocks" in msg for msg in messages)
-
-    def _transform_and_set_field(
-        self, attrs: dict, trace_id: str, field: str, data: dict
-    ) -> None:
-        """Transform blocks to content and set Langfuse attributes."""
-        # Remove legacy LLM message attributes
+    def _transform_and_set_field(self, attrs: dict, field: str, data: dict) -> None:
         prefix = f"llm.{field}_messages."
-        keys_to_remove = [key for key in attrs if key.startswith(prefix)]
-        for key in keys_to_remove:
+        for key in [key for key in attrs if key.startswith(prefix)]:
             del attrs[key]
 
-        # Transform and set
-        formatted = self._transform_blocks_to_content(data, trace_id, field)
+        formatted = self._transform_blocks_to_content(data)
         attrs[f"langfuse.observation.{field}"] = formatted
-        attrs[f"{field}.value"] = formatted
+        attrs.pop(f"{field}.value", None)
 
-    def _transform_blocks_to_content(
-        self, data: dict, trace_id: str, field: str
-    ) -> str:
-        """Transform parsed message data from blocks to content format."""
-        processed = self._convert_message_array(data["messages"], trace_id, field)
-        return json.dumps({"messages": json.loads(processed)})
+    def _transform_blocks_to_content(self, data: dict) -> str:
+        processed = self._convert_message_array(data["messages"])
+        return json.dumps({"messages": processed})
 
-    def _convert_message_array(self, messages: list, trace_id: str, field: str) -> str:
-        """Convert message array from blocks format to content format."""
+    def _convert_message_array(self, messages: list) -> list:
         restructured_messages = []
 
-        for msg in messages:
-            if not isinstance(msg, dict):
+        for original_message in messages:
+            if not isinstance(original_message, dict):
                 continue
 
-            if "content" in msg and "blocks" not in msg:
-                restructured_messages.append(msg)
+            message = original_message
+            if "content" in message and "blocks" not in message:
+                restructured_messages.append(message)
                 continue
 
-            if (
-                "json" in msg
-                and isinstance(msg["json"], dict)
-                and "blocks" in msg["json"]
-            ):
-                msg = msg.copy()
-                msg.update(msg["json"])
-                del msg["json"]
+            if isinstance(message.get("json"), dict) and "blocks" in message["json"]:
+                message = message.copy()
+                message.update(message.pop("json"))
 
-            if "blocks" not in msg or "role" not in msg:
-                if "role" in msg:
-                    restructured_messages.append(msg)
+            if "blocks" not in message or "role" not in message:
+                if "role" in message:
+                    restructured_messages.append(message)
                 continue
 
-            role = msg["role"]
-            blocks = msg["blocks"]
-
-            if not isinstance(blocks, list) or len(blocks) == 0:
-                restructured_messages.append(msg)
+            blocks = message["blocks"]
+            if not isinstance(blocks, list) or not blocks:
+                restructured_messages.append(message)
                 continue
 
+            role = message["role"]
             if (
                 len(blocks) == 1
                 and isinstance(blocks[0], dict)
@@ -638,158 +361,179 @@ class LangfuseSpanProcessor(BaseLangfuseSpanProcessor):
                 restructured_messages.append(
                     {"role": role, "content": blocks[0]["text"]}
                 )
+                continue
+
+            content_blocks = self._convert_blocks_to_content(blocks)
+            if content_blocks:
+                restructured_messages.append({"role": role, "content": content_blocks})
+            elif any(
+                isinstance(block, dict) and block.get("block_type") == "image"
+                for block in blocks
+            ):
+                # Never restore rejected image bytes into exported attributes.
+                restructured_messages.append({"role": role, "content": []})
             else:
-                content_blocks = self._convert_blocks_to_content(
-                    blocks, trace_id, field
-                )
+                restructured_messages.append(message)
 
-                if content_blocks:
-                    restructured_messages.append(
-                        {"role": role, "content": content_blocks}
-                    )
-                else:
-                    restructured_messages.append(msg)
+        return restructured_messages
 
-        return json.dumps(restructured_messages)
-
-    def _convert_blocks_to_content(
-        self,
-        blocks: list,
-        trace_id: str,
-        field: str,
-    ) -> list:
-        """Convert LlamaIndex blocks to Langfuse content blocks."""
+    def _convert_blocks_to_content(self, blocks: list) -> list:
         content_blocks = []
 
         for block in blocks:
-            if not isinstance(block, dict) or "block_type" not in block:
+            if not isinstance(block, dict):
                 continue
 
-            block_type = block["block_type"]
-
-            if block_type == "text":
-                if "text" in block:
-                    content_blocks.append({"type": "text", "text": block["text"]})
-
+            block_type = block.get("block_type")
+            if block_type == "text" and "text" in block:
+                content_blocks.append({"type": "text", "text": block["text"]})
             elif block_type == "image":
-                image_block = self._upload_image_to_storage(block, trace_id, field)
+                image_block = self._prepare_image_for_native_upload(block)
                 if image_block:
                     content_blocks.append(image_block)
-
-            elif block_type == "tool_call":
-                if "tool_name" in block and "tool_kwargs" in block:
-                    content_blocks.append(
-                        {
-                            "type": "tool_call",
-                            "tool_call": {
-                                "name": block["tool_name"],
-                                "arguments": block["tool_kwargs"],
-                            },
-                        }
-                    )
+            elif (
+                block_type == "tool_call"
+                and "tool_name" in block
+                and "tool_kwargs" in block
+            ):
+                content_blocks.append(
+                    {
+                        "type": "tool_call",
+                        "tool_call": {
+                            "name": block["tool_name"],
+                            "arguments": block["tool_kwargs"],
+                        },
+                    }
+                )
 
         return content_blocks
 
-    def _process_screenshot_span(self, span: ReadableSpan) -> None:
-        """Convert custom screenshot spans into Langfuse image content."""
-        attrs = span._attributes or {}
-        image_b64 = attrs.get("droidrun.screenshot.image_base64")
-        mime_type = attrs.get("droidrun.screenshot.mime_type", "image/png")
+    @classmethod
+    def _sanitize_serialized_data_uris(cls, value: Any) -> tuple[Any, bool]:
+        """Apply media limits to base64 data URIs already serialized as content."""
+        if isinstance(value, str):
+            header, separator, _payload = value.partition(",")
+            is_base64_data_uri = (
+                value.startswith("data:")
+                and bool(separator)
+                and header.endswith(";base64")
+            )
+            if not is_base64_data_uri:
+                return value, False
 
-        if not image_b64:
+            prepared = cls._prepare_image_for_native_upload(
+                {"image": value, "image_mimetype": "application/octet-stream"}
+            )
+            return (value if prepared else ""), True
+
+        if isinstance(value, list):
+            sanitized_items = []
+            contains_data_uri = False
+            for item in value:
+                sanitized, found = cls._sanitize_serialized_data_uris(item)
+                sanitized_items.append(sanitized)
+                contains_data_uri = contains_data_uri or found
+            return sanitized_items, contains_data_uri
+
+        if isinstance(value, dict):
+            sanitized_mapping = {}
+            contains_data_uri = False
+            for key, item in value.items():
+                sanitized, found = cls._sanitize_serialized_data_uris(item)
+                sanitized_mapping[key] = sanitized
+                contains_data_uri = contains_data_uri or found
+            return sanitized_mapping, contains_data_uri
+
+        return value, False
+
+    def _process_screenshot_span(self, span: ReadableSpan) -> None:
+        attrs = getattr(span, "_attributes", None)
+        if attrs is None:
             return
 
-        trace_id = format(span.context.trace_id, "032x")
-        data = {
-            "messages": [
+        image = attrs.get("droidrun.screenshot.image_base64")
+        mime_type = attrs.get("droidrun.screenshot.mime_type", "image/png")
+        if not image:
+            return
+
+        image_content = self._prepare_image_for_native_upload(
+            {
+                "image": image,
+                "image_mimetype": mime_type,
+            }
+        )
+        if image_content:
+            attrs["langfuse.observation.output"] = json.dumps(
                 {
-                    "role": "assistant",
-                    "blocks": [
+                    "messages": [
                         {
-                            "block_type": "image",
-                            "image": image_b64,
-                            "image_mimetype": mime_type,
+                            "role": "assistant",
+                            "content": [image_content],
                         }
-                    ],
+                    ]
                 }
-            ]
-        }
+            )
 
-        attrs["output.value"] = json.dumps(data)
-        self._transform_and_set_field(attrs, trace_id, "output", data)
-
-        # Clean up raw fields to avoid duplication
         attrs.pop("droidrun.screenshot.image_base64", None)
         attrs.pop("droidrun.screenshot.mime_type", None)
         attrs.pop("output.value", None)
 
-    # Image upload
-    def _upload_image_to_storage(
-        self,
-        block: dict,
-        trace_id: str,
-        field: str,
-    ) -> Optional[dict]:
-        """Upload image to blob storage and return media reference."""
-        if "image" in block and block["image"] is not None:
-            image_base64 = block["image"]
+    @staticmethod
+    def _prepare_image_for_native_upload(block: dict) -> Optional[dict]:
+        """Return media in a form Langfuse v4 uploads during span export."""
+        image = block.get("image")
+        if image is not None:
             mime_type = block.get("image_mimetype")
+            if not isinstance(image, str):
+                logger.warning("Image data is invalid; skipping upload")
+                return None
 
-            if not mime_type:
-                logger.warning("Image missing MIME type, skipping upload")
+            encoded = image
+            if image.startswith("data:") and "," in image:
+                header, encoded = image.split(",", 1)
+                if header.endswith(";base64"):
+                    mime_type = header[5:-7]
+                else:
+                    logger.warning(
+                        "Image data URI is not base64 encoded; skipping upload"
+                    )
+                    return None
+            elif not isinstance(mime_type, str):
+                logger.warning("Image MIME type is invalid; skipping upload")
                 return None
 
             try:
-                image_bytes = base64.b64decode(image_base64)
-                size_kb = len(image_bytes) / 1024
-
-                if size_kb > MAX_IMAGE_SIZE_KB:
-                    logger.warning(
-                        f"Image size ({size_kb:.1f}KB) exceeds limit ({MAX_IMAGE_SIZE_KB}KB), skipping upload"
-                    )
-                    return None
-
-                sha256_hash_bytes = hashlib.sha256(image_bytes).digest()
-                sha256_hash = base64.b64encode(sha256_hash_bytes).decode()
-                media_id = (
-                    sha256_hash.replace("+", "-").replace("/", "_").rstrip("=")[:22]
-                )
-
-                self._submit_upload(
-                    {
-                        "media_id": media_id,
-                        "content_bytes": image_bytes,
-                        "content_type": mime_type,
-                        "content_length": len(image_bytes),
-                        "sha256_hash": sha256_hash,
-                        "trace_id": trace_id,
-                        "observation_id": None,
-                        "field": field,
-                    }
-                )
-
-                reference_string = (
-                    f"@@@langfuseMedia:type={mime_type}|id={media_id}|source=bytes@@@"
-                )
-                return {
-                    "type": "image_url",
-                    "image_url": {"url": reference_string},
-                }
-
-            except Exception as e:
-                logger.error(f"Failed to process image: {e}")
+                image_bytes = base64.b64decode(encoded, validate=True)
+            except (ValueError, TypeError):
+                logger.warning("Image data is not valid base64; skipping upload")
                 return None
 
-        if "url" in block and block["url"] is not None:
-            return {"type": "image_url", "image_url": {"url": block["url"]}}
+            size_kb = len(image_bytes) / 1024
+            if size_kb > MAX_IMAGE_SIZE_KB:
+                logger.warning(
+                    "Image size (%.1fKB) exceeds limit (%dKB); skipping upload",
+                    size_kb,
+                    MAX_IMAGE_SIZE_KB,
+                )
+                return None
 
-        if "path" in block and block["path"] is not None:
-            logger.warning(
-                f"Using file path for image - may not work on server: {block['path']}"
-            )
-            return {
-                "type": "image_url",
-                "image_url": {"url": f"file://{block['path']}"},
-            }
+            data_uri = f"data:{mime_type};base64,{encoded}"
+            return {"type": "image_url", "image_url": {"url": data_uri}}
+
+        url = block.get("url")
+        if isinstance(url, str):
+            if url.startswith("data:"):
+                return LangfuseSpanProcessor._prepare_image_for_native_upload(
+                    {
+                        "image": url,
+                        "image_mimetype": "application/octet-stream",
+                    }
+                )
+            return {"type": "image_url", "image_url": {"url": url}}
+
+        path = block.get("path")
+        if isinstance(path, str):
+            logger.warning("Using a local image path; it may not resolve in Langfuse")
+            return {"type": "image_url", "image_url": {"url": f"file://{path}"}}
 
         return None

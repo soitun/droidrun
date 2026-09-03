@@ -8,6 +8,7 @@ This module provides a centralized way to configure tracing providers
 import base64
 import logging
 import os
+import threading
 from typing import Optional
 from uuid import uuid4
 
@@ -22,6 +23,13 @@ _session_id: str = _default_session_id
 _tracing_initialized: bool = False
 _tracing_provider: Optional[str] = None
 _user_id: str = "anonymous"
+_langfuse_client: Optional[object] = None
+_langfuse_preprocessor: Optional[object] = None
+_langfuse_tracer_provider: Optional[object] = None
+_langfuse_setup_attempted: bool = False
+_tracing_setup_lock = threading.Lock()
+
+DEFAULT_LANGFUSE_BASE_URL = "https://us.cloud.langfuse.com"
 
 
 def setup_tracing(
@@ -34,40 +42,34 @@ def setup_tracing(
 
     provider = tracing_config.provider.lower()
 
-    if tracing_config.langfuse_session_id:
-        _session_id = tracing_config.langfuse_session_id
-    else:
-        _session_id = _default_session_id
+    with _tracing_setup_lock:
+        _session_id = tracing_config.langfuse_session_id or _default_session_id
+        _user_id = tracing_config.langfuse_user_id or "anonymous"
 
-    if tracing_config.langfuse_user_id:
-        _user_id = tracing_config.langfuse_user_id
-    else:
-        _user_id = "anonymous"
+        if _tracing_initialized:
+            logger.debug(
+                f"🔍 Tracing already initialized with {_tracing_provider}, skipping setup"
+            )
+            if provider == "langfuse" and agent:
+                from mobilerun.telemetry.langfuse_processor import set_current_agent
 
-    if _tracing_initialized:
-        logger.debug(
-            f"🔍 Tracing already initialized with {_tracing_provider}, skipping setup"
-        )
-        if provider == "langfuse" and agent:
-            from mobilerun.telemetry.langfuse_processor import set_current_agent
+                set_current_agent(agent)
+            return
 
-            set_current_agent(agent)
-        return
-
-    if provider == "phoenix":
-        if _setup_phoenix_tracing():
-            _tracing_initialized = True
-            _tracing_provider = "phoenix"
-    elif provider == "langfuse":
-        _setup_langfuse_tracing(tracing_config, agent)
-        _tracing_initialized = True
-        _tracing_provider = "langfuse"
-        logger.debug(f"🔍 Langfuse tracing enabled | Session: {_session_id}")
-    else:
-        logger.warning(
-            f"⚠️  Unknown tracing provider: {provider}. "
-            f"Supported providers: phoenix, langfuse"
-        )
+        if provider == "phoenix":
+            if _setup_phoenix_tracing():
+                _tracing_initialized = True
+                _tracing_provider = "phoenix"
+        elif provider == "langfuse":
+            if _setup_langfuse_tracing(tracing_config, agent):
+                _tracing_initialized = True
+                _tracing_provider = "langfuse"
+                logger.debug(f"🔍 Langfuse tracing enabled | Session: {_session_id}")
+        else:
+            logger.warning(
+                f"⚠️  Unknown tracing provider: {provider}. "
+                f"Supported providers: phoenix, langfuse"
+            )
 
 
 def _check_phoenix_reachable(endpoint: str, timeout: float = 3.0) -> bool:
@@ -112,43 +114,44 @@ def _setup_phoenix_tracing() -> bool:
 
 def _setup_langfuse_tracing(
     tracing_config: TracingConfig, agent: Optional[object] = None
-) -> None:
+) -> bool:
     """
-    Set up Langfuse tracing with custom span processor.
+    Set up Langfuse tracing with a preprocessor and the public v4 client.
 
     Args:
         tracing_config: TracingConfig instance containing Langfuse credentials
         agent: Optional MobileAgent instance to pass to span processor
     """
 
-    try:
-        # Set environment variables
-        if tracing_config.langfuse_secret_key:
-            os.environ["LANGFUSE_SECRET_KEY"] = tracing_config.langfuse_secret_key
-        if tracing_config.langfuse_public_key:
-            os.environ["LANGFUSE_PUBLIC_KEY"] = tracing_config.langfuse_public_key
-        if tracing_config.langfuse_host:
-            os.environ["LANGFUSE_HOST"] = tracing_config.langfuse_host
-        else:
-            os.environ["LANGFUSE_HOST"] = "https://us.cloud.langfuse.com"
+    global _langfuse_client
+    global _langfuse_preprocessor, _langfuse_tracer_provider
+    global _langfuse_setup_attempted
 
-        # Verify credentials
+    try:
         from langfuse import Langfuse
 
-        langfuse = Langfuse()
-        try:
-            if not langfuse.auth_check():
-                logger.error(
-                    "❌ Langfuse authentication failed. Please check your credentials."
-                )
-                return
-        except Exception as e:
-            logger.error(
-                f"Error checking Langfuse authentication: {e}\nLikely a network issue or credentials are incorrect"
-            )
-            return
+        public_key = tracing_config.langfuse_public_key or os.getenv(
+            "LANGFUSE_PUBLIC_KEY"
+        )
+        secret_key = tracing_config.langfuse_secret_key or os.getenv(
+            "LANGFUSE_SECRET_KEY"
+        )
+        base_url = _resolve_langfuse_base_url(tracing_config)
 
-        # STEP 1: Set up tracer provider (before any LlamaIndex imports!)
+        if not public_key or not secret_key:
+            logger.error(
+                "Langfuse credentials are missing. Configure both the public and secret key."
+            )
+            return False
+
+        if _langfuse_setup_attempted:
+            logger.error(
+                "Langfuse tracing initialization already failed in this process; "
+                "restart before retrying."
+            )
+            return False
+
+        # STEP 1: Set up the tracer provider.
         from opentelemetry import trace
         from opentelemetry.sdk.trace import TracerProvider
 
@@ -164,7 +167,14 @@ def _setup_langfuse_tracing(
             trace.set_tracer_provider(tracer_provider)
             logger.debug("🔍 Created new TracerProvider")
 
-        # STEP 2: Instrument LlamaIndex FIRST (before any LlamaIndex imports!)
+        if _provider_has_langfuse_processor(tracer_provider):
+            logger.error(
+                "Langfuse tracing is already registered on the active tracer provider; "
+                "Mobilerun cannot guarantee preprocessing or export policy."
+            )
+            return False
+
+        # STEP 2: Instrument LlamaIndex.
         from openinference.instrumentation.llama_index import LlamaIndexInstrumentor
 
         instrumentor = LlamaIndexInstrumentor()
@@ -174,21 +184,23 @@ def _setup_langfuse_tracing(
         else:
             logger.debug("🔍 LlamaIndex already instrumented")
 
-        # STEP 3: Patch the encoder (now that instrumentation is active)
+        # STEP 3: Patch the encoder once (now that instrumentation is active).
         from openinference.instrumentation.llama_index import _handler
         from pydantic import BaseModel as PydanticV2BaseModel
 
-        _original_encoder = _handler._encoder
+        if not getattr(_handler._encoder, "_mobilerun_pydantic_v2", False):
+            original_encoder = _handler._encoder
 
-        def _fixed_encoder(obj):
-            """Fixed encoder that properly handles Pydantic v2 models."""
-            if isinstance(obj, PydanticV2BaseModel):
-                return obj.model_dump()
-            return _original_encoder(obj)
+            def _fixed_encoder(obj):
+                """Encode Pydantic v2 models for OpenInference."""
+                if isinstance(obj, PydanticV2BaseModel):
+                    return obj.model_dump()
+                return original_encoder(obj)
 
-        _handler._encoder = _fixed_encoder
+            _fixed_encoder._mobilerun_pydantic_v2 = True
+            _handler._encoder = _fixed_encoder
 
-        # STEP 4: Add our custom processor (after instrumentation is set up)
+        # STEP 4: Register preprocessing before Langfuse registers its exporter.
         from mobilerun.telemetry.langfuse_processor import (
             LangfuseSpanProcessor,
             set_current_agent,
@@ -197,12 +209,53 @@ def _setup_langfuse_tracing(
         if agent:
             set_current_agent(agent)
 
-        span_processor = LangfuseSpanProcessor(
-            public_key=os.environ["LANGFUSE_PUBLIC_KEY"],
-            secret_key=os.environ["LANGFUSE_SECRET_KEY"],
-            base_url=os.environ["LANGFUSE_HOST"],
+        if (
+            _langfuse_preprocessor is None
+            or _langfuse_tracer_provider is not tracer_provider
+        ):
+            _langfuse_preprocessor = LangfuseSpanProcessor()
+            tracer_provider.add_span_processor(_langfuse_preprocessor)
+            _langfuse_tracer_provider = tracer_provider
+
+        # STEP 5: The public client owns the single exporter, queue, media uploads,
+        # flushing, and shutdown. Export all spans so Mobilerun's custom workflow
+        # and screenshot spans are not removed by Langfuse v4's default filter.
+        # A failed SDK construction can leave processors attached to an OTel
+        # provider, whose public API cannot remove them. Do not retry in-process:
+        # that is the only general way to guarantee no duplicate exporters.
+        _langfuse_setup_attempted = True
+        client = Langfuse(
+            public_key=public_key,
+            secret_key=secret_key,
+            base_url=base_url,
+            tracer_provider=tracer_provider,
+            should_export_span=_export_all_spans,
         )
-        tracer_provider.add_span_processor(span_processor)
+
+        if not _provider_has_owned_langfuse_pipeline(tracer_provider):
+            logger.error(
+                "Langfuse is already initialized on another tracer provider; "
+                "Mobilerun cannot guarantee preprocessing or export policy."
+            )
+            return False
+
+        _langfuse_client = client
+
+        try:
+            if not _langfuse_client.auth_check():
+                logger.error(
+                    "Langfuse authentication failed. Please check your credentials."
+                )
+        except Exception as error:
+            logger.error(
+                "Unable to verify Langfuse authentication; tracing remains configured."
+            )
+            logger.debug(
+                "Langfuse authentication diagnostic failed (%s)",
+                type(error).__name__,
+            )
+
+        return True
 
     except ImportError as e:
         logger.warning(
@@ -212,6 +265,58 @@ def _setup_langfuse_tracing(
             "    • If installed via pip: `uv pip install mobilerun[langfuse]`\n"
             f"    Missing: {e.name if hasattr(e, 'name') else str(e)}\n"
         )
+        return False
+    except Exception as error:
+        logger.error("Failed to initialize Langfuse tracing (%s)", type(error).__name__)
+        return False
+
+
+def _resolve_langfuse_base_url(tracing_config: TracingConfig) -> str:
+    """Resolve the Langfuse endpoint, keeping LANGFUSE_HOST as a fallback."""
+    return (
+        tracing_config.langfuse_host
+        or os.getenv("LANGFUSE_BASE_URL")
+        or os.getenv("LANGFUSE_HOST")
+        or DEFAULT_LANGFUSE_BASE_URL
+    )
+
+
+def _export_all_spans(_span) -> bool:
+    """Keep custom Mobilerun spans alongside standard LLM spans in Langfuse."""
+    return True
+
+
+def _provider_has_langfuse_processor(tracer_provider: object) -> bool:
+    """Detect an exporter installed before Mobilerun's required preprocessor."""
+    return any(
+        type(processor).__module__.startswith("langfuse.")
+        for processor in _provider_span_processors(tracer_provider)
+    )
+
+
+def _provider_has_owned_langfuse_pipeline(tracer_provider: object) -> bool:
+    """Confirm exactly one SDK exporter follows Mobilerun's preprocessor."""
+    processors = _provider_span_processors(tracer_provider)
+    try:
+        preprocessor_index = processors.index(_langfuse_preprocessor)
+    except ValueError:
+        return False
+
+    exporter_indexes = [
+        index
+        for index, processor in enumerate(processors)
+        if type(processor).__module__.startswith("langfuse.")
+    ]
+    return len(exporter_indexes) == 1 and preprocessor_index < exporter_indexes[0]
+
+
+def _provider_span_processors(tracer_provider: object) -> tuple[object, ...]:
+    """Read the active OTel pipeline for ordering validation."""
+    active_processor = getattr(tracer_provider, "_active_span_processor", None)
+    processors = getattr(active_processor, "_span_processors", None)
+    if processors is None:
+        processors = getattr(tracer_provider, "processors", ())
+    return tuple(processors)
 
 
 def apply_session_context() -> None:
