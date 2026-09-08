@@ -3,6 +3,7 @@
 from typing import Any, Dict, List, Optional, Tuple
 
 from ..helpers.coordinate import bounds_to_normalized
+from ..helpers.geometry import rects_overlap
 from .base import TreeFormatter
 
 
@@ -167,10 +168,48 @@ class IndexedFormatter(TreeFormatter):
         results.append(formatted)
         counter[0] += 1
 
+        siblings = []
         for child in node.get("children", []):
-            results.extend(self._flatten_with_index(child, counter))
+            descendants = self._flatten_with_index(child, counter)
+            siblings.append((child, descendants[0]))
+            results.extend(descendants)
+
+        self._add_tap_blockers(siblings)
 
         return results
+
+    @staticmethod
+    def _add_tap_blockers(
+        siblings: List[Tuple[Dict[str, Any], Dict[str, Any]]],
+    ) -> None:
+        """Retain proven sibling touch obstructions before discarding hierarchy.
+
+        Android drawingOrder is relative to siblings, not a global z-index.
+        Portal can append other windows as children, so windowId must match.
+        Missing or tied order is insufficient evidence to change existing taps.
+        """
+        for raw, formatted in siblings:
+            order = raw.get("drawingOrder")
+            window = raw.get("windowId")
+            if not isinstance(order, int) or not isinstance(window, int) or window < 0:
+                continue
+            bounds = tuple(map(int, formatted["bounds"].split(",")))
+            blockers = []
+            for other, candidate in siblings:
+                other_order = other.get("drawingOrder")
+                if (
+                    other.get("windowId") != window
+                    or not isinstance(other_order, int)
+                    or other_order <= order
+                    or other.get("isVisibleToUser") is False
+                    or not (other.get("isClickable") or other.get("isLongClickable"))
+                ):
+                    continue
+                candidate_bounds = tuple(map(int, candidate["bounds"].split(",")))
+                if rects_overlap(bounds, candidate_bounds):
+                    blockers.append(candidate["bounds"])
+            if blockers:
+                formatted["tapBlockers"] = blockers
 
     def _format_node(self, node: Dict[str, Any], index: int) -> Dict[str, Any]:
         """Format single node to Mobilerun format."""

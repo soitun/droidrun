@@ -116,6 +116,11 @@ mobilerun configure
 
 The wizard walks you through choosing a provider, auth method, and model. You can also use provider environment variables such as `GOOGLE_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY`, or `MINIMAX_API_KEY`.
 
+For manual OAuth login, set `MOBILERUN_OAUTH_MANUAL=true`. The legacy
+`DROIDRUN_OAUTH_MANUAL` is used when the new variable is unset or empty. See the
+[OAuth configuration reference](docs/sdk/configuration.mdx#manual-oauth-login)
+for supported values and precedence.
+
 ### 4. Run your first command
 
 ```bash

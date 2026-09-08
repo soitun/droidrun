@@ -663,3 +663,21 @@ entry. Keys pasted into the wizard are stored in the `apiKeys.minimax` entry of
 `credentials/auth-profiles.json` in the platform configuration directory; this
 file is separate from the device secrets file controlled by
 `credentials.enabled`.
+
+## Manual OAuth login
+
+Set `MOBILERUN_OAUTH_MANUAL=true` to select manual authentication for Anthropic
+and Gemini, or device-code authentication for OpenAI, instead of using a local
+browser callback server. The accepted enabled values are `1`, `true`, and `yes`
+(case-insensitive).
+
+```bash
+export MOBILERUN_OAUTH_MANUAL=true
+```
+
+The legacy `DROIDRUN_OAUTH_MANUAL` variable remains supported when the new
+variable is unset or empty. A nonempty new value takes precedence, so
+`MOBILERUN_OAUTH_MANUAL=false` overrides `DROIDRUN_OAUTH_MANUAL=true`. Automatic
+headless detection and fallback when the callback server cannot bind remain
+active regardless of this setting. Browser opening still follows the login
+command's existing browser preference.
