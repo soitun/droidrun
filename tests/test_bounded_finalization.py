@@ -1,4 +1,6 @@
 import asyncio
+import os
+import sys
 import time
 from types import SimpleNamespace
 
@@ -17,6 +19,7 @@ from mobilerun.agent.common.events import ScreenshotEvent
 from mobilerun.agent.droid.droid_agent import MobileAgent
 from mobilerun.agent.droid.events import FinalizeEvent
 from mobilerun.agent.oneflows.structured_output_agent import StructuredOutputAgent
+from mobilerun.agent.trajectory import TrajectoryWriter
 from mobilerun.tools.ui.provider import AndroidStateProvider
 
 
@@ -26,6 +29,17 @@ async def _empty_state():
 
 async def _nothing():
     return None
+
+
+class _Store:
+    def __init__(self, deadline):
+        self.deadline = deadline
+
+    async def get(self, key, default=None):
+        return self.deadline
+
+    async def set(self, key, value):
+        self.deadline = value
 
 
 def _agent(monkeypatch, screenshot=_nothing, state=_empty_state, *, deadline=None):
@@ -64,7 +78,7 @@ def _agent(monkeypatch, screenshot=_nothing, state=_empty_state, *, deadline=Non
     agent.state_provider = SimpleNamespace(get_state=state)
     agent.macro_recorder = None
     agent.mcp_manager = None
-    agent._workflow_deadline = deadline
+    agent._test_workflow_deadline = deadline
     agent.timeout = 60
     agent.structured_output_llm = object()
     return agent
@@ -73,7 +87,10 @@ def _agent(monkeypatch, screenshot=_nothing, state=_empty_state, *, deadline=Non
 async def _finalize(agent, *, success=True, reason="answer", events=None):
     events = [] if events is None else events
     result = await agent.finalize(
-        SimpleNamespace(write_event_to_stream=events.append),
+        SimpleNamespace(
+            write_event_to_stream=events.append,
+            store=_Store(agent._test_workflow_deadline),
+        ),
         FinalizeEvent(success=success, reason=reason),
     )
     return result, events
@@ -572,9 +589,9 @@ def test_finalize_stage_policy_uses_named_caps_and_no_phantom_cleanup(monkeypatc
         calls = {}
         original = module._run_finalize_stage
 
-        async def record(name, awaitable, deadline, cap):
-            calls[name] = (deadline, cap)
-            return await original(name, awaitable, deadline, cap)
+        async def record(name, awaitable, deadline, cap, **kwargs):
+            calls[name] = (deadline, cap, kwargs.get("continue_in_background", False))
+            return await original(name, awaitable, deadline, cap, **kwargs)
 
         monkeypatch.setattr(module, "_run_finalize_stage", record)
         monkeypatch.setattr(module, "StructuredOutputAgent", _structured())
@@ -588,6 +605,8 @@ def test_finalize_stage_policy_uses_named_caps_and_no_phantom_cleanup(monkeypatc
         assert calls["telemetry-flush"][1] == module._FINALIZE_TELEMETRY_SECONDS
         assert calls["trajectory-stop"][1] == module._FINALIZE_TRAJECTORY_SECONDS
         assert calls["mcp-disconnect"][1] == module._FINALIZE_MCP_SECONDS
+        assert calls["trajectory-stop"][2] is True
+        assert calls["mcp-disconnect"][2] is True
 
         calls.clear()
         monkeypatch.setattr(module, "_FINALIZE_BUDGET_SECONDS", 0.2)
@@ -607,11 +626,11 @@ def test_cleanup_reserve_is_continuous_at_demand_threshold(monkeypatch, availabl
         structured_deadline = None
         original = module._run_finalize_stage
 
-        async def record(name, awaitable, deadline, cap):
+        async def record(name, awaitable, deadline, cap, **kwargs):
             nonlocal structured_deadline
             if name == "structured-output":
                 structured_deadline = deadline
-            return await original(name, awaitable, deadline, cap)
+            return await original(name, awaitable, deadline, cap, **kwargs)
 
         monkeypatch.setattr(module, "_run_finalize_stage", record)
         monkeypatch.setattr(module, "StructuredOutputAgent", _structured())
@@ -627,5 +646,90 @@ def test_cleanup_reserve_is_continuous_at_demand_threshold(monkeypatch, availabl
         await _finalize(agent)
         assert structured_deadline is not None
         assert structured_deadline - started > available * 0.45
+
+    asyncio.run(run())
+
+
+def _process_exists(pid):
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    return True
+
+
+def test_expired_budget_still_closes_real_writer_and_mcp(monkeypatch, tmp_path):
+    server_script = tmp_path / "finalization_mcp_server.py"
+    server_script.write_text("""
+import os
+
+from mcp.server.fastmcp import FastMCP
+
+server = FastMCP("finalization-cleanup-test")
+
+
+@server.tool()
+def pid() -> str:
+    return str(os.getpid())
+
+
+if __name__ == "__main__":
+    server.run(transport="stdio")
+""".lstrip())
+
+    async def run():
+        writer = TrajectoryWriter()
+        await writer.start()
+        process = await asyncio.create_subprocess_exec(
+            sys.executable,
+            str(server_script),
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        server_pid = process.pid
+
+        async def disconnect_all():
+            assert process.stdin is not None
+            process.stdin.close()
+            await process.wait()
+
+        manager = SimpleNamespace(
+            connected_servers=["fixture"], disconnect_all=disconnect_all
+        )
+        assert writer.worker.running
+        assert manager.connected_servers == ["fixture"]
+        assert _process_exists(server_pid)
+
+        agent = _agent(monkeypatch, deadline=time.monotonic() - 1)
+        agent.config.agent.manager.vision = False
+        agent.config.logging.save_trajectory = "all"
+        agent.trajectory = SimpleNamespace(trajectory_folder="unused", macro=[])
+        agent.driver = None
+        agent.trajectory_writer = writer
+        monkeypatch.setattr(writer, "write_final", lambda *args: None)
+        agent.mcp_manager = manager
+
+        try:
+            result, _ = await _finalize(agent)
+            background_cleanup = list(module._ABANDONED_FINALIZE_TASKS)
+            if background_cleanup:
+                await asyncio.wait_for(
+                    asyncio.gather(*background_cleanup, return_exceptions=True),
+                    timeout=5,
+                )
+            await asyncio.sleep(0)
+
+            process_deadline = time.monotonic() + 2
+            while _process_exists(server_pid) and time.monotonic() < process_deadline:
+                await asyncio.sleep(0.01)
+
+            assert result.success is True
+            assert not writer.worker.running
+            assert not _process_exists(server_pid)
+        finally:
+            await writer.stop(timeout=0.1)
+            if process.returncode is None:
+                await disconnect_all()
 
     asyncio.run(run())

@@ -20,19 +20,28 @@ from mobilerun.agent.droid.events import (
 class FinishingAgent(MobileAgent):
     """Replace device/LLM setup, retaining MobileAgent.run and finalize."""
 
-    def __init__(self, timeout):
-        Workflow.__init__(self, timeout=timeout)
+    def __init__(self, timeout, num_concurrent_runs=None):
+        Workflow.__init__(
+            self, timeout=timeout, num_concurrent_runs=num_concurrent_runs
+        )
         self.timeout = timeout
 
     @step
     async def start_handler(
         self, ctx: Context, ev: StartEvent
     ) -> FastAgentExecuteEvent | ManagerInputEvent | FinalizeEvent:
+        await self._initialize_workflow_deadline(ctx)
+        started = ev.get("started", default=None)
+        if started is not None:
+            started.set()
         await asyncio.sleep(ev.delay)
-        return FinalizeEvent(success=ev.success, reason="decided")
+        return FinalizeEvent(
+            success=ev.success,
+            reason=ev.get("reason", default="decided"),
+        )
 
 
-def _agent(monkeypatch, timeout, screenshot):
+def _agent(monkeypatch, timeout, screenshot, *, num_concurrent_runs=None):
     async def flush(**kwargs):
         pass
 
@@ -42,7 +51,7 @@ def _agent(monkeypatch, timeout, screenshot):
     monkeypatch.setattr(module, "capture", lambda *a, **kw: None)
     monkeypatch.setattr(module, "flush", flush)
     monkeypatch.setattr(module, "_FINALIZE_SCHEDULING_RESERVE_SECONDS", 0.05)
-    agent = FinishingAgent(timeout)
+    agent = FinishingAgent(timeout, num_concurrent_runs=num_concurrent_runs)
     agent.shared_state = SimpleNamespace(
         workflow_completed=False,
         step_number=1,
@@ -62,6 +71,7 @@ def _agent(monkeypatch, timeout, screenshot):
         tracing=SimpleNamespace(langfuse_screenshots=False),
     )
     agent._stream_screenshots = False
+    agent.structured_output_llm = object()
     agent.action_ctx = SimpleNamespace(driver=SimpleNamespace(screenshot=screenshot))
     agent.state_provider = SimpleNamespace(get_state=state)
     agent.mcp_manager = None
@@ -156,5 +166,85 @@ def test_user_cancellation_during_epilog_still_cancels_workflow(monkeypatch):
         with pytest.raises(WorkflowCancelledByUser):
             await handler
         await asyncio.wait_for(cancelled.wait(), 1)
+
+    asyncio.run(run())
+
+
+def test_serialized_runs_each_receive_a_runtime_scoped_finalization_budget(monkeypatch):
+    async def run():
+        extracted = []
+
+        class Structured:
+            def __init__(self, *, answer_text, **kwargs):
+                self.answer_text = answer_text
+
+            async def extract_structured_output(self, ctx, event):
+                await asyncio.sleep(0.2)
+                extracted.append(self.answer_text)
+                return SimpleNamespace(
+                    result={
+                        "success": True,
+                        "structured_output": {"run": self.answer_text},
+                    }
+                )
+
+        monkeypatch.setattr(module, "StructuredOutputAgent", Structured)
+        agent = _agent(
+            monkeypatch,
+            timeout=0.6,
+            screenshot=lambda: None,
+            num_concurrent_runs=1,
+        )
+        agent.output_model = object()
+        agent.config.agent.manager.vision = False
+        first_started = asyncio.Event()
+        first = agent.run(
+            delay=0.3,
+            success=True,
+            reason="first",
+            started=first_started,
+        )
+        await asyncio.wait_for(first_started.wait(), timeout=1)
+        await asyncio.sleep(0.05)
+        second = agent.run(delay=0, success=True, reason="second")
+
+        first_result = await first
+        second_result = await second
+
+        assert first_result.structured_output == {"run": "first"}
+        assert second_result.structured_output == {"run": "second"}
+        assert extracted == ["first", "second"]
+
+    asyncio.run(run())
+
+
+def test_second_run_cannot_extend_active_run_deadline(monkeypatch):
+    async def run():
+        screenshot_calls = 0
+
+        async def screenshot():
+            nonlocal screenshot_calls
+            screenshot_calls += 1
+            if screenshot_calls == 1:
+                await asyncio.Future()
+
+        agent = _agent(
+            monkeypatch,
+            timeout=0.5,
+            screenshot=screenshot,
+            num_concurrent_runs=1,
+        )
+        first_started = asyncio.Event()
+        first = agent.run(delay=0.2, success=True, started=first_started)
+        await asyncio.wait_for(first_started.wait(), timeout=1)
+        await asyncio.sleep(0.15)
+        second = agent.run(delay=0, success=True)
+
+        first_result = await first
+        second_result = await second
+
+        assert first_result.success is True
+        assert second_result.success is True
+        assert screenshot_calls == 2
 
     asyncio.run(run())

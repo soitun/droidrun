@@ -117,6 +117,7 @@ _FINALIZE_TELEMETRY_SECONDS = 10.0
 _FINALIZE_TRAJECTORY_SECONDS = 30.0
 _FINALIZE_MCP_SECONDS = 3.0
 _FINALIZE_CLEANUP_MAX_FRACTION = 0.5
+_WORKFLOW_DEADLINE_KEY = "mobile_agent_workflow_deadline"
 _ABANDONED_FINALIZE_TASKS: set[asyncio.Task[Any]] = set()
 
 
@@ -130,10 +131,25 @@ def _reap_abandoned_finalize_task(task: asyncio.Task[Any]) -> None:
 
 
 async def _run_finalize_stage(
-    name: str, awaitable: Awaitable[Any], deadline: float, cap: float
+    name: str,
+    awaitable: Awaitable[Any],
+    deadline: float,
+    cap: float,
+    *,
+    continue_in_background: bool = False,
 ) -> tuple[bool, Any]:
     """Run one best-effort epilog stage without letting cancellation linger."""
-    task = asyncio.create_task(awaitable, name=f"mobile-agent-finalize-{name}")
+
+    async def background_operation() -> Any:
+        try:
+            async with asyncio.timeout(cap):
+                return await awaitable
+        except TimeoutError:
+            logger.warning("Final %s background cleanup timed out", name)
+            raise
+
+    operation = background_operation() if continue_in_background else awaitable
+    task = asyncio.create_task(operation, name=f"mobile-agent-finalize-{name}")
     try:
         remaining = min(cap, deadline - time.monotonic())
         if remaining <= 0:
@@ -155,7 +171,8 @@ async def _run_finalize_stage(
             return False, None
     finally:
         if not task.done():
-            task.cancel()
+            if not continue_in_background:
+                task.cancel()
             _ABANDONED_FINALIZE_TASKS.add(task)
             task.add_done_callback(_reap_abandoned_finalize_task)
 
@@ -471,12 +488,16 @@ class MobileAgent(Workflow):
 
     def run(self, *args, **kwargs) -> Awaitable[ResultEvent] | WorkflowHandler:
         apply_session_context()
-        runtime_timeout = self._timeout
-        self._workflow_deadline = (
-            time.monotonic() + runtime_timeout if runtime_timeout is not None else None
-        )
         handler = super().run(*args, **kwargs)  # type: ignore[assignment]
         return handler
+
+    async def _initialize_workflow_deadline(self, ctx: Context) -> None:
+        """Store a deadline owned by the runtime execution of this run."""
+        runtime_timeout = self._timeout
+        workflow_deadline = (
+            time.monotonic() + runtime_timeout if runtime_timeout is not None else None
+        )
+        await ctx.store.set(_WORKFLOW_DEADLINE_KEY, workflow_deadline)
 
     # ========================================================================
     # start_handler — creates driver, registry, action_ctx
@@ -486,6 +507,7 @@ class MobileAgent(Workflow):
     async def start_handler(
         self, ctx: Context, ev: StartEvent
     ) -> FastAgentExecuteEvent | ManagerInputEvent:
+        await self._initialize_workflow_deadline(ctx)
         logger.info(
             f"🚀 Running MobileAgent to achieve goal: {self.shared_state.instruction}"
         )
@@ -1080,7 +1102,7 @@ class MobileAgent(Workflow):
             structured_output=None,
         )
         now = time.monotonic()
-        workflow_deadline = getattr(self, "_workflow_deadline", None)
+        workflow_deadline = await ctx.store.get(_WORKFLOW_DEADLINE_KEY, default=None)
         workflow_limit = (
             workflow_deadline - _FINALIZE_SCHEDULING_RESERVE_SECONDS
             if workflow_deadline is not None
@@ -1233,6 +1255,7 @@ class MobileAgent(Workflow):
                         self.trajectory_writer.stop(),
                         deadline - mcp_reserve,
                         cap=_FINALIZE_TRAJECTORY_SECONDS,
+                        continue_in_background=True,
                     )
                     if trajectory_written and completed:
                         logger.info(
@@ -1249,6 +1272,7 @@ class MobileAgent(Workflow):
                     self.mcp_manager.disconnect_all(),
                     deadline,
                     cap=_FINALIZE_MCP_SECONDS,
+                    continue_in_background=True,
                 )
             except Exception as exc:
                 logger.warning("MCP cleanup setup failed: %s", exc)
