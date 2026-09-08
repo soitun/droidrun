@@ -4,10 +4,14 @@ from types import SimpleNamespace
 
 import pytest
 from llama_index.core.workflow import StopEvent
+from llama_index_instrumentation.span import active_span_id
+from llama_index_instrumentation.span.base import BaseSpan
+from llama_index_instrumentation.span_handlers.base import BaseSpanHandler
 from pydantic import BaseModel
 
 import mobilerun.agent.droid.droid_agent as module
 import mobilerun.agent.oneflows.structured_output_agent as structured_module
+import mobilerun.telemetry.phoenix as phoenix_module
 import mobilerun.tools.ui.provider as provider_module
 from mobilerun.agent.common.events import ScreenshotEvent
 from mobilerun.agent.droid.droid_agent import MobileAgent
@@ -94,6 +98,180 @@ def _structured(result=None):
             )
 
     return Structured
+
+
+def _failed_structured(error_message):
+    class Structured:
+        def __init__(self, **kwargs):
+            pass
+
+        async def extract_structured_output(self, ctx, event):
+            return SimpleNamespace(
+                result={
+                    "success": False,
+                    "structured_output": None,
+                    "error_message": error_message,
+                }
+            )
+
+    return Structured
+
+
+class _RecordedSpan(BaseSpan):
+    arguments: dict
+    result: object = None
+    error: BaseException | None = None
+
+
+class _RecordingSpanHandler(BaseSpanHandler[_RecordedSpan]):
+    def new_span(self, id_, bound_args, instance=None, parent_span_id=None, tags=None):
+        return _RecordedSpan(
+            id_=id_,
+            parent_id=parent_span_id,
+            tags=tags or {},
+            arguments=dict(bound_args.arguments),
+        )
+
+    def prepare_to_exit_span(self, id_, bound_args, instance=None, result=None):
+        span = self.open_spans[id_]
+        span.result = result
+        self.completed_spans.append(span)
+        return span
+
+    def prepare_to_drop_span(self, id_, bound_args, instance=None, err=None):
+        span = self.open_spans[id_]
+        span.error = err
+        self.dropped_spans.append(span)
+        return span
+
+
+@pytest.fixture
+def span_recorder():
+    handler = _RecordingSpanHandler()
+    phoenix_module.dispatcher.add_span_handler(handler)
+    try:
+        yield handler
+    finally:
+        phoenix_module.dispatcher.span_handlers.remove(handler)
+
+
+def test_direct_structured_extraction_restores_observations_and_parentage(
+    monkeypatch, span_recorder
+):
+    async def run():
+        agent = _agent(monkeypatch)
+        agent.output_model = object()
+        agent.config.agent.manager.vision = False
+        monkeypatch.setattr(
+            module, "StructuredOutputAgent", _structured({"parsed": True})
+        )
+
+        token = active_span_id.set("MobileAgent.finalize-parent")
+        try:
+            result, _ = await _finalize(agent)
+        finally:
+            active_span_id.reset(token)
+
+        assert result.structured_output == {"parsed": True}
+        assert not span_recorder.open_spans
+        assert len(span_recorder.completed_spans) == 2
+        run_span = next(
+            span
+            for span in span_recorder.completed_spans
+            if span.id_.startswith("StructuredOutputAgent.run-")
+        )
+        extract_span = next(
+            span
+            for span in span_recorder.completed_spans
+            if span.id_.startswith("StructuredOutputAgent.extract_structured_output-")
+        )
+        assert run_span.parent_id == "MobileAgent.finalize-parent"
+        assert extract_span.parent_id == run_span.id_
+        assert run_span.arguments == extract_span.arguments == {}
+
+        for span in span_recorder.completed_spans:
+            assert span.result.result == {
+                "success": True,
+                "structured_output": {"parsed": True},
+            }
+
+    asyncio.run(run())
+
+
+def test_structured_extraction_timeout_drops_observations(monkeypatch, span_recorder):
+    async def run():
+        entered = asyncio.Event()
+
+        class Structured:
+            def __init__(self, **kwargs):
+                pass
+
+            async def extract_structured_output(self, ctx, event):
+                entered.set()
+                await asyncio.Future()
+
+        monkeypatch.setattr(module, "_FINALIZE_BUDGET_SECONDS", 0.03)
+        monkeypatch.setattr(module, "StructuredOutputAgent", Structured)
+        agent = _agent(monkeypatch)
+        agent.output_model = object()
+        agent.config.agent.manager.vision = False
+
+        token = active_span_id.set("MobileAgent.finalize-parent")
+        try:
+            result, _ = await _finalize(agent)
+            assert entered.is_set()
+            abandoned = list(module._ABANDONED_FINALIZE_TASKS)
+            if abandoned:
+                await asyncio.wait_for(
+                    asyncio.gather(*abandoned, return_exceptions=True), timeout=1
+                )
+            await asyncio.sleep(0)
+        finally:
+            active_span_id.reset(token)
+
+        assert result.structured_output is None
+        assert not module._ABANDONED_FINALIZE_TASKS
+        assert not span_recorder.open_spans
+        assert not span_recorder.completed_spans
+        assert len(span_recorder.dropped_spans) == 2
+        assert all(
+            isinstance(span.error, asyncio.CancelledError)
+            for span in span_recorder.dropped_spans
+        )
+        assert any(
+            span.id_.startswith("StructuredOutputAgent.run-")
+            for span in span_recorder.dropped_spans
+        )
+        assert any(
+            span.id_.startswith("StructuredOutputAgent.extract_structured_output-")
+            for span in span_recorder.dropped_spans
+        )
+
+    asyncio.run(run())
+
+
+def test_direct_structured_extraction_records_error_result(monkeypatch, span_recorder):
+    async def run():
+        agent = _agent(monkeypatch)
+        agent.output_model = object()
+        agent.config.agent.manager.vision = False
+        monkeypatch.setattr(
+            module, "StructuredOutputAgent", _failed_structured("invalid response")
+        )
+
+        result, _ = await _finalize(agent)
+
+        assert result.structured_output is None
+        assert not span_recorder.open_spans
+        assert len(span_recorder.completed_spans) == 2
+        for span in span_recorder.completed_spans:
+            assert span.result.result == {
+                "success": False,
+                "structured_output": None,
+                "error_message": "invalid response",
+            }
+
+    asyncio.run(run())
 
 
 def test_resistant_final_observation_returns_before_late_task_and_publishes_nothing(

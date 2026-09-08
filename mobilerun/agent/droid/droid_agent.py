@@ -95,6 +95,7 @@ from mobilerun.telemetry import (
     capture,
     flush,
 )
+from mobilerun.telemetry.phoenix import clean_span
 from mobilerun.tools.filters import ConciseFilter, DetailedFilter
 from mobilerun.tools.formatters import IndexedFormatter
 from mobilerun.tools.ui.ios_provider import IOSStateProvider
@@ -157,6 +158,22 @@ async def _run_finalize_stage(
             task.cancel()
             _ABANDONED_FINALIZE_TASKS.add(task)
             task.add_done_callback(_reap_abandoned_finalize_task)
+
+
+def _structured_output_extraction(
+    structured_agent: StructuredOutputAgent, ctx: Context
+) -> Awaitable[StopEvent]:
+    """Run direct extraction with the observations of the nested workflow path."""
+
+    @clean_span("StructuredOutputAgent.extract_structured_output")
+    async def extract() -> StopEvent:
+        return await structured_agent.extract_structured_output(ctx, StartEvent())
+
+    @clean_span("StructuredOutputAgent.run")
+    async def run() -> StopEvent:
+        return await extract()
+
+    return run()
 
 
 def _normalize_control_backend(control_backend: str | None) -> str | None:
@@ -1100,11 +1117,11 @@ class MobileAgent(Workflow):
                     pydantic_model=self.output_model,
                     answer_text=ev.reason,
                 )
-                # Avoid a nested workflow (and its tracing) during epilog; the
-                # step itself preserves extraction result and error semantics.
+                # Avoid a nested workflow during epilog while retaining its
+                # extraction-level observations and result parentage.
                 completed, extraction_event = await _run_finalize_stage(
                     "structured-output",
-                    structured_agent.extract_structured_output(ctx, StartEvent()),
+                    _structured_output_extraction(structured_agent, ctx),
                     pre_cleanup_deadline,
                     cap=_FINALIZE_BUDGET_SECONDS,
                 )
