@@ -428,20 +428,9 @@ class MobileAgent(Workflow):
             self.app_opener_llm = None
             self.structured_output_llm = None
 
-        if (
-            not self._using_external_agent
-            and self.config.logging.save_trajectory != "none"
-        ):
-            self.trajectory = Trajectory(
-                goal=self.shared_state.instruction,
-                base_path=self.config.logging.trajectory_path,
-            )
-            self.trajectory_writer = TrajectoryWriter(queue_size=300)
-            self.macro_recorder = MacroRecorder()
-        else:
-            self.trajectory = None
-            self.trajectory_writer = None
-            self.macro_recorder = None
+        self.trajectory = None
+        self.trajectory_writer = None
+        self.macro_recorder = None
 
         # Sub-agents are created in __init__ but wired up in start_handler
         if self._using_external_agent:
@@ -499,6 +488,22 @@ class MobileAgent(Workflow):
         )
         await ctx.store.set(_WORKFLOW_DEADLINE_KEY, workflow_deadline)
 
+    async def _initialize_run_trajectory(self) -> None:
+        """Create trajectory state and a writer owned by the current run."""
+        if self._using_external_agent or self.config.logging.save_trajectory == "none":
+            self.trajectory = None
+            self.trajectory_writer = None
+            self.macro_recorder = None
+            return
+
+        self.trajectory = Trajectory(
+            goal=self.shared_state.instruction,
+            base_path=self.config.logging.trajectory_path,
+        )
+        self.trajectory_writer = TrajectoryWriter(queue_size=300)
+        self.macro_recorder = MacroRecorder()
+        await self.trajectory_writer.start()
+
     # ========================================================================
     # start_handler — creates driver, registry, action_ctx
     # ========================================================================
@@ -512,9 +517,7 @@ class MobileAgent(Workflow):
             f"🚀 Running MobileAgent to achieve goal: {self.shared_state.instruction}"
         )
         ctx.write_event_to_stream(ev)
-
-        if self.trajectory_writer:
-            await self.trajectory_writer.start()
+        await self._initialize_run_trajectory()
 
         # ── 0. External agent — early exit ────────────────────────────
         if self._using_external_agent:

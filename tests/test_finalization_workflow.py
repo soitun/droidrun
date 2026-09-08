@@ -15,6 +15,7 @@ from mobilerun.agent.droid.events import (
     ManagerInputEvent,
     ResultEvent,
 )
+from mobilerun.agent.trajectory import TrajectoryWriter
 
 
 class FinishingAgent(MobileAgent):
@@ -31,6 +32,7 @@ class FinishingAgent(MobileAgent):
         self, ctx: Context, ev: StartEvent
     ) -> FastAgentExecuteEvent | ManagerInputEvent | FinalizeEvent:
         await self._initialize_workflow_deadline(ctx)
+        await self._initialize_run_trajectory()
         started = ev.get("started", default=None)
         if started is not None:
             started.set()
@@ -53,6 +55,7 @@ def _agent(monkeypatch, timeout, screenshot, *, num_concurrent_runs=None):
     monkeypatch.setattr(module, "_FINALIZE_SCHEDULING_RESERVE_SECONDS", 0.05)
     agent = FinishingAgent(timeout, num_concurrent_runs=num_concurrent_runs)
     agent.shared_state = SimpleNamespace(
+        instruction="test task",
         workflow_completed=False,
         step_number=1,
         visited_packages=set(),
@@ -61,17 +64,24 @@ def _agent(monkeypatch, timeout, screenshot, *, num_concurrent_runs=None):
     )
     agent.user_id = None
     agent.output_model = None
+    agent._using_external_agent = False
     agent.config = SimpleNamespace(
         agent=SimpleNamespace(
             manager=SimpleNamespace(vision=True),
             executor=SimpleNamespace(vision=False),
             fast_agent=SimpleNamespace(vision=False),
         ),
-        logging=SimpleNamespace(save_trajectory="none", debug=False),
+        logging=SimpleNamespace(
+            save_trajectory="none",
+            debug=False,
+            trajectory_path="trajectories",
+            trajectory_gifs=False,
+        ),
         tracing=SimpleNamespace(langfuse_screenshots=False),
     )
     agent._stream_screenshots = False
     agent.structured_output_llm = object()
+    agent.driver = None
     agent.action_ctx = SimpleNamespace(driver=SimpleNamespace(screenshot=screenshot))
     agent.state_provider = SimpleNamespace(get_state=state)
     agent.mcp_manager = None
@@ -246,5 +256,75 @@ def test_second_run_cannot_extend_active_run_deadline(monkeypatch):
         assert first_result.success is True
         assert second_result.success is True
         assert screenshot_calls == 2
+
+    asyncio.run(run())
+
+
+def test_serialized_runs_use_distinct_trajectory_writers(monkeypatch, tmp_path):
+    async def run():
+        first_draining = asyncio.Event()
+        release_first = asyncio.Event()
+        second_written = asyncio.Event()
+        writers = []
+
+        class RecordingWriter(TrajectoryWriter):
+            def __init__(self, queue_size=300):
+                super().__init__(queue_size=queue_size)
+                self.run_index = len(writers)
+                writers.append(self)
+
+            def write(self, trajectory, stage):
+                if stage != "final":
+                    return
+
+                run_index = self.run_index
+
+                class Job:
+                    async def execute(self):
+                        if run_index == 0:
+                            first_draining.set()
+                            await release_first.wait()
+                        else:
+                            second_written.set()
+
+                self.worker.submit(Job())
+
+        monkeypatch.setattr(module, "TrajectoryWriter", RecordingWriter)
+        monkeypatch.setattr(module, "_FINALIZE_BUDGET_SECONDS", 0.05)
+        monkeypatch.setattr(module, "_FINALIZE_TRAJECTORY_SECONDS", 0.5)
+        agent = _agent(
+            monkeypatch,
+            timeout=2,
+            screenshot=_no_screenshot,
+            num_concurrent_runs=1,
+        )
+        agent.config.agent.manager.vision = False
+        agent.config.logging.save_trajectory = "all"
+        agent.config.logging.trajectory_path = str(tmp_path)
+
+        first_result = await agent.run(delay=0, success=True, reason="first")
+        await asyncio.wait_for(first_draining.wait(), timeout=1)
+        second_result = await agent.run(delay=0, success=True, reason="second")
+
+        assert first_result.success is True
+        assert second_result.success is True
+        assert len(writers) == 2
+        assert writers[0] is not writers[1]
+        assert second_written.is_set()
+        assert writers[1].worker.queue.empty()
+
+        release_first.set()
+        background_cleanup = list(module._ABANDONED_FINALIZE_TASKS)
+        if background_cleanup:
+            await asyncio.wait_for(
+                asyncio.gather(*background_cleanup, return_exceptions=True),
+                timeout=1,
+            )
+        await asyncio.sleep(0)
+        assert not writers[0].worker.running
+        assert not writers[1].worker.running
+
+    async def _no_screenshot():
+        return None
 
     asyncio.run(run())
