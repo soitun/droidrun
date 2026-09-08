@@ -154,6 +154,10 @@ class StateProvider:
     async def get_state(self) -> UIState:
         raise NotImplementedError
 
+    async def get_final_state(self) -> UIState:
+        """Read the final observation; subclasses may make this narrower."""
+        return await self.get_state()
+
 
 def should_resize_model_screenshot(state_provider: Any) -> bool:
     """True when screenshots attached to LLM messages must be resized (with
@@ -292,6 +296,13 @@ class AndroidStateProvider(StateProvider):
             fetch=self.driver.get_ui_tree,
             recovery=self._recover_portal,
         )
+        return self._state_from_data(combined_data)
+
+    async def get_final_state(self) -> UIState:
+        """Finalization must not restart accessibility after a failed read."""
+        return self._state_from_data(await self.driver.get_ui_tree())
+
+    def _state_from_data(self, combined_data: dict) -> UIState:
 
         device_context = combined_data["device_context"]
         screen_bounds = device_context.get("screen_bounds", {})

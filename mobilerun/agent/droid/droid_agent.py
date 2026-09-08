@@ -7,10 +7,12 @@ Architecture:
 - When reasoning=True: Uses Manager (planning) + Executor (action) workflows
 """
 
+import asyncio
 import logging
 import os
+import time
 import traceback
-from typing import TYPE_CHECKING, Awaitable, Type, Union
+from typing import TYPE_CHECKING, Any, Awaitable, Type, Union
 
 from async_adbutils import adb
 from llama_index.core.llms.llm import LLM
@@ -93,6 +95,7 @@ from mobilerun.telemetry import (
     capture,
     flush,
 )
+from mobilerun.telemetry.phoenix import clean_span
 from mobilerun.tools.filters import ConciseFilter, DetailedFilter
 from mobilerun.tools.formatters import IndexedFormatter
 from mobilerun.tools.ui.ios_provider import IOSStateProvider
@@ -107,6 +110,87 @@ if TYPE_CHECKING:
 logger = logging.getLogger("mobilerun")
 
 _COORDINATE_TOOL_NAMES = {"click_at", "click_area", "long_press_at"}
+_FINALIZE_BUDGET_SECONDS = 60.0
+_FINALIZE_SCHEDULING_RESERVE_SECONDS = 1.0
+_FINALIZE_OBSERVATION_SECONDS = 15.0
+_FINALIZE_TELEMETRY_SECONDS = 10.0
+_FINALIZE_TRAJECTORY_SECONDS = 30.0
+_FINALIZE_MCP_SECONDS = 3.0
+_FINALIZE_CLEANUP_MAX_FRACTION = 0.5
+_WORKFLOW_DEADLINE_KEY = "mobile_agent_workflow_deadline"
+_ABANDONED_FINALIZE_TASKS: set[asyncio.Task[Any]] = set()
+
+
+def _reap_abandoned_finalize_task(task: asyncio.Task[Any]) -> None:
+    """Consume a task's terminal exception without waiting for it."""
+    _ABANDONED_FINALIZE_TASKS.discard(task)
+    try:
+        task.result()
+    except (asyncio.CancelledError, Exception):
+        pass
+
+
+async def _run_finalize_stage(
+    name: str,
+    awaitable: Awaitable[Any],
+    deadline: float,
+    cap: float,
+    *,
+    continue_in_background: bool = False,
+) -> tuple[bool, Any]:
+    """Run one best-effort epilog stage without letting cancellation linger."""
+
+    async def background_operation() -> Any:
+        try:
+            async with asyncio.timeout(cap):
+                return await awaitable
+        except TimeoutError:
+            logger.warning("Final %s background cleanup timed out", name)
+            raise
+
+    operation = background_operation() if continue_in_background else awaitable
+    task = asyncio.create_task(operation, name=f"mobile-agent-finalize-{name}")
+    try:
+        remaining = min(cap, deadline - time.monotonic())
+        if remaining <= 0:
+            logger.debug("Skipping final %s: epilog budget exhausted", name)
+            return False, None
+        done, _ = await asyncio.wait({task}, timeout=remaining)
+        if not done:
+            logger.warning("Final %s timed out", name)
+            return False, None
+        try:
+            return True, task.result()
+        except asyncio.CancelledError:
+            # A best-effort child may cancel itself; only cancellation of this
+            # helper's await is an external cancellation of finalize.
+            logger.warning("Final %s was cancelled", name)
+            return False, None
+        except Exception as exc:
+            logger.warning("Final %s failed: %s", name, exc)
+            return False, None
+    finally:
+        if not task.done():
+            if not continue_in_background:
+                task.cancel()
+            _ABANDONED_FINALIZE_TASKS.add(task)
+            task.add_done_callback(_reap_abandoned_finalize_task)
+
+
+def _structured_output_extraction(
+    structured_agent: StructuredOutputAgent, ctx: Context
+) -> Awaitable[StopEvent]:
+    """Run direct extraction with the observations of the nested workflow path."""
+
+    @clean_span("StructuredOutputAgent.extract_structured_output")
+    async def extract() -> StopEvent:
+        return await structured_agent.extract_structured_output(ctx, StartEvent())
+
+    @clean_span("StructuredOutputAgent.run")
+    async def run() -> StopEvent:
+        return await extract()
+
+    return run()
 
 
 def _normalize_control_backend(control_backend: str | None) -> str | None:
@@ -344,20 +428,9 @@ class MobileAgent(Workflow):
             self.app_opener_llm = None
             self.structured_output_llm = None
 
-        if (
-            not self._using_external_agent
-            and self.config.logging.save_trajectory != "none"
-        ):
-            self.trajectory = Trajectory(
-                goal=self.shared_state.instruction,
-                base_path=self.config.logging.trajectory_path,
-            )
-            self.trajectory_writer = TrajectoryWriter(queue_size=300)
-            self.macro_recorder = MacroRecorder()
-        else:
-            self.trajectory = None
-            self.trajectory_writer = None
-            self.macro_recorder = None
+        self.trajectory = None
+        self.trajectory_writer = None
+        self.macro_recorder = None
 
         # Sub-agents are created in __init__ but wired up in start_handler
         if self._using_external_agent:
@@ -407,6 +480,30 @@ class MobileAgent(Workflow):
         handler = super().run(*args, **kwargs)  # type: ignore[assignment]
         return handler
 
+    async def _initialize_workflow_deadline(self, ctx: Context) -> None:
+        """Store a deadline owned by the runtime execution of this run."""
+        runtime_timeout = self._timeout
+        workflow_deadline = (
+            time.monotonic() + runtime_timeout if runtime_timeout is not None else None
+        )
+        await ctx.store.set(_WORKFLOW_DEADLINE_KEY, workflow_deadline)
+
+    async def _initialize_run_trajectory(self) -> None:
+        """Create trajectory state and a writer owned by the current run."""
+        if self._using_external_agent or self.config.logging.save_trajectory == "none":
+            self.trajectory = None
+            self.trajectory_writer = None
+            self.macro_recorder = None
+            return
+
+        self.trajectory = Trajectory(
+            goal=self.shared_state.instruction,
+            base_path=self.config.logging.trajectory_path,
+        )
+        self.trajectory_writer = TrajectoryWriter(queue_size=300)
+        self.macro_recorder = MacroRecorder()
+        await self.trajectory_writer.start()
+
     # ========================================================================
     # start_handler — creates driver, registry, action_ctx
     # ========================================================================
@@ -415,13 +512,12 @@ class MobileAgent(Workflow):
     async def start_handler(
         self, ctx: Context, ev: StartEvent
     ) -> FastAgentExecuteEvent | ManagerInputEvent:
+        await self._initialize_workflow_deadline(ctx)
         logger.info(
             f"🚀 Running MobileAgent to achieve goal: {self.shared_state.instruction}"
         )
         ctx.write_event_to_stream(ev)
-
-        if self.trajectory_writer:
-            await self.trajectory_writer.start()
+        await self._initialize_run_trajectory()
 
         # ── 0. External agent — early exit ────────────────────────────
         if self._using_external_agent:
@@ -1002,60 +1098,72 @@ class MobileAgent(Workflow):
 
     @step
     async def finalize(self, ctx: Context, ev: FinalizeEvent) -> ResultEvent:
-        self.shared_state.workflow_completed = True
-        ctx.write_event_to_stream(ev)
-        capture(
-            MobileAgentFinalizeEvent(
-                success=ev.success,
-                reason=ev.reason,
-                steps=self.shared_state.step_number,
-                unique_packages_count=len(self.shared_state.visited_packages),
-                unique_activities_count=len(self.shared_state.visited_activities),
-            ),
-            self.user_id,
-            config_enabled=self.shared_state.telemetry_config_enabled,
-        )
-        await flush(config_enabled=self.shared_state.telemetry_config_enabled)
-
-        # Base result with answer
         result = ResultEvent(
             success=ev.success,
             reason=ev.reason,
             steps=self.shared_state.step_number,
             structured_output=None,
         )
+        now = time.monotonic()
+        workflow_deadline = await ctx.store.get(_WORKFLOW_DEADLINE_KEY, default=None)
+        workflow_limit = (
+            workflow_deadline - _FINALIZE_SCHEDULING_RESERVE_SECONDS
+            if workflow_deadline is not None
+            else float("inf")
+        )
+        deadline = min(now + _FINALIZE_BUDGET_SECONDS, workflow_limit)
+        saves_trajectory = self.config.logging.save_trajectory != "none"
+        has_mcp = self.mcp_manager is not None
+        available = max(0.0, deadline - now)
+        cleanup_reserve = 0.0
+        if saves_trajectory:
+            cleanup_demand = _FINALIZE_TRAJECTORY_SECONDS + (
+                _FINALIZE_MCP_SECONDS if has_mcp else 0.0
+            )
+            cleanup_reserve = min(
+                cleanup_demand, available * _FINALIZE_CLEANUP_MAX_FRACTION
+            )
+        elif has_mcp:
+            cleanup_reserve = min(
+                _FINALIZE_MCP_SECONDS,
+                available * _FINALIZE_CLEANUP_MAX_FRACTION,
+            )
+        pre_cleanup_deadline = deadline - cleanup_reserve
+
+        self.shared_state.workflow_completed = True
+        ctx.write_event_to_stream(ev)
 
         # Extract structured output if model was provided
         if self.output_model is not None and ev.reason:
             logger.debug("🔄 Running structured output extraction...")
-
             try:
                 structured_agent = StructuredOutputAgent(
                     llm=self.structured_output_llm,
                     pydantic_model=self.output_model,
                     answer_text=ev.reason,
-                    timeout=self.timeout,
                 )
-
-                handler = structured_agent.run()
-
-                async for nested_ev in handler.stream_events():
-                    self.handle_stream_event(nested_ev, ctx)
-
-                extraction_result = await handler
-
-                if extraction_result["success"]:
-                    result.structured_output = extraction_result["structured_output"]
+                # Avoid a nested workflow during epilog while retaining its
+                # extraction-level observations and result parentage.
+                completed, extraction_event = await _run_finalize_stage(
+                    "structured-output",
+                    _structured_output_extraction(structured_agent, ctx),
+                    pre_cleanup_deadline,
+                    cap=_FINALIZE_BUDGET_SECONDS,
+                )
+                if completed and extraction_event.result["success"]:
+                    result.structured_output = extraction_event.result[
+                        "structured_output"
+                    ]
                     logger.debug("✅ Structured output added to final result")
-                else:
-                    logger.warning(
-                        f"⚠️  Structured extraction failed: {extraction_result['error_message']}"
-                    )
+            except Exception as exc:
+                logger.warning("Final structured output failed: %s", exc)
 
-            except Exception as e:
-                logger.error(f"❌ Error during structured extraction: {e}")
-                if self.config.logging.debug:
-                    logger.error(traceback.format_exc())
+        await _run_finalize_stage(
+            "telemetry-flush",
+            self._flush_final_telemetry(ev),
+            pre_cleanup_deadline,
+            cap=_FINALIZE_TELEMETRY_SECONDS,
+        )
 
         # Capture final screenshot and UI state (independent of trajectory persistence)
         vision_any = (
@@ -1068,52 +1176,128 @@ class MobileAgent(Workflow):
             or self._stream_screenshots
             or self.config.logging.save_trajectory != "none"
         ):
+            observation_deadline = min(
+                pre_cleanup_deadline,
+                time.monotonic() + _FINALIZE_OBSERVATION_SECONDS,
+            )
             try:
-                screenshot = await self.action_ctx.driver.screenshot()
-                if screenshot:
+                screenshot_operation = self.action_ctx.driver.screenshot()
+                completed, screenshot = await _run_finalize_stage(
+                    "screenshot",
+                    screenshot_operation,
+                    observation_deadline,
+                    cap=_FINALIZE_OBSERVATION_SECONDS,
+                )
+            except Exception as exc:
+                logger.warning("Failed to start final screenshot: %s", exc)
+                completed, screenshot = False, None
+            if completed and screenshot:
+                try:
                     ctx.write_event_to_stream(ScreenshotEvent(screenshot=screenshot))
-                    parent_span = trace.get_current_span()
                     record_langfuse_screenshot(
                         screenshot,
-                        parent_span=parent_span,
+                        parent_span=trace.get_current_span(),
                         screenshots_enabled=self.config.tracing.langfuse_screenshots,
                         vision_enabled=vision_any,
                     )
                     logger.debug("📸 Final screenshot captured")
-            except Exception as e:
-                logger.warning(f"Failed to capture final screenshot: {e}")
+                except Exception as exc:
+                    logger.warning("Failed to publish final screenshot: %s", exc)
 
             try:
-                ui_state = await self.state_provider.get_state()
-                ctx.write_event_to_stream(
-                    RecordUIStateEvent(ui_state=ui_state.elements)
+                final_state = getattr(
+                    self.state_provider,
+                    "get_final_state",
+                    self.state_provider.get_state,
                 )
-                logger.debug("📋 Final UI state captured")
-            except Exception as e:
-                logger.warning(f"Failed to capture final UI state: {e}")
+                completed, ui_state = await _run_finalize_stage(
+                    "ui-state",
+                    final_state(),
+                    observation_deadline,
+                    cap=_FINALIZE_OBSERVATION_SECONDS,
+                )
+            except Exception as exc:
+                logger.warning("Failed to start final UI state: %s", exc)
+                completed, ui_state = False, None
+            if completed and ui_state is not None:
+                try:
+                    ctx.write_event_to_stream(
+                        RecordUIStateEvent(ui_state=ui_state.elements)
+                    )
+                    logger.debug("📋 Final UI state captured")
+                except Exception as exc:
+                    logger.warning("Failed to publish final UI state: %s", exc)
 
         # Save trajectory to disk
-        if self.config.logging.save_trajectory != "none":
-            # Prefer rich action-level macro entries; fall back to raw driver logs.
-            if self.macro_recorder and self.macro_recorder.actions:
-                self.trajectory.macro = list(self.macro_recorder.actions)
-            elif isinstance(self.driver, RecordingDriver):
-                self.trajectory.macro = list(self.driver.log)
-
-            self.trajectory_writer.write_final(
-                self.trajectory, self.config.logging.trajectory_gifs
-            )
-            await self.trajectory_writer.stop()
-            logger.info(f"📁 Trajectory saved: {self.trajectory.trajectory_folder}")
+        if saves_trajectory:
+            trajectory_written = False
+            try:
+                # Prefer rich action-level macro entries; fall back to raw driver logs.
+                if self.macro_recorder and self.macro_recorder.actions:
+                    self.trajectory.macro = list(self.macro_recorder.actions)
+                elif isinstance(self.driver, RecordingDriver):
+                    self.trajectory.macro = list(self.driver.log)
+                self.trajectory_writer.write_final(
+                    self.trajectory, self.config.logging.trajectory_gifs
+                )
+                trajectory_written = True
+            except Exception as exc:
+                logger.warning("Final trajectory persistence failed: %s", exc)
+            finally:
+                try:
+                    mcp_reserve = (
+                        min(
+                            _FINALIZE_MCP_SECONDS,
+                            max(0.0, deadline - time.monotonic()) / 2,
+                        )
+                        if has_mcp
+                        else 0.0
+                    )
+                    completed, _ = await _run_finalize_stage(
+                        "trajectory-stop",
+                        self.trajectory_writer.stop(),
+                        deadline - mcp_reserve,
+                        cap=_FINALIZE_TRAJECTORY_SECONDS,
+                        continue_in_background=True,
+                    )
+                    if trajectory_written and completed:
+                        logger.info(
+                            f"📁 Trajectory saved: {self.trajectory.trajectory_folder}"
+                        )
+                except Exception as exc:
+                    logger.warning("Final trajectory shutdown failed: %s", exc)
 
         # Cleanup MCP connections
-        if self.mcp_manager:
+        if has_mcp:
             try:
-                await self.mcp_manager.disconnect_all()
-            except Exception as e:
-                logger.warning(f"MCP cleanup error: {e}")
+                await _run_finalize_stage(
+                    "mcp-disconnect",
+                    self.mcp_manager.disconnect_all(),
+                    deadline,
+                    cap=_FINALIZE_MCP_SECONDS,
+                    continue_in_background=True,
+                )
+            except Exception as exc:
+                logger.warning("MCP cleanup setup failed: %s", exc)
 
         return result
+
+    async def _flush_final_telemetry(self, ev: FinalizeEvent) -> None:
+        try:
+            capture(
+                MobileAgentFinalizeEvent(
+                    success=ev.success,
+                    reason=ev.reason,
+                    steps=self.shared_state.step_number,
+                    unique_packages_count=len(self.shared_state.visited_packages),
+                    unique_activities_count=len(self.shared_state.visited_activities),
+                ),
+                self.user_id,
+                config_enabled=self.shared_state.telemetry_config_enabled,
+            )
+        except Exception as exc:
+            logger.warning("Final telemetry capture failed: %s", exc)
+        await flush(config_enabled=self.shared_state.telemetry_config_enabled)
 
     # ========================================================================
     # Event streaming
