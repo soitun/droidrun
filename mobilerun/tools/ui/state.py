@@ -9,7 +9,11 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 
 from mobilerun.tools.helpers.coordinate import to_absolute
-from mobilerun.tools.helpers.geometry import find_clear_point, rects_overlap
+from mobilerun.tools.helpers.geometry import (
+    find_clear_point,
+    find_uncovered_point,
+    rects_overlap,
+)
 
 
 class UIState:
@@ -57,7 +61,7 @@ class UIState:
         return self._find_by_index(self.elements, index)
 
     def get_element_coords(self, index: int) -> Tuple[int, int]:
-        """Return the centre (x, y) of element *index*.
+        """Return the centre, avoiding known touchable sibling obstructions.
 
         Raises ``ValueError`` when the element is missing or has no bounds.
         """
@@ -91,7 +95,34 @@ class UIState:
                 f"{bounds_str}"
             ) from e
 
-        return (left + right) // 2, (top + bottom) // 2
+        return self._avoid_tap_blockers(
+            element, ((left + right) // 2, (top + bottom) // 2)
+        )
+
+    def _avoid_tap_blockers(
+        self, element: Dict[str, Any], point: Tuple[int, int]
+    ) -> Tuple[int, int]:
+        """Keep a preferred point unless the formatter identified an obstruction."""
+        blockers = [
+            tuple(map(int, bounds.split(",")))
+            for bounds in element.get("tapBlockers", [])
+        ]
+        x, y = point
+        if not any(
+            left <= x < right and top <= y < bottom
+            for left, top, right, bottom in blockers
+        ):
+            return point
+        left, top, right, bottom = map(int, element["bounds"].split(","))
+        if self.screen_width and self.screen_height:
+            width = 1000 if self.use_normalized else self.screen_width
+            height = 1000 if self.use_normalized else self.screen_height
+            left, top = max(0, left), max(0, top)
+            right, bottom = min(width, right), min(height, bottom)
+        clear = find_uncovered_point((left, top, right, bottom), blockers)
+        if clear is None:
+            raise ValueError(f"No clear tap point for element {element.get('index')}")
+        return clear
 
     def get_element_info(self, index: int) -> Dict[str, Any]:
         """Return a dict with common element fields for display."""
