@@ -674,10 +674,3 @@ browser callback server. The accepted enabled values are `1`, `true`, and `yes`
 ```bash
 export MOBILERUN_OAUTH_MANUAL=true
 ```
-
-The legacy `DROIDRUN_OAUTH_MANUAL` variable remains supported when the new
-variable is unset or empty. A nonempty new value takes precedence, so
-`MOBILERUN_OAUTH_MANUAL=false` overrides `DROIDRUN_OAUTH_MANUAL=true`. Automatic
-headless detection and fallback when the callback server cannot bind remain
-active regardless of this setting. Browser opening still follows the login
-command's existing browser preference.
