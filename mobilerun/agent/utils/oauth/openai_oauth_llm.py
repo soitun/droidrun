@@ -4,8 +4,8 @@ Usage:
     from openai_oauth_llm import OpenAIOAuth
 
     llm = OpenAIOAuth(
-        auth_model="openai-codex/gpt-5.4",
-        custom_model="gpt-5.4",  # optional override
+        auth_model="openai-codex/gpt-5.5",
+        custom_model="gpt-5.5",  # optional override
         oauth_refresh_token="rt_...",
         oauth_access_token="eyJ...",  # optional if cached file already exists
         oauth_credential_path=str(OPENAI_OAUTH_CREDENTIAL_PATH),
@@ -37,11 +37,16 @@ from llama_index.core.base.llms.types import (
     LLMMetadata,
     MessageRole,
 )
+from llama_index.core.types import PydanticProgramMode
 from llama_index.llms.openai import OpenAI
 from llama_index.llms.openai.base import llm_retry_decorator
 from llama_index.llms.openai.utils import to_openai_message_dicts
 
-from mobilerun.agent.providers.registry import normalize_model_id_for_variant
+from mobilerun.agent.providers.registry import (
+    OPENAI_OAUTH_DEFAULT_MODEL,
+    OPENAI_OAUTH_UNSUPPORTED_MODELS,
+    normalize_model_id_for_variant,
+)
 from mobilerun.agent.utils.oauth.login_timeout import (
     OAuthLoginDeadline,
     open_browser_async,
@@ -52,7 +57,7 @@ from mobilerun.config_manager.credential_paths import OPENAI_OAUTH_CREDENTIAL_PA
 DEFAULT_OPENAI_OAUTH_ISSUER = "https://auth.openai.com"
 DEFAULT_OPENAI_OAUTH_CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann"
 DEFAULT_OPENAI_OAUTH_CREDENTIAL_PATH = OPENAI_OAUTH_CREDENTIAL_PATH
-DEFAULT_AUTH_MODEL = "openai-codex/gpt-5.4"
+DEFAULT_AUTH_MODEL = f"openai-codex/{OPENAI_OAUTH_DEFAULT_MODEL}"
 DEFAULT_OPENAI_API_BASE = "https://api.openai.com/v1"
 DEFAULT_CODEX_API_BASE = "https://chatgpt.com/backend-api/codex"
 DEFAULT_BACKEND_API_BASE = "https://chatgpt.com/backend-api"
@@ -617,7 +622,7 @@ class OpenAIOAuth(OpenAI):
         elif model and model.strip():
             selected_model = model.strip()
         else:
-            selected_model = auth_model.strip() or "gpt-5.4"
+            selected_model = auth_model.strip() or OPENAI_OAUTH_DEFAULT_MODEL
 
         normalized_model = normalize_model_id_for_variant(
             "openai",
@@ -683,9 +688,19 @@ class OpenAIOAuth(OpenAI):
             custom_model=custom_model,
             model=model,
         )
+        if resolved_model in OPENAI_OAUTH_UNSUPPORTED_MODELS:
+            raise ValueError(
+                f"Model '{resolved_model}' is not supported with OpenAI OAuth "
+                f"ChatGPT-account credentials. Use '{OPENAI_OAUTH_DEFAULT_MODEL}' "
+                "or re-run `mobilerun configure openai`."
+            )
 
         seed_api_key = oauth_access_token or kwargs.pop("api_key", None) or "oauth"
         kwargs.setdefault("api_base", DEFAULT_OPENAI_API_BASE)
+        # This adapter collects Responses text, without forwarding Chat
+        # Completions response_format or function tools. Include the schema
+        # in the prompt and validate the returned JSON through LlamaIndex.
+        kwargs.setdefault("pydantic_program_mode", PydanticProgramMode.LLM)
         super().__init__(model=resolved_model, api_key=seed_api_key, **kwargs)
         object.__setattr__(
             self,

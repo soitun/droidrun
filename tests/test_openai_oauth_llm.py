@@ -358,3 +358,60 @@ def test_gpt_6_astra_async_request_uses_exact_model_and_reasoning(
             "reasoning": {"effort": "low"},
         }
     ]
+
+
+def test_oauth_implicit_default_matches_catalog(tmp_path):
+    llm = OpenAIOAuth(oauth_credential_path=str(tmp_path / "auth.json"))
+    assert (
+        llm.model
+        == resolve_provider_variant("openai", "oauth").default_model
+        == "gpt-5.5"
+    )
+
+
+@pytest.mark.parametrize("model", ["gpt-5.4", "gpt-5.4-mini"])
+@pytest.mark.parametrize("argument", ["model", "custom_model", "auth_model"])
+@pytest.mark.parametrize("prefix", ["", "openai/", "openai-codex/"])
+def test_unsupported_chatgpt_models_fail_locally(tmp_path, model, argument, prefix):
+    with pytest.raises(ValueError, match="not supported.*gpt-5.5"):
+        OpenAIOAuth(
+            **{argument: prefix + model},
+            oauth_credential_path=str(tmp_path / "auth.json"),
+        )
+
+
+@pytest.mark.parametrize("model", ["gpt-5.5", "gpt-6-astra"])
+@pytest.mark.parametrize("async_call", [False, True])
+def test_oauth_structured_extraction_prompts_for_schema(
+    tmp_path, monkeypatch, model, async_call
+):
+    from llama_index.core.base.llms.types import ChatResponse
+    from llama_index.core.prompts import PromptTemplate
+    from pydantic import BaseModel
+
+    class Result(BaseModel):
+        value: int
+
+    captured = []
+    llm = _offline_oauth_llm(tmp_path, model=model)
+
+    def chat(_self, messages, **kwargs):
+        captured.extend(messages)
+        return ChatResponse(
+            message=ChatMessage(role=MessageRole.ASSISTANT, content='{"value":19}')
+        )
+
+    async def achat(_self, messages, **kwargs):
+        return chat(_self, messages, **kwargs)
+
+    monkeypatch.setattr(type(llm), "chat", chat)
+    monkeypatch.setattr(type(llm), "achat", achat)
+    prompt = PromptTemplate("Return 8 plus 11 as value.")
+    result = (
+        asyncio.run(llm.astructured_predict(Result, prompt))
+        if async_call
+        else llm.structured_predict(Result, prompt)
+    )
+    assert result.value == 19
+    assert '"properties"' in "\n".join(str(m.content) for m in captured)
+    assert '"value"' in "\n".join(str(m.content) for m in captured)

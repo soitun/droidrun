@@ -394,10 +394,68 @@ def test_system_message_text_reaches_system_instruction():
 
 
 def test_oauth_default_model_resolves_to_antigravity_flash():
+    from mobilerun.agent.providers.registry import resolve_provider_variant
     from mobilerun.agent.utils.llm_picker import load_llm
+    from mobilerun.cli.oauth_actions import GEMINI_OAUTH_DEFAULT_MODEL
 
     # no model arg -> the Antigravity consumer default
-    assert load_llm("gemini_oauth_code_assist").model == "gemini-3.5-flash-low"
+    assert load_llm("gemini_oauth_code_assist").model == "gemini-3.7-flash-tiered"
+    variant = resolve_provider_variant("gemini", "oauth")
+    assert variant.models[0] == variant.default_model == GEMINI_OAUTH_DEFAULT_MODEL
+
+
+@pytest.mark.parametrize(
+    "model",
+    ["gemini-3.5-flash-low", "gemini-3.5-flash-extra-low", "gemini-3-flash-agent"],
+)
+@pytest.mark.parametrize("argument", ["model", "custom_model"])
+def test_retired_oauth_models_fail_before_loading_credentials(
+    model, argument, monkeypatch
+):
+    from mobilerun.agent.utils.oauth.gemini_oauth_code_assist_llm import (
+        GeminiOAuthCodeAssistLLM,
+    )
+
+    def unexpected_load(*args):
+        pytest.fail("Retired selection must fail before credentials or network access")
+
+    monkeypatch.setattr(
+        GeminiOAuthCodeAssistLLM, "_load_credentials_from_file", unexpected_load
+    )
+    with pytest.raises(ValueError, match="retired.*gemini-3.7-flash-tiered.*configure"):
+        GeminiOAuthCodeAssistLLM(**{argument: model})
+
+
+def test_retired_oauth_models_are_hidden_even_when_provider_advertises_them():
+    from mobilerun.agent.providers.registry import GEMINI_OAUTH_RETIRED_MODELS
+
+    advertised = [
+        *GEMINI_OAUTH_RETIRED_MODELS,
+        "gemini-3.5-flash-lite",
+        "gemini-future-custom",
+    ]
+    models = _models_from_catalog(
+        {
+            "models": {
+                model: {
+                    "apiProvider": "API_PROVIDER_GOOGLE_GEMINI",
+                    "displayName": model,
+                }
+                for model in advertised
+            }
+        }
+    )
+    assert [model["id"] for model in models] == [
+        "gemini-3.5-flash-lite",
+        "gemini-future-custom",
+    ]
+
+
+def test_flash_lite_and_unknown_custom_oauth_models_load():
+    from mobilerun.agent.utils.llm_picker import load_llm
+
+    for model in ("gemini-3.5-flash-lite", "gemini-future-custom"):
+        assert load_llm("gemini_oauth_code_assist", model=model).model == model
 
 
 def test_oauth_explicit_default_model_is_honored_not_preset():
@@ -405,8 +463,8 @@ def test_oauth_explicit_default_model_is_honored_not_preset():
 
     # explicit model equal to DEFAULT_MODEL must NOT fall through to a preset
     assert (
-        load_llm("gemini_oauth_code_assist", model="gemini-3.5-flash-low").model
-        == "gemini-3.5-flash-low"
+        load_llm("gemini_oauth_code_assist", model="gemini-3.7-flash-tiered").model
+        == "gemini-3.7-flash-tiered"
     )
 
 
@@ -430,7 +488,8 @@ def test_oauth_preset_key_still_resolves():
     )
 
     assert (
-        GeminiOAuthCodeAssistLLM(model_preset="flash").model == "gemini-3.5-flash-low"
+        GeminiOAuthCodeAssistLLM(model_preset="flash").model
+        == "gemini-3.7-flash-tiered"
     )
 
 
@@ -494,7 +553,7 @@ def test_flash_lite_preset_resolves_to_picker_model():
 
     assert (
         GeminiOAuthCodeAssistLLM(model_preset="flash_lite").model
-        == "gemini-3.5-flash-extra-low"
+        == "gemini-3.5-flash-lite"
     )
 
 

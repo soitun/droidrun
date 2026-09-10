@@ -32,13 +32,11 @@ def test_gemini_oauth_catalog_uses_antigravity_consumer_models() -> None:
     variant = resolve_provider_variant("gemini", "oauth")
     models = list_models_for_variant("gemini", "oauth")
 
-    assert variant.default_model == "gemini-3.5-flash-low"
+    assert variant.default_model == "gemini-3.7-flash-tiered"
     assert models == (
-        "gemini-3.5-flash-low",
-        "gemini-3.8-flash-tiered",
         "gemini-3.7-flash-tiered",
-        "gemini-3.5-flash-extra-low",
-        "gemini-3-flash-agent",
+        "gemini-3.8-flash-tiered",
+        "gemini-3.5-flash-lite",
         "gemini-3-flash",
         "gemini-pro-agent",
         "gemini-3.1-pro-low",
@@ -131,8 +129,6 @@ def test_openai_oauth_catalog_hides_unsupported_codex_model() -> None:
         "gpt-5.6-sol",
         "gpt-5.6-terra",
         "gpt-5.6-luna",
-        "gpt-5.4",
-        "gpt-5.4-mini",
     )
     assert "gpt-5.3-codex" not in models
 

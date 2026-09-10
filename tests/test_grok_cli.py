@@ -195,7 +195,7 @@ def test_gemini_empty_entitlement_is_not_persisted(monkeypatch, tmp_path) -> Non
     with pytest.raises(RuntimeError, match="no usable models"):
         oauth_actions.run_gemini_oauth_login(
             str(tmp_path / "auth.json"),
-            "gemini-3.5-flash-low",
+            "gemini-3.7-flash-tiered",
             open_browser=False,
         )
 
