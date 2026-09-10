@@ -1684,7 +1684,7 @@ wheels = [
 
 [[package]]
 name = "mobilerun"
-version = "0.6.18"
+version = "0.6.19"
 source = { editable = "." }
 dependencies = [
     { name = "aiofiles" },
