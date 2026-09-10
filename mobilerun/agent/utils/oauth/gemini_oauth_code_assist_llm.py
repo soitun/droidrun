@@ -32,7 +32,11 @@ from llama_index.core.constants import DEFAULT_TEMPERATURE
 from llama_index.core.llms.callbacks import llm_chat_callback, llm_completion_callback
 from llama_index.core.llms.custom import CustomLLM
 
-from mobilerun.agent.providers.registry import model_display_name_for_variant
+from mobilerun.agent.providers.registry import (
+    GEMINI_OAUTH_DEFAULT_MODEL,
+    GEMINI_OAUTH_RETIRED_MODELS,
+    model_display_name_for_variant,
+)
 from mobilerun.agent.utils.oauth.login_timeout import (
     OAuthLoginDeadline,
     open_browser_async,
@@ -40,7 +44,7 @@ from mobilerun.agent.utils.oauth.login_timeout import (
 from mobilerun.config_manager.auth_profile_store import AuthProfileStore
 from mobilerun.config_manager.credential_paths import GEMINI_OAUTH_CREDENTIAL_PATH
 
-DEFAULT_MODEL = "gemini-3.5-flash-low"
+DEFAULT_MODEL = GEMINI_OAUTH_DEFAULT_MODEL
 DEFAULT_CODE_ASSIST_ENDPOINT = "https://daily-cloudcode-pa.googleapis.com"
 DEFAULT_CODE_ASSIST_API_VERSION = "v1internal"
 DEFAULT_CODE_ASSIST_MODELS_METHOD = "fetchAvailableModels"
@@ -139,9 +143,9 @@ class GeminiOAuthCodeAssistLLM(CustomLLM):
     """
 
     MODEL_PRESETS: ClassVar[Dict[str, str]] = {
-        "flash": "gemini-3.5-flash-low",
+        "flash": GEMINI_OAUTH_DEFAULT_MODEL,
         "pro": "gemini-pro-agent",
-        "flash_lite": "gemini-3.5-flash-extra-low",
+        "flash_lite": "gemini-3.5-flash-lite",
     }
 
     model: str = Field(default=DEFAULT_MODEL, description="Gemini model id.")
@@ -222,6 +226,13 @@ class GeminiOAuthCodeAssistLLM(CustomLLM):
                 selected_model = self.MODEL_PRESETS[model_preset]
             else:
                 selected_model = DEFAULT_MODEL
+
+        if selected_model in GEMINI_OAUTH_RETIRED_MODELS:
+            raise ValueError(
+                f"Gemini OAuth model '{selected_model}' is retired. "
+                f"Use '{GEMINI_OAUTH_DEFAULT_MODEL}' or re-run "
+                "`mobilerun configure gemini` to choose an available model."
+            )
 
         super().__init__(
             model=selected_model,
@@ -373,6 +384,7 @@ class GeminiOAuthCodeAssistLLM(CustomLLM):
         if not isinstance(models, dict):
             return []
         deprecated = set((data.get("deprecatedModelIds") or {}).keys())
+        deprecated.update(GEMINI_OAUTH_RETIRED_MODELS)
         out: list[Dict[str, Any]] = []
         for model_id, meta in models.items():
             if not isinstance(meta, dict) or model_id in deprecated:

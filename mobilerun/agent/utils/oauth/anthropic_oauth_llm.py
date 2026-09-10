@@ -33,7 +33,6 @@ from llama_index.core.llms.callbacks import llm_chat_callback, llm_completion_ca
 from llama_index.core.llms.custom import CustomLLM
 
 from mobilerun.agent.providers.anthropic import (
-    ANTHROPIC_FABLE_5_1_MODEL,
     ANTHROPIC_OAUTH_DEFAULT_MODEL,
     anthropic_model_context_window,
     anthropic_model_omits_sampling_params,
@@ -244,7 +243,9 @@ class AnthropicOAuthLLM(CustomLLM):
             num_output=self.max_tokens or -1,
             model_name=self.model,
             is_chat_model=True,
-            is_function_calling_model=self.model != ANTHROPIC_FABLE_5_1_MODEL,
+            # This text/image adapter does not implement native function calls.
+            # Structured extraction must use the validated text program.
+            is_function_calling_model=False,
         )
 
     def _load_credentials_from_file(self, credential_path: str) -> None:

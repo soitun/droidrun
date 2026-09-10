@@ -130,6 +130,7 @@ def test_openai_structured_predict_omits_per_call_sampling_params(
         assert {"temperature", "top_p"}.isdisjoint(payload)
         if model == "gpt-6-astra":
             assert {"top_logprobs", "logprobs"}.isdisjoint(payload)
+            assert payload["reasoning"] == {"effort": "low"}
         assert payload["max_output_tokens"] == 32
 
 
@@ -416,7 +417,6 @@ def test_openai_oauth_rejects_unsupported_codex_model() -> None:
         "gemini-3.8-flash",
         "gemini-3.7-flash",
         "gemini-3.6-flash",
-        "gemini-3.5-flash-lite",
         "gemini-3.5-flash",
         "gemini-3-flash-preview",
         "gemini-3.1-pro-preview",
@@ -906,9 +906,10 @@ def test_anthropic_opus_4_6_keeps_supported_sampling() -> None:
 
     kwargs = llm._get_all_kwargs(top_k=10)
 
-    assert kwargs["temperature"] == 0.2
-    assert kwargs["top_p"] == 0.6
-    assert kwargs["top_k"] == 10
+    payload = {**kwargs, **kwargs.get("extra_body", {})}
+    assert payload["temperature"] == 0.2
+    assert payload["top_p"] == 0.6
+    assert payload["top_k"] == 10
 
 
 def test_anthropic_sonnet_keeps_temperature() -> None:
@@ -922,7 +923,7 @@ def test_anthropic_sonnet_keeps_temperature() -> None:
     kwargs = llm._get_all_kwargs()
 
     assert kwargs["model"] == "claude-sonnet-4-6"
-    assert kwargs["temperature"] == 0.2
+    assert {**kwargs, **kwargs.get("extra_body", {})}["temperature"] == 0.2
 
 
 def test_anthropic_uses_a_2048_token_default() -> None:

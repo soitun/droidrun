@@ -56,10 +56,10 @@ def test_default_max_tokens_is_8192():
     assert AnthropicOAuthLLM(credential_path=None).metadata.num_output == 8192
 
 
-def test_default_opus_payload_sends_max_tokens_without_temperature():
+def test_default_sonnet_payload_sends_max_tokens_without_temperature():
     payload = _payload_for()
 
-    assert payload["model"] == "claude-opus-4-7"
+    assert payload["model"] == "claude-sonnet-5"
     assert payload["max_tokens"] == 8192
     assert "temperature" not in payload
 
@@ -140,7 +140,10 @@ def test_fable_5_1_uses_current_claude_code_identity_defaults():
     assert f"cc_version={DEFAULT_CC_VERSION};" in session.payload["system"][0]["text"]
 
 
-def test_fable_5_1_structured_predict_uses_text_pydantic_extraction(monkeypatch):
+@pytest.mark.parametrize(
+    "model", ["claude-fable-5-1", "claude-opus-4-7", "claude-haiku-4-5"]
+)
+def test_oauth_structured_predict_uses_text_pydantic_extraction(monkeypatch, model):
     from llama_index.core.base.llms.types import ChatResponse
     from llama_index.core.prompts import PromptTemplate
     from pydantic import BaseModel
@@ -149,7 +152,7 @@ def test_fable_5_1_structured_predict_uses_text_pydantic_extraction(monkeypatch)
         value: str
 
     llm = AnthropicOAuthLLM(
-        model="claude-fable-5-1",
+        model=model,
         access_token="test-token",
         credential_path=None,
     )
@@ -174,7 +177,7 @@ def test_fable_5_1_structured_predict_uses_text_pydantic_extraction(monkeypatch)
     assert result == StructuredResult(value="OK")
     assert (
         AnthropicOAuthLLM(credential_path=None).metadata.is_function_calling_model
-        is True
+        is False
     )
 
 

@@ -14,10 +14,10 @@ def test_gemini_api_key_catalog_uses_current_flash_models() -> None:
     models = list_models_for_variant("gemini", "api_key")
 
     assert models[0] == variant.default_model == LLMProfile().model
-    assert variant.default_model == "gemini-3.7-flash"
+    assert variant.default_model == "gemini-3.8-flash"
     assert models == (
-        "gemini-3.7-flash",
         "gemini-3.8-flash",
+        "gemini-3.7-flash",
         "gemini-3.5-flash",
         "gemini-3.6-flash",
         "gemini-3.5-flash-lite",
@@ -32,13 +32,11 @@ def test_gemini_oauth_catalog_uses_antigravity_consumer_models() -> None:
     variant = resolve_provider_variant("gemini", "oauth")
     models = list_models_for_variant("gemini", "oauth")
 
-    assert variant.default_model == "gemini-3.5-flash-low"
+    assert variant.default_model == "gemini-3.8-flash-tiered"
     assert models == (
-        "gemini-3.5-flash-low",
         "gemini-3.8-flash-tiered",
         "gemini-3.7-flash-tiered",
-        "gemini-3.5-flash-extra-low",
-        "gemini-3-flash-agent",
+        "gemini-3.5-flash-lite",
         "gemini-3-flash",
         "gemini-pro-agent",
         "gemini-3.1-pro-low",
@@ -89,29 +87,29 @@ def test_model_display_names_preserve_canonical_ids_except_explicit_overrides(
     assert model_display_name_for_variant(family_id, auth_mode, model_id) == expected
 
 
-def test_anthropic_catalogs_include_claude_5_without_changing_defaults() -> None:
+def test_anthropic_catalogs_default_to_sonnet_5_and_retain_older_models() -> None:
     api_key_variant = resolve_provider_variant("anthropic", "api_key")
     api_key_models = list_models_for_variant("anthropic", "api_key")
     oauth_variant = resolve_provider_variant("anthropic", "oauth")
     oauth_models = list_models_for_variant("anthropic", "oauth")
 
-    assert api_key_variant.default_model == "claude-sonnet-4-6"
+    assert api_key_variant.default_model == "claude-sonnet-5"
     assert api_key_models == (
-        "claude-sonnet-4-6",
+        "claude-sonnet-5",
         "claude-fable-5-1",
         "claude-opus-5",
-        "claude-sonnet-5",
+        "claude-sonnet-4-6",
         "claude-fable-5",
         "claude-opus-4-8",
         "claude-opus-4-6",
         "claude-haiku-4-5",
     )
-    assert oauth_variant.default_model == "claude-opus-4-7"
+    assert oauth_variant.default_model == "claude-sonnet-5"
     assert oauth_models == (
-        "claude-opus-4-7",
+        "claude-sonnet-5",
         "claude-fable-5-1",
         "claude-opus-5",
-        "claude-sonnet-5",
+        "claude-opus-4-7",
         "claude-fable-5",
         "claude-opus-4-8",
         "claude-sonnet-4-6",
@@ -124,15 +122,13 @@ def test_openai_oauth_catalog_hides_unsupported_codex_model() -> None:
     variant = resolve_provider_variant("openai", "oauth")
     models = list_models_for_variant("openai", "oauth")
 
-    assert variant.default_model == "gpt-5.5"
+    assert variant.default_model == "gpt-6-astra"
     assert models == (
-        "gpt-5.5",
         "gpt-6-astra",
+        "gpt-5.5",
         "gpt-5.6-sol",
         "gpt-5.6-terra",
         "gpt-5.6-luna",
-        "gpt-5.4",
-        "gpt-5.4-mini",
     )
     assert "gpt-5.3-codex" not in models
 
@@ -141,10 +137,10 @@ def test_openai_api_key_catalog_uses_current_default_model() -> None:
     variant = resolve_provider_variant("openai", "api_key")
     models = list_models_for_variant("openai", "api_key")
 
-    assert variant.default_model == "gpt-5.5"
+    assert variant.default_model == "gpt-6-astra"
     assert models == (
-        "gpt-5.5",
         "gpt-6-astra",
+        "gpt-5.5",
         "gpt-5.6-sol",
         "gpt-5.6-terra",
         "gpt-5.6-luna",
@@ -154,12 +150,12 @@ def test_openai_api_key_catalog_uses_current_default_model() -> None:
     )
 
 
-def test_default_profiles_use_gemini_3_7_flash() -> None:
+def test_default_profiles_use_gemini_3_8_flash() -> None:
     config = MobileConfig()
 
-    assert LLMProfile().model == "gemini-3.7-flash"
+    assert LLMProfile().model == "gemini-3.8-flash"
     assert {profile.model for profile in config.llm_profiles.values()} == {
-        "gemini-3.7-flash"
+        "gemini-3.8-flash"
     }
 
 

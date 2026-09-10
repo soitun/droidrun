@@ -1,10 +1,13 @@
+import inspect
 import logging
+from functools import wraps
 from typing import TYPE_CHECKING, Any
 
 from llama_index.core.base.llms.types import LLMMetadata
 from llama_index.core.llms.llm import LLM
 
 from mobilerun.agent.providers.anthropic import (
+    ANTHROPIC_API_DEFAULT_MODEL,
     ANTHROPIC_FABLE_5_1_MODEL,
     ANTHROPIC_UNSUPPORTED_SAMPLING_PARAMS,
     anthropic_model_context_window,
@@ -22,6 +25,10 @@ from mobilerun.agent.providers.minimax import (
     warn_if_legacy_minimax_endpoint,
 )
 from mobilerun.agent.providers.registry import (
+    GEMINI_API_DEFAULT_MODEL,
+    OPENAI_API_DEFAULT_MODEL,
+    OPENAI_ASTRA_DEFAULT_REASONING_EFFORT,
+    OPENAI_OAUTH_UNSUPPORTED_MODELS,
     list_models_for_variant,
     normalize_model_id_for_variant,
 )
@@ -70,12 +77,10 @@ GEMINI_OAUTH_UNSUPPORTED_MODELS = {
     "gemini-3.8-flash",
     "gemini-3.7-flash",
     "gemini-3.6-flash",
-    "gemini-3.5-flash-lite",
     "gemini-3.5-flash",
     "gemini-3-flash-preview",
     "gemini-3.1-pro-preview",
 }
-OPENAI_OAUTH_UNSUPPORTED_MODELS = {"gpt-5.3-codex"}
 OPENAI_RESPONSES_MODELS_WITHOUT_SAMPLING_PARAMS = {
     "gpt-6-astra",
     "gpt-5.5",
@@ -285,6 +290,10 @@ def _load_openai_responses(*, grok: bool = False, **kwargs: Any) -> LLM:
                 or effective_model == OPENAI_ASTRA_MODEL
             ):
                 sanitized = self._sanitize_astra_payload_fields(sanitized)
+                # Apply the default after configured and per-call overrides.
+                sanitized.setdefault(
+                    "reasoning", {"effort": OPENAI_ASTRA_DEFAULT_REASONING_EFFORT}
+                )
                 extra_body = sanitized.get("extra_body")
                 if isinstance(extra_body, dict):
                     sanitized["extra_body"] = self._sanitize_astra_payload_fields(
@@ -567,6 +576,14 @@ def _load_anthropic(**kwargs: Any) -> LLM:
     from llama_index.llms.anthropic import Anthropic
 
     class MobilerunAnthropic(Anthropic):
+        @wraps(Anthropic._prepare_chat_with_tools)
+        def _prepare_chat_with_tools(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+            # FunctionCallingProgram passes None by default, overwriting the
+            # valid tool-choice object built by the upstream adapter.
+            if kwargs.get("tool_choice") is None:
+                kwargs.pop("tool_choice", None)
+            return super()._prepare_chat_with_tools(*args, **kwargs)
+
         @property
         def _model_kwargs(self) -> dict[str, Any]:
             model_kwargs = super()._model_kwargs
@@ -578,10 +595,42 @@ def _load_anthropic(**kwargs: Any) -> LLM:
 
         def _get_all_kwargs(self, **kwargs: Any) -> dict[str, Any]:
             model_kwargs = super()._get_all_kwargs(**kwargs)
-            effective_model = model_kwargs.get("model", self.model)
+            # LlamaIndex's structured program supplies an OpenAI-style string
+            # after the Anthropic adapter has prepared its tool choice.
+            tool_choice = model_kwargs.get("tool_choice")
+            if isinstance(tool_choice, str) and tool_choice in {
+                "auto",
+                "required",
+                "none",
+            }:
+                model_kwargs["tool_choice"] = {
+                    "type": "any" if tool_choice == "required" else tool_choice
+                }
+            extra_body = dict(model_kwargs.get("extra_body") or {})
+            effective_model = extra_body.get(
+                "model", model_kwargs.get("model", self.model)
+            )
             if anthropic_model_omits_sampling_params(effective_model):
                 for param in ANTHROPIC_UNSUPPORTED_SAMPLING_PARAMS:
                     model_kwargs.pop(param, None)
+                    extra_body.pop(param, None)
+            else:
+                # Anthropic SDK 1.x removed named sampling arguments even for
+                # older models whose HTTP API still supports them. Preserve
+                # the SDK's extra_body precedence and older SDK signatures.
+                parameters = inspect.signature(self._client.messages.create).parameters
+                accepts_kwargs = any(
+                    p.kind == inspect.Parameter.VAR_KEYWORD for p in parameters.values()
+                )
+                for param in ANTHROPIC_UNSUPPORTED_SAMPLING_PARAMS:
+                    if (
+                        param in model_kwargs
+                        and param not in parameters
+                        and not accepts_kwargs
+                    ):
+                        extra_body.setdefault(param, model_kwargs.pop(param))
+            if extra_body or "extra_body" in model_kwargs:
+                model_kwargs["extra_body"] = extra_body
             return model_kwargs
 
         @property
@@ -749,6 +798,7 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
 
     # --- Standard providers (inline dispatch) ---
     if provider_name == "OpenAIResponses":
+        kwargs.setdefault("model", OPENAI_API_DEFAULT_MODEL)
         return _load_openai_responses(**kwargs)
     elif provider_name == "OpenAILike":
         from llama_index.llms.openai_like import OpenAILike
@@ -758,6 +808,7 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
         if "base_url" in kwargs and "api_base" not in kwargs:
             kwargs["api_base"] = kwargs.pop("base_url")
     elif provider_name == "GoogleGenAI":
+        kwargs.setdefault("model", GEMINI_API_DEFAULT_MODEL)
         return _load_google_genai(**kwargs)
     elif provider_name == "Ollama":
         from llama_index.llms.ollama import Ollama
@@ -765,6 +816,7 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
         llm_class = Ollama
         kwargs = _prepare_ollama_kwargs(kwargs, Ollama)
     elif provider_name == "Anthropic":
+        kwargs.setdefault("model", ANTHROPIC_API_DEFAULT_MODEL)
         return _load_anthropic(**kwargs)
     elif provider_name == "OpenRouter":
         from llama_index.llms.openrouter import OpenRouter
