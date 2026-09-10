@@ -216,10 +216,7 @@ def test_gpt_6_astra_forwards_supported_reasoning_only(
     request = create_response.call_args.kwargs
     assert request["model"] == "gpt-6-astra"
     assert llm.metadata.context_window == 400_000
-    if effort is None:
-        assert "reasoning" not in request
-    else:
-        assert request["reasoning"] == {"effort": effort}
+    assert request["reasoning"] == {"effort": effort or "low"}
     assert request["include"] == ["reasoning.encrypted_content"]
     assert {"temperature", "top_p", "logprobs", "top_logprobs"}.isdisjoint(request)
 
@@ -365,7 +362,7 @@ def test_oauth_implicit_default_matches_catalog(tmp_path):
     assert (
         llm.model
         == resolve_provider_variant("openai", "oauth").default_model
-        == "gpt-5.5"
+        == "gpt-6-astra"
     )
 
 
@@ -373,7 +370,7 @@ def test_oauth_implicit_default_matches_catalog(tmp_path):
 @pytest.mark.parametrize("argument", ["model", "custom_model", "auth_model"])
 @pytest.mark.parametrize("prefix", ["", "openai/", "openai-codex/"])
 def test_unsupported_chatgpt_models_fail_locally(tmp_path, model, argument, prefix):
-    with pytest.raises(ValueError, match="not supported.*gpt-5.5"):
+    with pytest.raises(ValueError, match="not supported.*gpt-6-astra"):
         OpenAIOAuth(
             **{argument: prefix + model},
             oauth_credential_path=str(tmp_path / "auth.json"),

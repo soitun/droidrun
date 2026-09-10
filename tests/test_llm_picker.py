@@ -130,6 +130,7 @@ def test_openai_structured_predict_omits_per_call_sampling_params(
         assert {"temperature", "top_p"}.isdisjoint(payload)
         if model == "gpt-6-astra":
             assert {"top_logprobs", "logprobs"}.isdisjoint(payload)
+            assert payload["reasoning"] == {"effort": "low"}
         assert payload["max_output_tokens"] == 32
 
 

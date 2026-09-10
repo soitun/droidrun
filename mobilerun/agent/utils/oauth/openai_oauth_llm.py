@@ -43,6 +43,7 @@ from llama_index.llms.openai.base import llm_retry_decorator
 from llama_index.llms.openai.utils import to_openai_message_dicts
 
 from mobilerun.agent.providers.registry import (
+    OPENAI_ASTRA_DEFAULT_REASONING_EFFORT,
     OPENAI_OAUTH_DEFAULT_MODEL,
     OPENAI_OAUTH_UNSUPPORTED_MODELS,
     normalize_model_id_for_variant,
@@ -1091,6 +1092,9 @@ class OpenAIOAuth(OpenAI):
             merged["reasoning"] = {"effort": self.reasoning_effort}
         merged.update(self.additional_kwargs or {})
         merged.update(runtime_kwargs)
+        merged.setdefault(
+            "reasoning", {"effort": OPENAI_ASTRA_DEFAULT_REASONING_EFFORT}
+        )
 
         for key in _GPT_6_ASTRA_UNSUPPORTED_PARAMS:
             merged.pop(key, None)

@@ -56,10 +56,10 @@ def test_default_max_tokens_is_8192():
     assert AnthropicOAuthLLM(credential_path=None).metadata.num_output == 8192
 
 
-def test_default_opus_payload_sends_max_tokens_without_temperature():
+def test_default_sonnet_payload_sends_max_tokens_without_temperature():
     payload = _payload_for()
 
-    assert payload["model"] == "claude-opus-4-7"
+    assert payload["model"] == "claude-sonnet-5"
     assert payload["max_tokens"] == 8192
     assert "temperature" not in payload
 

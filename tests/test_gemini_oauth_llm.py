@@ -399,7 +399,7 @@ def test_oauth_default_model_resolves_to_antigravity_flash():
     from mobilerun.cli.oauth_actions import GEMINI_OAUTH_DEFAULT_MODEL
 
     # no model arg -> the Antigravity consumer default
-    assert load_llm("gemini_oauth_code_assist").model == "gemini-3.7-flash-tiered"
+    assert load_llm("gemini_oauth_code_assist").model == "gemini-3.8-flash-tiered"
     variant = resolve_provider_variant("gemini", "oauth")
     assert variant.models[0] == variant.default_model == GEMINI_OAUTH_DEFAULT_MODEL
 
@@ -422,7 +422,7 @@ def test_retired_oauth_models_fail_before_loading_credentials(
     monkeypatch.setattr(
         GeminiOAuthCodeAssistLLM, "_load_credentials_from_file", unexpected_load
     )
-    with pytest.raises(ValueError, match="retired.*gemini-3.7-flash-tiered.*configure"):
+    with pytest.raises(ValueError, match="retired.*gemini-3.8-flash-tiered.*configure"):
         GeminiOAuthCodeAssistLLM(**{argument: model})
 
 
@@ -489,7 +489,7 @@ def test_oauth_preset_key_still_resolves():
 
     assert (
         GeminiOAuthCodeAssistLLM(model_preset="flash").model
-        == "gemini-3.7-flash-tiered"
+        == "gemini-3.8-flash-tiered"
     )
 
 

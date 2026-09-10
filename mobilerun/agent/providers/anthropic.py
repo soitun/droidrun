@@ -5,15 +5,15 @@ from __future__ import annotations
 from collections.abc import MutableMapping
 from typing import Any
 
-ANTHROPIC_API_DEFAULT_MODEL = "claude-sonnet-4-6"
-ANTHROPIC_OAUTH_DEFAULT_MODEL = "claude-opus-4-7"
+ANTHROPIC_API_DEFAULT_MODEL = "claude-sonnet-5"
+ANTHROPIC_OAUTH_DEFAULT_MODEL = ANTHROPIC_API_DEFAULT_MODEL
 ANTHROPIC_FABLE_5_1_MODEL = "claude-fable-5-1"
 
 ANTHROPIC_API_MODELS = (
     ANTHROPIC_API_DEFAULT_MODEL,
     ANTHROPIC_FABLE_5_1_MODEL,
     "claude-opus-5",
-    "claude-sonnet-5",
+    "claude-sonnet-4-6",
     "claude-fable-5",
     "claude-opus-4-8",
     "claude-opus-4-6",
@@ -24,7 +24,7 @@ ANTHROPIC_OAUTH_MODELS = (
     ANTHROPIC_OAUTH_DEFAULT_MODEL,
     ANTHROPIC_FABLE_5_1_MODEL,
     "claude-opus-5",
-    "claude-sonnet-5",
+    "claude-opus-4-7",
     "claude-fable-5",
     "claude-opus-4-8",
     "claude-sonnet-4-6",

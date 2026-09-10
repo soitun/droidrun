@@ -39,13 +39,15 @@ VARIANT_ENV_KEY_SLOT: dict[str, str] = {
 OPENAI_MODEL_ALIASES: dict[str, str] = {
     "gpt-5.6": "gpt-5.6-sol",
 }
-OPENAI_OAUTH_DEFAULT_MODEL = "gpt-5.5"
+OPENAI_API_DEFAULT_MODEL = "gpt-6-astra"
+OPENAI_OAUTH_DEFAULT_MODEL = OPENAI_API_DEFAULT_MODEL
+OPENAI_ASTRA_DEFAULT_REASONING_EFFORT = "low"
 OPENAI_OAUTH_UNSUPPORTED_MODELS = frozenset(
     {"gpt-5.3-codex", "gpt-5.4", "gpt-5.4-mini"}
 )
 
-GEMINI_API_DEFAULT_MODEL = "gemini-3.7-flash"
-GEMINI_OAUTH_DEFAULT_MODEL = "gemini-3.7-flash-tiered"
+GEMINI_API_DEFAULT_MODEL = "gemini-3.8-flash"
+GEMINI_OAUTH_DEFAULT_MODEL = "gemini-3.8-flash-tiered"
 # Antigravity still advertises these ids, but generation returns a retirement
 # notice instead of a model response. This does not apply to Developer API ids.
 GEMINI_OAUTH_RETIRED_MODELS = frozenset(
@@ -53,7 +55,7 @@ GEMINI_OAUTH_RETIRED_MODELS = frozenset(
 )
 GEMINI_API_MODELS: tuple[str, ...] = (
     GEMINI_API_DEFAULT_MODEL,
-    "gemini-3.8-flash",
+    "gemini-3.7-flash",
     "gemini-3.5-flash",
     "gemini-3.6-flash",
     "gemini-3.5-flash-lite",
@@ -87,7 +89,7 @@ PROVIDER_FAMILIES: tuple[ProviderFamilySpec, ...] = (
                 default_model=GEMINI_OAUTH_DEFAULT_MODEL,
                 models=(
                     GEMINI_OAUTH_DEFAULT_MODEL,
-                    "gemini-3.8-flash-tiered",
+                    "gemini-3.7-flash-tiered",
                     "gemini-3.5-flash-lite",
                     "gemini-3-flash",
                     "gemini-pro-agent",
@@ -108,10 +110,10 @@ PROVIDER_FAMILIES: tuple[ProviderFamilySpec, ...] = (
                 id="OpenAIResponses",
                 runtime_provider_name="OpenAIResponses",
                 auth_mode="api_key",
-                default_model="gpt-5.5",
+                default_model=OPENAI_API_DEFAULT_MODEL,
                 models=(
+                    OPENAI_API_DEFAULT_MODEL,
                     "gpt-5.5",
-                    "gpt-6-astra",
                     "gpt-5.6-sol",
                     "gpt-5.6-terra",
                     "gpt-5.6-luna",
@@ -128,7 +130,7 @@ PROVIDER_FAMILIES: tuple[ProviderFamilySpec, ...] = (
                 default_model=OPENAI_OAUTH_DEFAULT_MODEL,
                 models=(
                     OPENAI_OAUTH_DEFAULT_MODEL,
-                    "gpt-6-astra",
+                    "gpt-5.5",
                     "gpt-5.6-sol",
                     "gpt-5.6-terra",
                     "gpt-5.6-luna",

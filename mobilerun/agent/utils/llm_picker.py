@@ -7,6 +7,7 @@ from llama_index.core.base.llms.types import LLMMetadata
 from llama_index.core.llms.llm import LLM
 
 from mobilerun.agent.providers.anthropic import (
+    ANTHROPIC_API_DEFAULT_MODEL,
     ANTHROPIC_FABLE_5_1_MODEL,
     ANTHROPIC_UNSUPPORTED_SAMPLING_PARAMS,
     anthropic_model_context_window,
@@ -24,6 +25,9 @@ from mobilerun.agent.providers.minimax import (
     warn_if_legacy_minimax_endpoint,
 )
 from mobilerun.agent.providers.registry import (
+    GEMINI_API_DEFAULT_MODEL,
+    OPENAI_API_DEFAULT_MODEL,
+    OPENAI_ASTRA_DEFAULT_REASONING_EFFORT,
     OPENAI_OAUTH_UNSUPPORTED_MODELS,
     list_models_for_variant,
     normalize_model_id_for_variant,
@@ -286,6 +290,10 @@ def _load_openai_responses(*, grok: bool = False, **kwargs: Any) -> LLM:
                 or effective_model == OPENAI_ASTRA_MODEL
             ):
                 sanitized = self._sanitize_astra_payload_fields(sanitized)
+                # Apply the default after configured and per-call overrides.
+                sanitized.setdefault(
+                    "reasoning", {"effort": OPENAI_ASTRA_DEFAULT_REASONING_EFFORT}
+                )
                 extra_body = sanitized.get("extra_body")
                 if isinstance(extra_body, dict):
                     sanitized["extra_body"] = self._sanitize_astra_payload_fields(
@@ -790,6 +798,7 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
 
     # --- Standard providers (inline dispatch) ---
     if provider_name == "OpenAIResponses":
+        kwargs.setdefault("model", OPENAI_API_DEFAULT_MODEL)
         return _load_openai_responses(**kwargs)
     elif provider_name == "OpenAILike":
         from llama_index.llms.openai_like import OpenAILike
@@ -799,6 +808,7 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
         if "base_url" in kwargs and "api_base" not in kwargs:
             kwargs["api_base"] = kwargs.pop("base_url")
     elif provider_name == "GoogleGenAI":
+        kwargs.setdefault("model", GEMINI_API_DEFAULT_MODEL)
         return _load_google_genai(**kwargs)
     elif provider_name == "Ollama":
         from llama_index.llms.ollama import Ollama
@@ -806,6 +816,7 @@ def load_llm(provider_name: str, model: str | None = None, **kwargs: Any) -> LLM
         llm_class = Ollama
         kwargs = _prepare_ollama_kwargs(kwargs, Ollama)
     elif provider_name == "Anthropic":
+        kwargs.setdefault("model", ANTHROPIC_API_DEFAULT_MODEL)
         return _load_anthropic(**kwargs)
     elif provider_name == "OpenRouter":
         from llama_index.llms.openrouter import OpenRouter
