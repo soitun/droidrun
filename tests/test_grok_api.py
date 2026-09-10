@@ -74,9 +74,12 @@ def _xai_completed_response(*, usage: ResponseUsage) -> Response:
 
 
 def _xai_usage() -> ResponseUsage:
+    input_details = {"cached_tokens": 0}
+    if "cache_write_tokens" in InputTokensDetails.model_fields:
+        input_details["cache_write_tokens"] = 0
     return ResponseUsage(
         input_tokens=7,
-        input_tokens_details=InputTokensDetails(cached_tokens=0),
+        input_tokens_details=InputTokensDetails(**input_details),
         output_tokens=4,
         output_tokens_details=OutputTokensDetails(reasoning_tokens=0),
         total_tokens=11,
