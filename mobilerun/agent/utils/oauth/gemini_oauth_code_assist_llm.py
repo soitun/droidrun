@@ -9,6 +9,7 @@ import sys
 import threading
 import time
 import webbrowser
+from collections.abc import Mapping
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer as HTTPServer
 from pathlib import Path
@@ -87,6 +88,16 @@ def _antigravity_user_agent() -> str:
 # project ids which the consumer entitlement does not use).
 _IGNORED_REQUEST_KWARGS = {"formatted", "project", "project_id"}
 _GEMINI_SAMPLING_CONFIG_KEYS = {"temperature", "topP", "topK", "top_p", "top_k"}
+_UNSET = object()
+
+
+def _camel_case_keys(config: Mapping[str, Any]) -> Dict[str, Any]:
+    """Use the API's camelCase field names so snake_case overrides don't collide."""
+    converted: Dict[str, Any] = {}
+    for key, value in config.items():
+        head, *rest = str(key).split("_")
+        converted[head + "".join(part[:1].upper() + part[1:] for part in rest)] = value
+    return converted
 
 
 def _b64_no_pad(raw: bytes) -> str:
@@ -892,7 +903,25 @@ class GeminiOAuthCodeAssistLLM(CustomLLM):
             generation_config["temperature"] = self.temperature
         if self.max_tokens is not None:
             generation_config["maxOutputTokens"] = self.max_tokens
-        generation_config.update(kwargs.pop("generation_config", {}))
+        generation_config.update(_camel_case_keys(kwargs.pop("generation_config", {})))
+
+        request_extra = dict(self.additional_kwargs)
+        call_extra = dict(kwargs.pop("request_extra", {}))
+        # Merge generationConfig overrides so they don't replace the built config;
+        # a non-mapping value in the highest layer still replaces it.
+        replacement: Any = _UNSET
+        for extra in (request_extra, call_extra):
+            for key in ("generation_config", "generationConfig"):
+                if key not in extra:
+                    continue
+                value = extra.pop(key)
+                if isinstance(value, Mapping):
+                    generation_config.update(_camel_case_keys(value))
+                    replacement = _UNSET
+                else:
+                    replacement = value
+        request_extra.update(call_extra)
+
         omit_sampling = gemini_model_omits_sampling_params(self.model)
         if omit_sampling:
             for param in _GEMINI_SAMPLING_CONFIG_KEYS:
@@ -900,7 +929,9 @@ class GeminiOAuthCodeAssistLLM(CustomLLM):
 
         request: Dict[str, Any] = {
             "contents": contents,
-            "generationConfig": generation_config,
+            "generationConfig": (
+                generation_config if replacement is _UNSET else replacement
+            ),
         }
 
         if system_chunks:
@@ -909,8 +940,6 @@ class GeminiOAuthCodeAssistLLM(CustomLLM):
                 "parts": [{"text": "\n\n".join(system_chunks)}],
             }
 
-        request_extra = dict(self.additional_kwargs)
-        request_extra.update(kwargs.pop("request_extra", {}))
         for ignored in _IGNORED_REQUEST_KWARGS:
             request_extra.pop(ignored, None)
         request.update(request_extra)

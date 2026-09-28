@@ -674,3 +674,112 @@ def test_call_time_sampling_is_left_to_google_for_gemini_3(
 
     [(_url, call)] = session.calls
     assert call["json"]["request"]["generationConfig"] == expected_config
+
+
+def _generation_config_for(model: str, *, additional_kwargs=None, **call_kwargs):
+    from mobilerun.agent.utils.oauth.gemini_oauth_code_assist_llm import (
+        GeminiOAuthCodeAssistLLM,
+    )
+
+    llm = GeminiOAuthCodeAssistLLM(
+        model=model,
+        access_token="test-token",
+        credential_path=None,
+        temperature=0.2,
+        max_tokens=512,
+        additional_kwargs=additional_kwargs or {},
+    )
+    session = _SSESession([_text_chunk("OK", final=True)])
+    llm._session = session
+
+    llm.complete("Reply OK", **call_kwargs)
+
+    [(_url, call)] = session.calls
+    return call["json"]["request"]
+
+
+@pytest.mark.parametrize(
+    ("model", "expected_config"),
+    (
+        ("gemini-3.8-flash-tiered", {"maxOutputTokens": 512, "candidateCount": 1}),
+        (
+            "gemini-2.5-flash",
+            {
+                "temperature": 0.7,
+                "topP": 0.5,
+                "maxOutputTokens": 512,
+                "candidateCount": 1,
+            },
+        ),
+    ),
+)
+def test_profile_generation_config_is_merged_and_sanitized(
+    model: str, expected_config: dict
+) -> None:
+    request = _generation_config_for(
+        model,
+        additional_kwargs={
+            "generationConfig": {"temperature": 0.7, "topP": 0.5, "candidateCount": 1},
+            "safetySettings": [{"category": "X"}],
+        },
+    )
+
+    assert request["generationConfig"] == expected_config
+    assert request["safetySettings"] == [{"category": "X"}]
+
+
+def test_call_request_extra_generation_config_is_merged_and_sanitized() -> None:
+    request = _generation_config_for(
+        "gemini-3.8-flash-high",
+        additional_kwargs={"generationConfig": {"maxOutputTokens": 256}},
+        request_extra={"generationConfig": {"topK": 5, "stopSequences": ["END"]}},
+    )
+
+    assert request["generationConfig"] == {
+        "maxOutputTokens": 256,
+        "stopSequences": ["END"],
+    }
+
+
+def test_snake_case_generation_config_override_does_not_collide() -> None:
+    request = _generation_config_for(
+        "gemini-3.8-flash-tiered",
+        additional_kwargs={
+            "generationConfig": {"max_output_tokens": 40, "top_p": 0.5},
+        },
+    )
+
+    assert request["generationConfig"] == {"maxOutputTokens": 40}
+
+
+def test_request_level_generation_config_alias_is_merged_and_sanitized() -> None:
+    request = _generation_config_for(
+        "gemini-3.8-flash-tiered",
+        additional_kwargs={"generation_config": {"temperature": 0.9, "top_k": 3}},
+    )
+
+    assert request["generationConfig"] == {"maxOutputTokens": 512}
+    assert "generation_config" not in request
+
+
+@pytest.mark.parametrize(
+    ("profile_config", "call_config", "expected"),
+    (
+        (
+            None,
+            {"stopSequences": ["END"]},
+            {"maxOutputTokens": 512, "stopSequences": ["END"]},
+        ),
+        ({"stopSequences": ["END"]}, None, None),
+    ),
+)
+def test_highest_generation_config_layer_wins(
+    profile_config, call_config, expected
+) -> None:
+    request = _generation_config_for(
+        "gemini-3.8-flash-tiered",
+        additional_kwargs={"generationConfig": profile_config},
+        request_extra={"generationConfig": call_config},
+    )
+
+    assert request["generationConfig"] == expected
