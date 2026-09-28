@@ -17,6 +17,14 @@ CLOUDFLARE_PAGE = (
 CODEX_URL = "https://chatgpt.com/backend-api/codex/chat/completions"
 
 
+class _StatusError(Exception):
+    """Stands in for SDK errors that expose the HTTP status (google-genai, etc.)."""
+
+    def __init__(self, message: str, status_code: int) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
+
 def _openai_error(body: str, status: int = 403) -> openai.APIStatusError:
     request = httpx.Request("POST", f"{CODEX_URL}?session=secret")
     response = httpx.Response(status, request=request, text=body)
@@ -89,13 +97,23 @@ def test_retry_warning_does_not_print_the_html_page(mobilerun_caplog) -> None:
     )
 
 
-def test_quoted_html_is_not_treated_as_an_error_page() -> None:
-    message = (
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Failed to parse response: ```<html><body>hello</body></html>```",
+        "Model output: <html><head><title>My page</title></head><body>hi</body></html>",
         "Failed to parse response: expected <action> tag but got: "
-        "```<html><body>hello</body></html>```"
-    )
-
+        "```<html><body>hello</body></html>```",
+    ],
+)
+def test_quoted_html_is_not_treated_as_an_error_page(message: str) -> None:
     assert describe_error(ValueError(message)) == message
+
+
+def test_quoted_html_in_an_http_error_is_not_treated_as_a_page() -> None:
+    message = "Error code: 400 - Invalid content: ```<html><body>x</body></html>```"
+
+    assert describe_error(_StatusError(message, 400)) == message
 
 
 def test_url_credentials_and_query_are_dropped() -> None:
@@ -112,7 +130,9 @@ def test_url_credentials_and_query_are_dropped() -> None:
 
 
 def test_wrapped_message_prefix_is_cleaned() -> None:
-    error = RuntimeError("403 Forbidden. {'message': '<html><title>Denied</title>'}")
+    error = _StatusError(
+        "403 Forbidden. {'message': '<html><title>Denied</title>'}", 403
+    )
 
     assert describe_error(error) == "403 Forbidden HTML error page 'Denied'"
 
@@ -186,20 +206,37 @@ def test_tool_failure_summary_does_not_carry_the_html_page() -> None:
             "<html><head><title>Bad gateway</title></head></html>",
             "HTML error page 'Bad gateway'",
         ),
+        ("\ufeff<html><head><title>BOM</title></head>", "HTML error page 'BOM'"),
+    ],
+)
+def test_pages_with_a_preamble_are_summarized(message: str, expected: str) -> None:
+    assert describe_error(RuntimeError(message)) == expected
+
+
+@pytest.mark.parametrize(
+    ("message", "status", "expected"),
+    [
         (
             "Error code: 502 - {'error': {'message': "
             "'<html><head><title>Oops</title></head>'}}",
+            502,
             "Error code: 502 HTML error page 'Oops'",
         ),
         (
             "503 Service Unavailable. {'message': '\\n\\n  <html><head><title>T</title>'}",
+            503,
             "503 Service Unavailable HTML error page 'T'",
         ),
-        ("\ufeff<html><head><title>BOM</title></head>", "HTML error page 'BOM'"),
     ],
 )
-def test_page_shapes_from_gateways_and_sdks(message: str, expected: str) -> None:
-    assert describe_error(RuntimeError(message)) == expected
+def test_sdk_wrapped_pages_are_summarized(message, status, expected) -> None:
+    assert describe_error(_StatusError(message, status)) == expected
+
+
+def test_prefixed_page_without_http_status_is_left_as_is() -> None:
+    message = "Error code: 502 - <html><head><title>Oops</title></head></html>"
+
+    assert describe_error(RuntimeError(message)) == message
 
 
 @pytest.mark.parametrize("message", ["Expected <html> root", "async <html> fail"])
@@ -212,3 +249,14 @@ def test_wrapped_capped_message_keeps_the_original_count() -> None:
     outer = describe_error(RuntimeError(f"Error calling LLM in executor: {inner}"))
 
     assert outer.endswith("... [3000 more characters]")
+
+
+def test_google_genai_json_wrapped_page_keeps_only_the_status_text() -> None:
+    from google.genai import errors as genai_errors
+
+    page = "<html><head><title>Just a moment...</title></head><body>x</body></html>"
+    error = genai_errors.ServerError(
+        503, {"error": {"code": 503, "message": page, "status": "UNAVAILABLE"}}, None
+    )
+
+    assert describe_error(error) == "503 UNAVAILABLE HTML error page 'Just a moment...'"

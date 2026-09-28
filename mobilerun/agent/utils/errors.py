@@ -17,8 +17,6 @@ _PAGE_PREAMBLE = re.compile(
     r"(?:\s|\ufeff|\\[nrt]|<\?xml[^>]{0,200}\?>|<!--.{0,500}?-->)*$", re.DOTALL
 )
 _ESCAPES = re.compile(r"\\[nrt]|\ufeff")
-# Trailing "{'error': {'message': '" style keys around a wrapped body.
-_TRAILING_KEY = re.compile(r"[{,]\s*['\"]?\w+['\"]?\s*:\s*['\"]?\s*$")
 _TRUNCATION_MARKER = re.compile(r"\.\.\. \[\d+ more characters\]$")
 
 
@@ -80,18 +78,16 @@ def _request_url(error: BaseException) -> str | None:
 
 
 def _clean_prefix(prefix: str) -> str:
-    prefix = _ESCAPES.sub(" ", prefix)
-    previous = None
-    while previous != prefix:
-        previous = prefix
-        prefix = _TRAILING_KEY.sub("", prefix.rstrip(" -'\"{[\ufeff"))
-    return prefix.strip().rstrip(" -:.,'\"{[").strip()
+    # Keep the SDK's status text and drop the JSON wrapper around the body.
+    prefix = _ESCAPES.sub(" ", prefix).split("{", 1)[0]
+    return prefix.strip().rstrip(" -:.,'\"[").strip()
 
 
 def _summarize_html_page(
     text: str,
     *,
     max_prefix: int,
+    allow_prefix: bool = True,
     status: int | None = None,
     url: str | None = None,
 ) -> str | None:
@@ -102,7 +98,10 @@ def _summarize_html_page(
     raw_prefix = text[: match.start()]
     preamble = _PAGE_PREAMBLE.search(raw_prefix)
     head = raw_prefix[: preamble.start()] if preamble else raw_prefix
-    if len(head) > max_prefix or "<" in head:
+    if head.strip() and (not allow_prefix or len(head) > max_prefix):
+        return None
+    # Earlier tags or code fences mean the HTML is quoted, not the response.
+    if "<" in head or "`" in head:
         return None
     if not _PAGE_TAG.search(text, match.end(), match.end() + _TITLE_SCAN_CHARS):
         return None
@@ -111,11 +110,7 @@ def _summarize_html_page(
     page = "HTML error page"
     if status and str(status) not in prefix:
         page = f"HTTP {status} {page}"
-    if (
-        prefix
-        and head.rstrip(" '\"").endswith(":")
-        and not _TRAILING_KEY.search(head.rstrip())
-    ):
+    if prefix and "{" not in head and head.rstrip(" '\"").endswith(":"):
         parts[-1] = f"{prefix}:"
     parts.append(page)
     title = _HTML_TITLE.search(text, 0, _TITLE_SCAN_CHARS)
@@ -131,10 +126,13 @@ def _summarize_html_page(
 def describe_error(error: BaseException, max_chars: int = _MAX_ERROR_CHARS) -> str:
     """Return ``str(error)`` with HTML error pages summarized and length capped."""
     text = str(error)
+    status = http_status_code(error)
+    # Only HTTP errors wrap a response body in an SDK prefix.
     summary = _summarize_html_page(
         text,
         max_prefix=80,
-        status=http_status_code(error),
+        allow_prefix=status is not None,
+        status=status,
         url=_request_url(error),
     )
     if summary is not None:
